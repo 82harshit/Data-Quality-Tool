@@ -1,0 +1,9 @@
+etc
+Include
+Lib
+Scripts
+share
+pyvenv.cfg
+__pycache__
+.vscode
+.idea
