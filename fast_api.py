@@ -20,7 +20,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         },
         "connection_credentials": {
             "connection_type": "postgres",
-            "connect_to": "server_name",
+            "connect_to": "server_IP",
         },
         "metadata": {
             "requested_by": "user@example.com",
@@ -68,7 +68,7 @@ def find_validation_result(data, partial_key):
             return data[key].get("validation_result")
     return None  # Return None if no matching key is found
 
-# Example usage
+
 partial_key = "ValidationResultIdentifier::"
 
 
@@ -118,7 +118,7 @@ def submit_job(run_name,
     """
     This function posts the checks on the data
     """
-    from gx.uncommitted import run_customer_checkpoint as run
+    from . import run_customer_checkpoint as run
     result = run.run_checkpoint(run_name=run_name)
     result_dict = result.to_json_dict()
 
