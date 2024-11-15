@@ -37,3 +37,5 @@ def run_checkpoint(run_name):
     
     # print("Validation succeeded!")
     return result
+
+# run_checkpoint("test_run")

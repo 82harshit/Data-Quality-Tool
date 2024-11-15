@@ -78,7 +78,7 @@ def upload_file(file: UploadFile):
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests") 
         #   response_model=data_quality_metric.DataQualityMetric)
-def submit_job(run_name, 
+async def submit_job(run_name, 
 #                job: job_model.SubmitJob = Body(...,example={
 #     "data_source": {
 #     "source_file_type": "csv",
@@ -118,7 +118,7 @@ def submit_job(run_name,
     """
     This function posts the checks on the data
     """
-    from . import run_customer_checkpoint as run
+    import run_customer_checkpoint as run
     result = run.run_checkpoint(run_name=run_name)
     result_dict = result.to_json_dict()
 
