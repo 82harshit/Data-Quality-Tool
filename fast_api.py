@@ -20,7 +20,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         },
         "connection_credentials": {
             "connection_type": "postgres",
-            "port": "3000",
+            "port": 3000,
             "server": "server_IP",
             "database": "test_DB"
         },
@@ -31,52 +31,57 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         }
     }
 )):
-    connection_dict = connection.model_json_schema()
-    connection_credentials = connection_dict.get('connection_credentials') # TODO: fix
-    if connection_credentials:
-        connection_type = connection_credentials.get('connection_type')
+    
+    if connection.connection_credentials:
+        connection_type = connection.connection_credentials.connection_type
     else:
-        print("No connection creds")
-        connection_type = None
+        return {"error": "No connection creds"}
 
     if connection_type == connection_enum.ConnectionEnum.POSTGRES:
 
-        hostname = connection_dict.get('connection_credentials').get('server')
-        username = connection_dict.get('user_credentials').get('username')
-        password = connection_dict.get('user_credentials').get('password')
-        port = connection_dict.get('connection_credentials').get('port')
-        database = connection_dict.get('connection_credentials').get('database')
+        hostname = connection.connection_credentials.server
+        username = connection.user_credentials.username
+        password = connection.user_credentials.password
+        port = connection.connection_credentials.port
+        database = connection.connection_credentials.database
 
-        # return {"connection": f"Test connection to postgres using: psql -h {hostname} -U {username} -d {database} -p {port} -W {password}"}
         try:
-            return create_engine(url=f"postgresql://{username}:{password}@{hostname}:{port}/{database}")
+            engine = create_engine(url=f"postgresql://{username}:{password}@{hostname}:{port}/{database}")
+            # with engine.connect() as conn:
+            #     return {"message": conn}
+            print(engine)
+            return {"status": "connected"}
         except ConnectionAbortedError as car:
-            return {"error": car, "request_json": connection_dict}
+            return {"error": car, "request_json": connection.model_dump_json()}
         except ConnectionError as ce:
-            return {"error": ce, "request_json": connection_dict}
+            return {"error": ce, "request_json": connection.model_dump_json()}
         except ConnectionRefusedError as cref:
-            return {"error": cref, "request_json": connection_dict}
+            return {"error": cref, "request_json": connection.model_dump_json()}
         except ConnectionResetError as cres:
-            return {"error": cres, "request_json": connection_dict}
+            return {"error": cres, "request_json": connection.model_dump_json()}
         
     elif connection_type == connection_enum.ConnectionEnum.MYSQL:
         
-        hostname = connection_dict.get('connection_credentials').get('server')
-        username = connection_dict.get('user_credentials').get('username')
-        password = connection_dict.get('user_credentials').get('password')
-        port = connection_dict.get('connection_credentials').get('port')
-        database = connection_dict.get('connection_credentials').get('database')
-
+        hostname = connection.connection_credentials.server
+        username = connection.user_credentials.username
+        password = connection.user_credentials.password
+        port = connection.connection_credentials.port
+        database = connection.connection_credentials.database
+    
         try:
-            return create_engine(url=f"mysql+pymysql://{username}:{password}@{hostname}:{port}/{database}")
+            engine = create_engine(url=f"mysql+pymysql://{username}:{password}@{hostname}:{port}/{database}")
+            # with engine.connect() as conn:
+            #     return {"message": conn}
+            print(engine)
+            return {"status": "connected"}
         except ConnectionAbortedError as car:
-            return {"error": car, "request_json": connection_dict}
+            return {"error": car, "request_json": connection.model_dump_json()}
         except ConnectionError as ce:
-            return {"error": ce, "request_json": connection_dict}
+            return {"error": ce, "request_json": connection.model_dump_json()}
         except ConnectionRefusedError as cref:
-            return {"error": cref, "request_json": connection_dict}
+            return {"error": cref, "request_json": connection.model_dump_json()}
         except ConnectionResetError as cres:
-            return {"error": cres, "request_json": connection_dict}
+            return {"error": cres, "request_json": connection.model_dump_json()}
         
     elif connection_type == connection_enum.ConnectionEnum.JSON:
         return {"connection": "Test connection to json"}

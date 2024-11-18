@@ -18,10 +18,10 @@ class ConnectionEnum(str, Enum):
     FILESERVER = "fileserver"
     PARQUET = "parquet"
 
-
 class Metadata(BaseModel):
     requested_by: str = Field(
         "user@example.com", description="This contains the name of the system sending the request")
     execution_time: datetime
     description: Optional[str] = Field(
         "This is a test description", description="This is the description of this request", max_length=100)
+    
