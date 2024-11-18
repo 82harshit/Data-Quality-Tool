@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Body, File, UploadFile
 from request_models import connection_model, connection_enum, job_model
 from response_models import data_quality_metric
-from sqlalchemy import create_engine
+# from sqlalchemy import create_engine
+import pymysql
 
 app = FastAPI()
 
@@ -46,10 +47,10 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         database = connection.connection_credentials.database
 
         try:
-            engine = create_engine(url=f"postgresql://{username}:{password}@{hostname}:{port}/{database}")
+            # engine = create_engine(url=f"postgresql://{username}:{password}@{hostname}:{port}/{database}") # TODO: Connection fix required
             # with engine.connect() as conn:
             #     return {"message": conn}
-            print(engine)
+            # print(engine)
             return {"status": "connected"}
         except ConnectionAbortedError as car:
             return {"error": car, "request_json": connection.model_dump_json()}
@@ -69,11 +70,28 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         database = connection.connection_credentials.database
     
         try:
-            engine = create_engine(url=f"mysql+pymysql://{username}:{password}@{hostname}:{port}/{database}")
-            # with engine.connect() as conn:
-            #     return {"message": conn}
-            print(engine)
-            return {"status": "connected"}
+            conn = pymysql.connect(
+                host=hostname,
+                user=username,      
+                password=password,  
+                database=database,  
+                port=port
+            )
+
+            cursor = conn.cursor()
+            sql_query = "SELECT * FROM customers"
+            cursor.execute(sql_query)
+
+            # Fetching the results
+            rows = cursor.fetchall()
+            for row in rows:
+                print(row)
+
+            # Closing the connection
+            cursor.close()
+            conn.close()
+
+            return {"status": "connected", "results": rows}
         except ConnectionAbortedError as car:
             return {"error": car, "request_json": connection.model_dump_json()}
         except ConnectionError as ce:

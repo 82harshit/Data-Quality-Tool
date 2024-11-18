@@ -12,7 +12,7 @@ class UserCredentials(BaseModel):
 class ConnectionCredentials(BaseModel):
     connection_type: str
     database: Optional[str] = Field("quality_tool", description="Name of the database to connect to", min_length=1)
-    server: Optional[IPvAnyAddress] = Field("0.0.0.0", description="Name of the server to connect to")
+    server: Optional[str] = Field("0.0.0.0", description="Name of the server to connect to")
     port: Optional[int] = Field(5432, description="Port to connect to", gt=999, lt=10000)
     
 
