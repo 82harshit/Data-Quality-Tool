@@ -8,8 +8,8 @@ class ConnectionEnum(str, Enum):
     """
     This enum contains all the data sources
     """
+    MYSQL = "mysql"
     POSTGRES = "postgres"
-    FILE = "file"
     CSV = "csv"
     JSON = "json"
     SAP = "sap"

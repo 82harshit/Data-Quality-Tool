@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Body, File, UploadFile
 from request_models import connection_model, connection_enum, job_model
 from response_models import data_quality_metric
-
+from sqlalchemy import create_engine
 
 app = FastAPI()
 
@@ -20,7 +20,9 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         },
         "connection_credentials": {
             "connection_type": "postgres",
-            "connect_to": "server_IP",
+            "port": "3000",
+            "server": "server_IP",
+            "database": "test_DB"
         },
         "metadata": {
             "requested_by": "user@example.com",
@@ -34,23 +36,52 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         'connection_credentials').get('connection_type')
 
     if connection_type == connection_enum.ConnectionEnum.POSTGRES:
-        postgres_cred = connection_dict.get('user_credentials')
 
-        hostname = postgres_cred.get('server')
-        username = postgres_cred.get('username')
-        password = postgres_cred.get('password')
-        port = postgres_cred.get('port')
-        database = postgres_cred.get('database')
+        hostname = connection_dict.get('connection_credentials').get('server')
+        username = connection_dict.get('user_credentials').get('username')
+        password = connection_dict.get('user_credentials').get('password')
+        port = connection_dict.get('connection_credentials').get('port')
+        database = connection_dict.get('connection_credentials').get('database')
 
-        return {"connection": f"Test connection to postgres using: psql -h {hostname} -U {username} -d {database} -p {port} -W {password}"}
+        # return {"connection": f"Test connection to postgres using: psql -h {hostname} -U {username} -d {database} -p {port} -W {password}"}
+        try:
+            return create_engine(url=f"postgresql://{username}:{password}@{hostname}:{port}/{database}")
+        except ConnectionAbortedError as car:
+            return {"error": car, "request_json": connection}
+        except ConnectionError as ce:
+            return {"error": ce, "request_json": connection}
+        except ConnectionRefusedError as cref:
+            return {"error": cref, "request_json": connection}
+        except ConnectionResetError as cres:
+            return {"error": cres, "request_json": connection}
+        
+    elif connection_type == connection_enum.ConnectionEnum.MYSQL:
+        
+        hostname = connection_dict.get('connection_credentials').get('server')
+        username = connection_dict.get('user_credentials').get('username')
+        password = connection_dict.get('user_credentials').get('password')
+        port = connection_dict.get('connection_credentials').get('port')
+        database = connection_dict.get('connection_credentials').get('database')
+
+        try:
+            return create_engine(url=f"mysql+pymysql://{username}:{password}@{hostname}:{port}/{database}")
+        except ConnectionAbortedError as car:
+            return {"error": car, "request_json": connection}
+        except ConnectionError as ce:
+            return {"error": ce, "request_json": connection}
+        except ConnectionRefusedError as cref:
+            return {"error": cref, "request_json": connection}
+        except ConnectionResetError as cres:
+            return {"error": cres, "request_json": connection}
+        
     elif connection_type == connection_enum.ConnectionEnum.JSON:
         return {"connection": "Test connection to json"}
     elif connection_type == connection_enum.ConnectionEnum.SAP:
         return {"connection": "Test connection to sap"}
     elif connection_type == connection_enum.ConnectionEnum.STREAMING:
         return {"connection": "Test connection to streaming"}
-    elif connection_type == connection_enum.ConnectionEnum.FILE:
-        return {"connection": "Test connection to file"}
+    elif connection_type == connection_enum.ConnectionEnum.FILESERVER:
+        return {"connection": "Test connection to file server"}
     elif connection_type == connection_enum.ConnectionEnum.CSV:
         return {"connection": "Test connection to csv"}
     elif connection_type == connection_enum.ConnectionEnum.REDSHIFT:
