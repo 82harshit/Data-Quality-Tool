@@ -1,18 +1,18 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, IPvAnyAddress
 from typing import Optional
 from request_models import connection_enum as conn
 
 
 class UserCredentials(BaseModel):
-    username: str = Field(str, description="Name of the user connecting", min_length=1)
-    password: Optional[str] = None
-    access_token: Optional[str] = None
+    username: str = Field("merit", description="Name of the user connecting", min_length=1)
+    password: Optional[str] = Field(None, description="Password for the user", min_length=8)
+    access_token: Optional[str] = Field(None, description="Access token for authentication", min_length=10)
 
 
 class ConnectionCredentials(BaseModel):
     connection_type: str
-    database: Optional[str] = Field(str, description="Name of the database to connect to", min_length=1)
-    server: Optional[str] = Field(str, description="Name of the server to connect to", min_length=1)
+    database: Optional[str] = Field("quality_tool", description="Name of the database to connect to", min_length=1)
+    server: Optional[IPvAnyAddress] = Field("32.33.34.7", description="Name of the server to connect to")
     port: Optional[int] = Field(5432, description="Port to connect to", gt=999, lt=10000)
 
 

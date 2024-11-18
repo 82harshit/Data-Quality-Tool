@@ -31,9 +31,13 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         }
     }
 )):
-    connection_dict = connection.model_dump()
-    connection_type = connection_dict.get(
-        'connection_credentials').get('connection_type')
+    connection_dict = connection.model_json_schema()
+    connection_credentials = connection_dict.get('connection_credentials') # TODO: fix
+    if connection_credentials:
+        connection_type = connection_credentials.get('connection_type')
+    else:
+        print("No connection creds")
+        connection_type = None
 
     if connection_type == connection_enum.ConnectionEnum.POSTGRES:
 
@@ -47,13 +51,13 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         try:
             return create_engine(url=f"postgresql://{username}:{password}@{hostname}:{port}/{database}")
         except ConnectionAbortedError as car:
-            return {"error": car, "request_json": connection}
+            return {"error": car, "request_json": connection_dict}
         except ConnectionError as ce:
-            return {"error": ce, "request_json": connection}
+            return {"error": ce, "request_json": connection_dict}
         except ConnectionRefusedError as cref:
-            return {"error": cref, "request_json": connection}
+            return {"error": cref, "request_json": connection_dict}
         except ConnectionResetError as cres:
-            return {"error": cres, "request_json": connection}
+            return {"error": cres, "request_json": connection_dict}
         
     elif connection_type == connection_enum.ConnectionEnum.MYSQL:
         
@@ -66,13 +70,13 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         try:
             return create_engine(url=f"mysql+pymysql://{username}:{password}@{hostname}:{port}/{database}")
         except ConnectionAbortedError as car:
-            return {"error": car, "request_json": connection}
+            return {"error": car, "request_json": connection_dict}
         except ConnectionError as ce:
-            return {"error": ce, "request_json": connection}
+            return {"error": ce, "request_json": connection_dict}
         except ConnectionRefusedError as cref:
-            return {"error": cref, "request_json": connection}
+            return {"error": cref, "request_json": connection_dict}
         except ConnectionResetError as cres:
-            return {"error": cres, "request_json": connection}
+            return {"error": cres, "request_json": connection_dict}
         
     elif connection_type == connection_enum.ConnectionEnum.JSON:
         return {"connection": "Test connection to json"}
