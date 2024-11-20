@@ -25,3 +25,9 @@ class Metadata(BaseModel):
     description: Optional[str] = Field(
         "This is a test description", description="This is the description of this request", max_length=100)
     
+    class Config:
+        # Ensuring that the password field is excluded from serialization when calling .dict() or .json()
+        fields = {
+            'execution_time': {'exclude': True}
+        } 
+    

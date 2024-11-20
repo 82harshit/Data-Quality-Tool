@@ -51,7 +51,13 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             # with engine.connect() as conn:
             #     return {"message": conn}
             # print(engine)
-            return {"status": "connected"}
+           return {
+                "status": "connected",
+                 "connection": connection.model_dump(exclude={
+                    "user_credentials": {"password", "access_token"},  # Exclude password and access_token
+                    "metadata": {"execution_time"}  # Exclude execution_time from metadata
+                })
+            }
         except ConnectionAbortedError as car:
             return {"error": car, "request_json": connection.model_dump_json()}
         except ConnectionError as ce:
@@ -91,7 +97,13 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             cursor.close()
             conn.close()
 
-            return {"status": "connected", "results": rows}
+            return {
+                "status": "connected",
+                "results": rows,
+                "connection": connection.model_dump(exclude={
+                    "user_credentials": {"password", "access_token"},  # Exclude password and access_token
+                    "metadata": {"execution_time"}  # Exclude execution_time from metadata
+                })}
         except ConnectionAbortedError as car:
             return {"error": car, "request_json": connection.model_dump_json()}
         except ConnectionError as ce:
