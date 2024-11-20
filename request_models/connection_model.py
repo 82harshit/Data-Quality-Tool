@@ -18,8 +18,8 @@ class ConnectionCredentials(BaseModel):
     connection_type: str
     database: Optional[str] = Field("quality_tool", description="Name of the database to connect to", min_length=1)
     server: Optional[str] = Field("0.0.0.0", description="Name of the server to connect to")
-    port: Optional[int] = Field(5432, description="Port to connect to", gt=999, lt=10000)
-    
+    port: Optional[int] = Field(5432, description="Port to connect to", gt=9, lt=10000)
+    filename : Optional[str] =Field("customer-100.csv", description="Name of the database to connect to", min_length=1)
 
 class Connection(BaseModel):
     """

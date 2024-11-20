@@ -17,6 +17,8 @@ class ConnectionEnum(str, Enum):
     REDSHIFT = "redshift"
     FILESERVER = "fileserver"
     PARQUET = "parquet"
+    ORC = "orc"
+    AVRO = "avro"
 
 class Metadata(BaseModel):
     requested_by: str = Field(

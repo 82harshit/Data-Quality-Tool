@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Body, File, UploadFile
+from fastapi import FastAPI, Body, File, HTTPException, UploadFile
 from request_models import connection_model, connection_enum, job_model
 from response_models import data_quality_metric
+from functions import search_file_on_server,read_file_columns
 # from sqlalchemy import create_engine
 import pymysql
 
@@ -23,7 +24,8 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             "connection_type": "postgres",
             "port": 3000,
             "server": "server_IP",
-            "database": "test_DB"
+            "database": "test_DB",
+            "filename" : "customers-100.csv"
         },
         "metadata": {
             "requested_by": "user@example.com",
@@ -114,19 +116,44 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             return {"error": cres, "request_json": connection.model_dump_json()}
         
     elif connection_type == connection_enum.ConnectionEnum.JSON:
-        return {"connection": "Test connection to json"}
+        if connection.connection_credentials.filename.endswith(".json"):
+            result = await search_file_on_server(connection)
+            return result
+        else:
+            raise HTTPException(status_code=400, detail="The provided file is not a JSON file.")
+        
     elif connection_type == connection_enum.ConnectionEnum.SAP:
         return {"connection": "Test connection to sap"}
     elif connection_type == connection_enum.ConnectionEnum.STREAMING:
         return {"connection": "Test connection to streaming"}
     elif connection_type == connection_enum.ConnectionEnum.FILESERVER:
         return {"connection": "Test connection to file server"}
+    elif connection_type == connection_enum.ConnectionEnum.ORC:
+        if connection.connection_credentials.filename.endswith(".orc"):
+            result = await search_file_on_server(connection)
+            return result
+        else:
+            raise HTTPException(status_code=400, detail="The provided file is not a ORC file.")
+    elif connection_type == connection_enum.ConnectionEnum.AVRO:
+        if connection.connection_credentials.filename.endswith(".avro"):
+            result = await search_file_on_server(connection)
+            return result
+        else:
+            raise HTTPException(status_code=400, detail="The provided file is not a AVRO file.")
     elif connection_type == connection_enum.ConnectionEnum.CSV:
-        return {"connection": "Test connection to csv"}
+        if connection.connection_credentials.filename.endswith(".csv"):
+            result = await search_file_on_server(connection)
+            return result
+        else:
+            raise HTTPException(status_code=400, detail="The provided file is not a CSV file.")
     elif connection_type == connection_enum.ConnectionEnum.REDSHIFT:
         return {"connection": "Test connection to amazon redshift"}
     elif connection_type == connection_enum.ConnectionEnum.PARQUET:
-        return {"connection": "Test connection to parquet"}
+        if connection.connection_credentials.filename.endswith(".parquet"):
+            result = await search_file_on_server(connection)
+            return result
+        else:
+            raise HTTPException(status_code=400, detail="The provided file is not a PARQUET file.")
     else:
         return {"error": "Unidentified connection source"}
 
