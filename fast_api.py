@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Body, HTTPException, UploadFile
-from request_models import connection_model, connection_enum
+from fastapi import FastAPI, Body, HTTPException
+from request_models import connection_enum_and_metadata, connection_model, job_model
 from utils import get_mysql_db, generate_connection_name, generate_connection_string
 import db_constants
 from functions import search_file_on_server
@@ -42,7 +42,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     else:
         raise HTTPException(status_code=400, detail={"error": "Missing connection credentials"})
 
-    if connection_type == connection_enum.ConnectionEnum.MYSQL:
+    if connection_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
         try:
             hostname = connection.connection_credentials.server
             username = connection.user_credentials.username
@@ -51,10 +51,10 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             database = connection.connection_credentials.database
 
             # root user logging in user_credentials database
-            conn = get_mysql_db(hostname=hostname, 
+            conn = get_mysql_db(hostname=db_constants.ADMIN_HOSTNAME, 
                                 username=db_constants.ADMIN_USERNAME, 
                                 password=db_constants.ADMIN_PASSWORD, 
-                                port=port, 
+                                port=db_constants.ADMIN_PORT, 
                                 database=db_constants.USER_CREDENTIALS_DATABASE
                                 )
             
@@ -102,42 +102,42 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         except Exception as e:
             raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
         
-    elif connection_type == connection_enum.ConnectionEnum.POSTGRES:
-        raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.POSTGRES} not implemented", "request_json": connection.model_dump_json()})
-    elif connection_type == connection_enum.ConnectionEnum.JSON:
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.POSTGRES:
+        raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.POSTGRES} not implemented", "request_json": connection.model_dump_json()})
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.JSON:
         if connection.connection_credentials.filename.endswith(".json"):
             result = await search_file_on_server(connection)
             return result
         else:
             raise HTTPException(status_code=400, detail="The provided file is not a JSON file.")
         
-    elif connection_type == connection_enum.ConnectionEnum.SAP:
-        raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.SAP} not implemented", "request_json": connection.model_dump_json()})
-    elif connection_type == connection_enum.ConnectionEnum.STREAMING:
-        raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.STREAMING} not implemented", "request_json": connection.model_dump_json()})
-    elif connection_type == connection_enum.ConnectionEnum.FILESERVER:
-        raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.FILESERVER} not impelemented", "request_json": connection.model_dump_json()})
-    elif connection_type == connection_enum.ConnectionEnum.ORC:
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.SAP:
+        raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.SAP} not implemented", "request_json": connection.model_dump_json()})
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.STREAMING:
+        raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.STREAMING} not implemented", "request_json": connection.model_dump_json()})
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.FILESERVER:
+        raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.FILESERVER} not impelemented", "request_json": connection.model_dump_json()})
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.ORC:
         if connection.connection_credentials.filename.endswith(".orc"):
             result = await search_file_on_server(connection)
             return result
         else:
             raise HTTPException(status_code=400, detail="The provided file is not a ORC file.")
-    elif connection_type == connection_enum.ConnectionEnum.AVRO:
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.AVRO:
         if connection.connection_credentials.filename.endswith(".avro"):
             result = await search_file_on_server(connection)
             return result
         else:
             raise HTTPException(status_code=400, detail="The provided file is not a AVRO file.")
-    elif connection_type == connection_enum.ConnectionEnum.CSV:
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.CSV:
         if connection.connection_credentials.filename.endswith(".csv"):
             result = await search_file_on_server(connection)
             return result
         else:
             raise HTTPException(status_code=400, detail="The provided file is not a CSV file.")
-    elif connection_type == connection_enum.ConnectionEnum.REDSHIFT:
-        raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.REDSHIFT} not implemented", "request_json": connection.model_dump_json()})
-    elif connection_type == connection_enum.ConnectionEnum.PARQUET:
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.REDSHIFT:
+        raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.REDSHIFT} not implemented", "request_json": connection.model_dump_json()})
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.PARQUET:
         if connection.connection_credentials.filename.endswith(".parquet"):
             result = await search_file_on_server(connection)
             return result
@@ -155,62 +155,126 @@ def find_validation_result(data, partial_key):
     return None  # Return None if no matching key is found
 
 
-partial_key = "ValidationResultIdentifier::"
+PARTIAL_KEY = "ValidationResultIdentifier::"
 
-
-@app.post("/upload-file", description='This endpoint allows users to upload a file via the API')
-def upload_file(file: UploadFile):
-    return {"uploaded file name": file.filename, "uploaded file size": file.size}
+# @app.post("/upload-file", description='This endpoint allows users to upload a file via the API')
+# def upload_file(file: UploadFile):
+#     return {"uploaded file name": file.filename, "uploaded file size": file.size}
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests") 
         #   response_model=data_quality_metric.DataQualityMetric)
-async def submit_job(run_name, 
-#                job: job_model.SubmitJob = Body(...,example={
-#     "data_source": {
-#     "source_file_type": "csv",
-#     "source_path": "/home/source_dataset",
-#     "source_data_format": "string",
-#     "source_schema": "string"
-#   },
-#   "data_target": {
-#     "target_data_type": "csv",
-#     "target_path": "C:/user/sink_dataset",
-#     "target_data_format": "string",
-#     "target_schema": "string"
-#   },
-#   "quality_checks": [{
-#     "check_name": "range_check",
-#     "applied_on_column": "index",
-#     "check_kwargs": {
-#         "min": 1,
-#         "max": 1000
-#     },
-#   },{
-#     "check_name": "range_check",
-#     "applied_on_column": "index",
-#     "check_kwargs": {
-#         "min": 1,
-#         "max": 1000
-#     }
-#   }
-#   ],
-#   "metadata": {
-#     "requested_by": "user@example.com",
-#     "execution_time": "2024-10-16T15:11:18.483Z",
-#     "description": "This is a test description"
-#   }
-# })):
-):
+async def submit_job(job: job_model.SubmitJob = Body(...,example={
+  "connection_name": "20241120162230_test_12.72.99.0_4002_testdb_2314",
+  "data_target": {
+    "target_data_type": "csv",
+    "target_path": "C:/user/sink_dataset",
+    "target_data_format": "string",
+    # "target_schema": "string"
+  },
+  "quality_checks": [
+      {
+        "check_name": "expect_column_values_to_be_in_range",
+        "applied_on_column": "Customer Id",
+        "check_kwargs": {
+            "min": 1,
+            "max": 1000
+        },
+      },{
+        "check_name": "expect_column_values_to_match_regex",
+        "applied_on_column": "Customer Id",
+        "check_kwargs": {
+            "regex": "^[a-zA-Z0-9]{15}$"
+        }
+      }
+  ],
+  "metadata": {
+    "requested_by": "user@example.com",
+    "execution_time": "2024-10-16T15:11:18.483Z",
+    "description": "This is a test description"
+  }
+})):
     """
     This function posts the checks on the data
     """
-    import run_customer_checkpoint as run
-    result = run.run_checkpoint(run_name=run_name)
-    result_dict = result.to_json_dict()
 
-    validation_result = find_validation_result(result_dict['run_results'], partial_key)
-    results = validation_result['results']
-    for result in results:
-        metric_type = result['expectation_config'].get('expectation_type')
-        return metric_type
-    # return result_dict
+    if not job.connection_name:
+        raise HTTPException(status_code=400, detail={"error": "Missing connection name"})
+    
+    if not job.quality_checks:
+        raise HTTPException(status_code=400, detail={"error": "Missing quality checks"})
+
+    # if not job.data_target:
+    #     raise HTTPException(status_code=400, detail={"error": "Missing data target"})
+
+    connection_name = job.connection_name
+
+    # check if the connection_name exists in the database
+    # root user logging in user_credentials database
+    conn = get_mysql_db(hostname=db_constants.ADMIN_HOSTNAME, 
+                        username=db_constants.ADMIN_USERNAME, 
+                        password=db_constants.ADMIN_PASSWORD, 
+                        port=db_constants.ADMIN_PORT, 
+                        database=db_constants.USER_CREDENTIALS_DATABASE
+                        )
+    
+    cursor = conn.cursor()
+    
+    READ_FOR_CONN_NAME_QUERY = f"SELECT 1 FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s LIMIT 1;"
+    print(cursor.mogrify(READ_FOR_CONN_NAME_QUERY, (connection_name,)))
+    cursor.execute(READ_FOR_CONN_NAME_QUERY,(connection_name,))
+    exists = cursor.fetchone() is not None
+
+    if not exists:
+        return HTTPException(status_code=404, detail={"error": "User not found", "connection_name": connection_name})
+
+    # retrieve user connection credentials
+
+    GET_USERNAME_QUERY = f"SELECT {db_constants.USERNAME} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = '%s';"
+    cursor.execute(GET_USERNAME_QUERY,(connection_name,))
+    username = cursor.fetchall()
+
+    GET_PASSWORD_QUERY = f"SELECT {db_constants.PASSWORD} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = '%s';"
+    cursor.execute(GET_PASSWORD_QUERY,(connection_name,))
+    password = cursor.fetchall()
+
+    GET_HOSTNAME_QUERY = f"SELECT {db_constants.HOSTNAME} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = '%s';"
+    cursor.execute(GET_HOSTNAME_QUERY,(connection_name,))
+    hostname = cursor.fetchall()
+
+    GET_PORT_QUERY = f"SELECT {db_constants.PORT} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = '%s';"
+    cursor.execute(GET_PORT_QUERY,(connection_name,))
+    port = cursor.fetchall()
+
+    GET_SOURCE_QUERY = f"SELECT {db_constants.DATABASE} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = '%s';"
+    cursor.execute(GET_SOURCE_QUERY,(connection_name,))
+    data_source = cursor.fetchall()
+
+    # cursor.commit()
+    cursor.close()
+    conn.close()
+
+    # create user connection
+
+    user_conn = get_mysql_db(
+        hostname=hostname,
+        username=username,
+        password=password,
+        port=port,
+        database=data_source
+    )
+
+    print(f"User {username} successfully connected to {data_source} in server {hostname} on {port}")
+
+    # user_cursor = user_conn.cursor()
+  
+
+    # import run_customer_checkpoint as run
+    # result = run.run_checkpoint(run_name=run_name)
+    # result_dict = result.to_json_dict()
+
+    # validation_result = find_validation_result(result_dict['run_results'], PARTIAL_KEY)
+    # results = validation_result['results']
+    # for result in results:
+    #     metric_type = result['expectation_config'].get('expectation_type')
+    #     return metric_type
+    # # return result_dict

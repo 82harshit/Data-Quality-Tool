@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-from request_models import connection_enum as conn
+from request_models import connection_enum_and_metadata as conn
 
 
 class UserCredentials(BaseModel):

@@ -1,4 +1,3 @@
-from sqlite3 import Timestamp
 from pydantic import BaseModel
 from datetime import datetime
 
