@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, IPvAnyAddress
+from pydantic import BaseModel, Field
 from typing import Optional
 from request_models import connection_enum as conn
 

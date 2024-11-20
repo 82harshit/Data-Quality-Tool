@@ -1,0 +1,4 @@
+USER_CREDENTIALS_DATABASE="user_credentials"
+USER_LOGIN_TABLE="login_credentials"
+ADMIN_USERNAME="root"
+ADMIN_PASSWORD="July$2018"

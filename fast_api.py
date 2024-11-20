@@ -1,9 +1,8 @@
-from fastapi import FastAPI, Body, File, HTTPException, UploadFile
-from request_models import connection_model, connection_enum, job_model
-from response_models import data_quality_metric
-from functions import search_file_on_server,read_file_columns
-# from sqlalchemy import create_engine
-import pymysql
+from fastapi import FastAPI, Body, HTTPException, UploadFile
+from request_models import connection_model, connection_enum
+from utils import get_mysql_db, generate_connection_name, generate_connection_string
+import db_constants
+
 
 app = FastAPI()
 
@@ -35,86 +34,76 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     }
 )):
     
+    if not connection.user_credentials:
+        raise HTTPException(status_code=400, detail={"error": "Missing user credentials"})
+    
     if connection.connection_credentials:
         connection_type = connection.connection_credentials.connection_type
     else:
-        return {"error": "No connection creds"}
+        raise HTTPException(status_code=400, detail={"error": "Missing connection credentials"})
 
-    if connection_type == connection_enum.ConnectionEnum.POSTGRES:
-
-        hostname = connection.connection_credentials.server
-        username = connection.user_credentials.username
-        password = connection.user_credentials.password
-        port = connection.connection_credentials.port
-        database = connection.connection_credentials.database
-
+    if connection_type == connection_enum.ConnectionEnum.MYSQL:
         try:
-            # engine = create_engine(url=f"postgresql://{username}:{password}@{hostname}:{port}/{database}") # TODO: Connection fix required
-            # with engine.connect() as conn:
-            #     return {"message": conn}
-            # print(engine)
-           return {
-                "status": "connected",
-                 "connection": connection.model_dump(exclude={
-                    "user_credentials": {"password", "access_token"},  # Exclude password and access_token
-                    "metadata": {"execution_time"}  # Exclude execution_time from metadata
-                })
-            }
-        except ConnectionAbortedError as car:
-            return {"error": car, "request_json": connection.model_dump_json()}
-        except ConnectionError as ce:
-            return {"error": ce, "request_json": connection.model_dump_json()}
-        except ConnectionRefusedError as cref:
-            return {"error": cref, "request_json": connection.model_dump_json()}
-        except ConnectionResetError as cres:
-            return {"error": cres, "request_json": connection.model_dump_json()}
-        
-    elif connection_type == connection_enum.ConnectionEnum.MYSQL:
-        
-        hostname = connection.connection_credentials.server
-        username = connection.user_credentials.username
-        password = connection.user_credentials.password
-        port = connection.connection_credentials.port
-        database = connection.connection_credentials.database
-    
-        try:
-            conn = pymysql.connect(
-                host=hostname,
-                user=username,      
-                password=password,  
-                database=database,  
-                port=port
-            )
+            hostname = connection.connection_credentials.server
+            username = connection.user_credentials.username
+            password = connection.user_credentials.password
+            port = connection.connection_credentials.port
+            database = connection.connection_credentials.database
 
+            # root user logging in user_credentials database
+            conn = get_mysql_db(hostname=hostname, 
+                                username=db_constants.ADMIN_USERNAME, 
+                                password=db_constants.ADMIN_PASSWORD, 
+                                port=port, 
+                                database=db_constants.USER_CREDENTIALS_DATABASE
+                                )
+            
             cursor = conn.cursor()
-            sql_query = "SELECT * FROM customers"
-            cursor.execute(sql_query)
 
-            # Fetching the results
-            rows = cursor.fetchall()
-            for row in rows:
-                print(row)
+            # create unique connection name
+            unique_connection_name = generate_connection_name(connection=connection)
 
-            # Closing the connection
-            cursor.close()
-            conn.close()
+            # create connection string
+            connection_string = generate_connection_string(connection=connection)
 
-            return {
-                "status": "connected",
-                "results": rows,
-                "connection": connection.model_dump(exclude={
-                    "user_credentials": {"password", "access_token"},  # Exclude password and access_token
-                    "metadata": {"execution_time"}  # Exclude execution_time from metadata
-                })}
-        except ConnectionAbortedError as car:
-            return {"error": car, "request_json": connection.model_dump_json()}
-        except ConnectionError as ce:
-            return {"error": ce, "request_json": connection.model_dump_json()}
-        except ConnectionRefusedError as cref:
-            return {"error": cref, "request_json": connection.model_dump_json()}
-        except ConnectionResetError as cres:
-            return {"error": cres, "request_json": connection.model_dump_json()}
+            print(f"Unique connection name: {unique_connection_name}")
+            print(f"Connection string: {connection_string}")
+
+            # insert values in table
+            INSERT_CONN_DETAILS_QUERY = f"INSERT INTO {db_constants.USER_LOGIN_TABLE} VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
+            cursor.execute(INSERT_CONN_DETAILS_QUERY,(
+                            unique_connection_name,
+                            connection_string,
+                            username,
+                            connection_type,
+                            password,
+                            hostname,
+                            port,
+                            database
+                        ))
         
+            conn.commit()
+            print("Login credential insertion completed")
+
+            print("Closing connection")
+            cursor.close()
+            conn.close() 
+
+            return {"status": "connected", "connection_name": unique_connection_name}
+        
+        except ConnectionAbortedError as car:
+            raise HTTPException(status_code=503, detail={"error": str(car), "request_json": connection.model_dump_json()})
+        except ConnectionError as ce:
+            raise HTTPException(status_code=503, detail={"error": str(ce), "request_json": connection.model_dump_json()})
+        except ConnectionRefusedError as cref:
+            raise HTTPException(status_code=503, detail={"error": str(cref), "request_json": connection.model_dump_json()})
+        except ConnectionResetError as cres:
+            raise HTTPException(status_code=503, detail={"error": str(cres), "request_json": connection.model_dump_json()})
+        except Exception as e:
+            raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
+        
+    elif connection_type == connection_enum.ConnectionEnum.POSTGRES:
+        raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.POSTGRES} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum.ConnectionEnum.JSON:
         if connection.connection_credentials.filename.endswith(".json"):
             result = await search_file_on_server(connection)
@@ -123,11 +112,11 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             raise HTTPException(status_code=400, detail="The provided file is not a JSON file.")
         
     elif connection_type == connection_enum.ConnectionEnum.SAP:
-        return {"connection": "Test connection to sap"}
+        raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.SAP} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum.ConnectionEnum.STREAMING:
-        return {"connection": "Test connection to streaming"}
+        raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.STREAMING} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum.ConnectionEnum.FILESERVER:
-        return {"connection": "Test connection to file server"}
+        raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.FILESERVER} not impelemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum.ConnectionEnum.ORC:
         if connection.connection_credentials.filename.endswith(".orc"):
             result = await search_file_on_server(connection)
@@ -147,7 +136,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         else:
             raise HTTPException(status_code=400, detail="The provided file is not a CSV file.")
     elif connection_type == connection_enum.ConnectionEnum.REDSHIFT:
-        return {"connection": "Test connection to amazon redshift"}
+        raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.REDSHIFT} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum.ConnectionEnum.PARQUET:
         if connection.connection_credentials.filename.endswith(".parquet"):
             result = await search_file_on_server(connection)
@@ -155,7 +144,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         else:
             raise HTTPException(status_code=400, detail="The provided file is not a PARQUET file.")
     else:
-        return {"error": "Unidentified connection source"}
+        raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", "request_json": connection.model_dump_json()})
 
 # Function to find and return the 'validation_result'
 def find_validation_result(data, partial_key):
