@@ -1,8 +1,5 @@
-from typing import Annotated
-from fastapi import Depends, FastAPI, Body, File, HTTPException, UploadFile
-from request_models import connection_model, connection_enum, job_model
-from response_models import data_quality_metric
-import pymysql
+from fastapi import FastAPI, Body, HTTPException, UploadFile
+from request_models import connection_model, connection_enum
 from utils import get_mysql_db, generate_connection_name, generate_connection_string
 import db_constants
 
@@ -52,38 +49,45 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             port = connection.connection_credentials.port
             database = connection.connection_credentials.database
 
-            conn = get_mysql_db(hostname=hostname, username=username, password=password, port=port, database=db_constants.USER_CREDENTIALS_DATABASE)
-            # conn = get_mysql_db(connection=connection)
+            # root user logging in user_credentials database
+            conn = get_mysql_db(hostname=hostname, 
+                                username=db_constants.ADMIN_USERNAME, 
+                                password=db_constants.ADMIN_PASSWORD, 
+                                port=port, 
+                                database=db_constants.USER_CREDENTIALS_DATABASE
+                                )
             
             cursor = conn.cursor()
 
             # create unique connection name
             unique_connection_name = generate_connection_name(connection=connection)
 
-            USE_DATABASE_QUERY = f"USE {db_constants.USER_CREDENTIALS_DATABASE};"
-            cursor.execute(USE_DATABASE_QUERY)
-            
-            print("Execution complete")
-
-            # # create user
-            # CREATE_USER_QUERY = f"CREATE USER '{username}'@'%' IDENTIFIED BY '{password}';"
-            # cursor.execute(CREATE_USER_QUERY)
-
-            # # grant privilieges
-            # GRANT_PRIVILEGES_QUERY = f"GRANT ALL PRIVILEGES ON {db_constants.USER_CREDENTIALS_DATABASE}.{db_constants.USER_LOGIN_TABLE} TO '{username}'@'%';"
-            # cursor.execute(GRANT_PRIVILEGES_QUERY)
-
-            # # flush privilieges
-            # FLUSH_PRIVILIEGES_QUERY = "FLUSH PRIVILEGES;"
-            # cursor.execute(FLUSH_PRIVILIEGES_QUERY)
-
             # create connection string
             connection_string = generate_connection_string(connection=connection)
 
+            print(f"Unique connection name: {unique_connection_name}")
+            print(f"Connection string: {connection_string}")
+
             # insert values in table
-            INSERT_CONN_DETAILS_QUERY = f"INSERT INTO {db_constants.USER_LOGIN_TABLE} VALUES ({unique_connection_name},{connection_string},{username},{database},{password},{hostname},{port},{database});"
-            cursor.execute(INSERT_CONN_DETAILS_QUERY)
+            INSERT_CONN_DETAILS_QUERY = f"INSERT INTO {db_constants.USER_LOGIN_TABLE} VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
+            cursor.execute(INSERT_CONN_DETAILS_QUERY,(
+                            unique_connection_name,
+                            connection_string,
+                            username,
+                            connection_type,
+                            password,
+                            hostname,
+                            port,
+                            database
+                        ))
         
+            conn.commit()
+            print("Login credential insertion completed")
+
+            print("Closing connection")
+            cursor.close()
+            conn.close() 
+
             return {"status": "connected", "connection_name": unique_connection_name}
         
         except ConnectionAbortedError as car:
@@ -96,49 +100,9 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             raise HTTPException(status_code=503, detail={"error": str(cres), "request_json": connection.model_dump_json()})
         except Exception as e:
             raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
-        finally:
-            print("Closing connection")
-            conn.close()
-            cursor.close()
         
     elif connection_type == connection_enum.ConnectionEnum.POSTGRES:
-        
-        hostname = connection.connection_credentials.server
-        username = connection.user_credentials.username
-        password = connection.user_credentials.password
-        port = connection.connection_credentials.port
-        database = connection.connection_credentials.database
-
-        conn = pymysql.connect(
-            host=hostname,
-            user=username,      
-            password=password,  
-            database=database,  
-            port=port
-        )
-
-        try:
-            cursor = conn.cursor()
-            sql_query = "SELECT * FROM customers"
-            cursor.execute(sql_query)
-
-            # Fetching the results
-            rows = cursor.fetchall()
-
-            return {"status": "connected", "results": rows}
-        except ConnectionAbortedError as car:
-            return {"error": car, "request_json": connection.model_dump_json()}
-        except ConnectionError as ce:
-            return {"error": ce, "request_json": connection.model_dump_json()}
-        except ConnectionRefusedError as cref:
-            return {"error": cref, "request_json": connection.model_dump_json()}
-        except ConnectionResetError as cres:
-            return {"error": cres, "request_json": connection.model_dump_json()}
-        finally:
-            cursor.close()
-            conn.close()
-
-        
+        raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.POSTGRES} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum.ConnectionEnum.JSON:
         raise HTTPException(status_code=501, detail={"error": f"{connection_enum.ConnectionEnum.JSON} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum.ConnectionEnum.SAP:
