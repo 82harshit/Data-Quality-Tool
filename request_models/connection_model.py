@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, IPvAnyAddress
+from pydantic import BaseModel, Field, IPvAnyAddress, model_validator
 from typing import Optional
 from request_models import connection_enum as conn
 
@@ -19,8 +19,39 @@ class ConnectionCredentials(BaseModel):
     database: Optional[str] = Field("quality_tool", description="Name of the database to connect to", min_length=1)
     server: Optional[str] = Field("0.0.0.0", description="Name of the server to connect to")
     port: Optional[int] = Field(5432, description="Port to connect to", gt=9, lt=10000)
-    filename : Optional[str] =Field("customer-100.csv", description="Name of the database to connect to", min_length=1)
+    file_name: Optional[str] = Field("", description="Name of the file to connect to", min_length=1)
+    file_path: Optional[str] = Field("", description="Path to the file")
+    dir_path: Optional[str] = Field("", description="Path to the directory")
 
+    @model_validator(mode='before')
+    def validate_connection_priority(cls, values):
+        file_name = values.get("file_name")
+        file_path = values.get("file_path")
+        dir_path = values.get("dir_path")
+
+        # Handle None values explicitly
+        if file_path:
+            if dir_path or file_name:
+                raise ValueError(
+                    "If 'file_path' is provided, 'file_name' and 'dir_path' should not be provided."
+                )
+
+        if dir_path:
+            if not file_name:
+                raise ValueError(
+                    "If 'dir_path' is provided, 'file_name' must also be specified."
+                )
+
+        if file_name and not dir_path and not file_path:
+            return values
+
+        if not file_name and not file_path and not dir_path:
+            raise ValueError(
+                "Insufficient information provided. "
+                "You must provide either 'file_path', or 'dir_path' with 'file_name', or just 'file_name'."
+            )
+
+        return values
 class Connection(BaseModel):
     """
     This is the request body for API POST request

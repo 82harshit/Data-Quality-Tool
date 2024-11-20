@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Body, File, HTTPException, UploadFile
 from request_models import connection_model, connection_enum, job_model
 from response_models import data_quality_metric
-from functions import search_file_on_server,read_file_columns
+from functions import search_file_on_server
 # from sqlalchemy import create_engine
 import pymysql
 
@@ -25,7 +25,9 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             "port": 3000,
             "server": "server_IP",
             "database": "test_DB",
-            "filename" : "customers-100.csv"
+            "file_name" : "customers-100.csv",
+            "file_path" : "/home/merit/Desktop/sample_avro.avro",
+            "dir_path" : "/home/merit/Desktop"
         },
         "metadata": {
             "requested_by": "user@example.com",
@@ -116,7 +118,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             return {"error": cres, "request_json": connection.model_dump_json()}
         
     elif connection_type == connection_enum.ConnectionEnum.JSON:
-        if connection.connection_credentials.filename.endswith(".json"):
+        if connection.connection_credentials.file_name.endswith(".json") or connection.connection_credentials.file_path.endswith('.json'):
             result = await search_file_on_server(connection)
             return result
         else:
@@ -129,19 +131,19 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     elif connection_type == connection_enum.ConnectionEnum.FILESERVER:
         return {"connection": "Test connection to file server"}
     elif connection_type == connection_enum.ConnectionEnum.ORC:
-        if connection.connection_credentials.filename.endswith(".orc"):
+        if connection.connection_credentials.file_name.endswith(".orc") or connection.connection_credentials.file_path.endswith('.orc'):
             result = await search_file_on_server(connection)
             return result
         else:
             raise HTTPException(status_code=400, detail="The provided file is not a ORC file.")
-    elif connection_type == connection_enum.ConnectionEnum.AVRO:
-        if connection.connection_credentials.filename.endswith(".avro"):
+    elif connection_type == connection_enum.ConnectionEnum.AVRO or connection.connection_credentials.file_path.endswith('.avro'):
+        if connection.connection_credentials.file_name.endswith(".avro"):
             result = await search_file_on_server(connection)
             return result
         else:
             raise HTTPException(status_code=400, detail="The provided file is not a AVRO file.")
     elif connection_type == connection_enum.ConnectionEnum.CSV:
-        if connection.connection_credentials.filename.endswith(".csv"):
+        if connection.connection_credentials.file_name.endswith(".csv") or connection.connection_credentials.file_path.endswith('.csv'):
             result = await search_file_on_server(connection)
             return result
         else:
@@ -149,7 +151,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     elif connection_type == connection_enum.ConnectionEnum.REDSHIFT:
         return {"connection": "Test connection to amazon redshift"}
     elif connection_type == connection_enum.ConnectionEnum.PARQUET:
-        if connection.connection_credentials.filename.endswith(".parquet"):
+        if connection.connection_credentials.file_name.endswith(".parquet") or connection.connection_credentials.file_path.endswith('.parquet'):
             result = await search_file_on_server(connection)
             return result
         else:
