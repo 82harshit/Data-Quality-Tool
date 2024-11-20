@@ -14,6 +14,7 @@ class UserCredentials(BaseModel):
             'password': {'exclude': True},  # This will exclude password field in the response
             'access_token' : {'exclude' : True}
         } 
+
 class ConnectionCredentials(BaseModel):
     connection_type: str
     database: Optional[str] = Field("quality_tool", description="Name of the database to connect to", min_length=1)

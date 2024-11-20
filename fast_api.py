@@ -2,7 +2,7 @@ from fastapi import FastAPI, Body, HTTPException, UploadFile
 from request_models import connection_model, connection_enum
 from utils import get_mysql_db, generate_connection_name, generate_connection_string
 import db_constants
-
+from functions import search_file_on_server
 
 app = FastAPI()
 
