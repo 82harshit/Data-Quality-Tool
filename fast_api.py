@@ -24,7 +24,8 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             "port": 3000,
             "server": "server_IP",
             "database": "test_DB",
-            "filename" : "customers-100.csv"
+            "file_name" : "customers-100.csv",
+            "dir_path" : "/home/merit/Desktop"
         },
         "metadata": {
             "requested_by": "user@example.com",
@@ -102,10 +103,8 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         except Exception as e:
             raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
         
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.POSTGRES:
-        raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.POSTGRES} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.JSON:
-        if connection.connection_credentials.filename.endswith(".json"):
+        if connection.connection_credentials.file_name.endswith(".json") or connection.connection_credentials.file_path.endswith('.json'):
             result = await search_file_on_server(connection)
             return result
         else:
@@ -123,8 +122,8 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             return result
         else:
             raise HTTPException(status_code=400, detail="The provided file is not a ORC file.")
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.AVRO:
-        if connection.connection_credentials.filename.endswith(".avro"):
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.AVRO or connection.connection_credentials.file_path.endswith('.avro'):
+        if connection.connection_credentials.file_name.endswith(".avro"):
             result = await search_file_on_server(connection)
             return result
         else:
@@ -138,7 +137,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.REDSHIFT:
         raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.REDSHIFT} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.PARQUET:
-        if connection.connection_credentials.filename.endswith(".parquet"):
+        if connection.connection_credentials.filename.endswith(".parquet") or connection.connection_credentials.file_path.endswith('.parquet'):
             result = await search_file_on_server(connection)
             return result
         else:
