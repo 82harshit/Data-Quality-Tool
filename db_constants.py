@@ -8,7 +8,7 @@ ADMIN_PORT=3306
 # column names
 CONNECTION_NAME="connection_name"
 USERNAME="username"
-DATABASE_TYPE="database_type"
+SOURCE_TYPE="source_type"
 PASSWORD="password"
 PORT="port"
 DATABASE="database_name"

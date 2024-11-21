@@ -164,7 +164,12 @@ PARTIAL_KEY = "ValidationResultIdentifier::"
 @app.post("/submit-job", description="This endpoint allows to submit job requests") 
         #   response_model=data_quality_metric.DataQualityMetric)
 async def submit_job(job: job_model.SubmitJob = Body(...,example={
-  "connection_name": "20241120162230_test_12.72.99.0_4002_testdb_2314",
+  "connection_name": "20241120162230_test_1272990_4002_testdb_2314",
+  "data_source": {
+      "dir_path": "C:/user/Desktop",
+      "file_name": "sample_file",
+      "table_name": "test_table"
+  },
   "data_target": {
     "target_data_type": "csv",
     "target_path": "C:/user/sink_dataset",
@@ -173,16 +178,16 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
   },
   "quality_checks": [
       {
-        "check_name": "expect_column_values_to_be_in_range",
-        "applied_on_column": "Customer Id",
-        "check_kwargs": {
+        "expectation_type": "expect_column_values_to_be_in_range",
+        "kwargs": {
+            "column": "Customer Id",
             "min": 1,
             "max": 1000
         },
       },{
-        "check_name": "expect_column_values_to_match_regex",
-        "applied_on_column": "Customer Id",
-        "check_kwargs": {
+        "expectation_type": "expect_column_values_to_match_regex",
+        "kwargs": {
+            "column": "Customer Id",
             "regex": "^[a-zA-Z0-9]{15}$"
         }
       }
@@ -210,30 +215,33 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     # check if the connection_name exists in the database
     # root user logging in user_credentials database
-    conn = get_mysql_db(hostname=db_constants.ADMIN_HOSTNAME, 
+    admin_conn = get_mysql_db(hostname=db_constants.ADMIN_HOSTNAME, 
                         username=db_constants.ADMIN_USERNAME, 
                         password=db_constants.ADMIN_PASSWORD, 
                         port=db_constants.ADMIN_PORT, 
                         database=db_constants.USER_CREDENTIALS_DATABASE
                         )
     
-    cursor = conn.cursor()
+    admin_cursor = admin_conn.cursor()
     
-    READ_FOR_CONN_NAME_QUERY = f"SELECT 1 FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s LIMIT 1;"
-    print(cursor.mogrify(READ_FOR_CONN_NAME_QUERY, (connection_name,)))
-    cursor.execute(READ_FOR_CONN_NAME_QUERY,(connection_name,))
-    exists = cursor.fetchone() is not None
+    READ_FOR_CONN_NAME_QUERY = f"""SELECT 1 FROM {db_constants.USER_LOGIN_TABLE} 
+    WHERE {db_constants.CONNECTION_NAME} = %s 
+    LIMIT 1;"""
+    admin_cursor.execute(READ_FOR_CONN_NAME_QUERY,(connection_name,))
+    exists = admin_cursor.fetchone() is not None
 
     if not exists:
         raise HTTPException(status_code=404, detail={"error": "User not found", "connection_name": connection_name})
     
-    print("User found retrieving connection details")
+    print("User found, retrieving connection details")
 
     # retrieve user connection credentials
 
-    GET_USERNAME_QUERY = f"SELECT {db_constants.USERNAME} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s;"
-    cursor.execute(GET_USERNAME_QUERY,(connection_name,))
-    retrieved_username = cursor.fetchall()
+    GET_USERNAME_QUERY = f"""SELECT {db_constants.USERNAME} 
+    FROM {db_constants.USER_LOGIN_TABLE} 
+    WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    admin_cursor.execute(GET_USERNAME_QUERY,(connection_name,))
+    retrieved_username = admin_cursor.fetchall()
     try:
         username = retrieved_username[0][0] # extracting data from tuple, tuple format: (('user'),)
     except ValueError as ve:
@@ -241,9 +249,11 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     print("Username successfully retrieved")
 
-    GET_PASSWORD_QUERY = f"SELECT {db_constants.PASSWORD} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s;"
-    cursor.execute(GET_PASSWORD_QUERY,(connection_name,))
-    retrieved_password = cursor.fetchall()
+    GET_PASSWORD_QUERY = f"""SELECT {db_constants.PASSWORD} 
+    FROM {db_constants.USER_LOGIN_TABLE} 
+    WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    admin_cursor.execute(GET_PASSWORD_QUERY,(connection_name,))
+    retrieved_password = admin_cursor.fetchall()
     try:
         password = retrieved_password[0][0]
     except ValueError as ve:
@@ -251,9 +261,11 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     print("Password successfully retrieved")
 
-    GET_HOSTNAME_QUERY = f"SELECT {db_constants.HOSTNAME} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s;"
-    cursor.execute(GET_HOSTNAME_QUERY,(connection_name,))
-    retrieved_hostname = cursor.fetchall()
+    GET_HOSTNAME_QUERY = f"""SELECT {db_constants.HOSTNAME} 
+    FROM {db_constants.USER_LOGIN_TABLE} 
+    WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    admin_cursor.execute(GET_HOSTNAME_QUERY,(connection_name,))
+    retrieved_hostname = admin_cursor.fetchall()
     try:
         hostname = retrieved_hostname[0][0]
     except ValueError as ve:
@@ -261,9 +273,11 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     print("Hostname successfully retrieved")
 
-    GET_PORT_QUERY = f"SELECT {db_constants.PORT} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s;"
-    cursor.execute(GET_PORT_QUERY,(connection_name,))
-    retrieved_port = cursor.fetchall() 
+    GET_PORT_QUERY = f"""SELECT {db_constants.PORT} 
+    FROM {db_constants.USER_LOGIN_TABLE} 
+    WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    admin_cursor.execute(GET_PORT_QUERY,(connection_name,))
+    retrieved_port = admin_cursor.fetchall() 
     try:
         port = retrieved_port[0][0] # extracting data from tuple, tuple format: ((4000),)
     except ValueError as ve:
@@ -271,19 +285,33 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     print("Port successfully retrieved")
 
-    GET_SOURCE_QUERY = f"SELECT {db_constants.DATABASE} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s;"
-    cursor.execute(GET_SOURCE_QUERY,(connection_name,))
-    retrieved_data_source = cursor.fetchall()
+    GET_SOURCE_TYPE_QUERY = f"""SELECT {db_constants.SOURCE_TYPE} 
+    FROM {db_constants.USER_LOGIN_TABLE} 
+    WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    admin_cursor.execute(GET_SOURCE_TYPE_QUERY,(connection_name,))
+    retrieved_data_source_type = admin_cursor.fetchall()
     try:
-        data_source = retrieved_data_source[0][0]
+        data_source_type = retrieved_data_source_type[0][0]
     except ValueError as ve:
-        raise Exception(f"Required string type value for data source\n{str(ve)}")
+        raise Exception(f"Required string type value for data source type\n{str(ve)}")
+    
+    print("Data source type successfully retrieved")
 
-    print("Data source successfully retrieved")
+    if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+        GET_SOURCE_QUERY = f"""SELECT {db_constants.DATABASE} 
+        FROM {db_constants.USER_LOGIN_TABLE} 
+        WHERE {db_constants.CONNECTION_NAME} = %s;"""
+        admin_cursor.execute(GET_SOURCE_QUERY,(connection_name,))
+        retrieved_data_source = admin_cursor.fetchall()
+        try:
+            data_source = retrieved_data_source[0][0]
+        except ValueError as ve:
+            raise Exception(f"Required string type value for data source\n{str(ve)}")
 
-    # cursor.commit()
-    cursor.close()
-    conn.close()
+        print("Data source successfully retrieved")
+
+    admin_cursor.close()
+    admin_conn.close()
 
     print("Creating user connection")
     # create user connection
@@ -296,7 +324,24 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         database=data_source
     )
 
-    print(f"User {username} successfully connected to {data_source} in server {hostname} on {port}")
+    print(f"User {username} successfully connected to {data_source} in server {hostname} on {port} \n Connection obj:{user_conn}")
+
+    # creating new data source
+    # create_new_datasource(datasource_type=data_source_type, port=port, host=hostname, password=password, database=data_source)    
+
+
+    # quality_checks = job.quality_checks # list of all the validation checks
+
+    """
+    TODO:
+   
+    1. Create a new data source
+    2. Create an expectation suite
+    3. Get the data from the data_source
+    4. Create a checkpoint using the expectation suite and the data_source
+    5. Run the checkpoint
+    6. Return the checkpoint results
+    """
 
     # user_cursor = user_conn.cursor()
   
