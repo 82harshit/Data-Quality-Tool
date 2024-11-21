@@ -225,34 +225,67 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     exists = cursor.fetchone() is not None
 
     if not exists:
-        return HTTPException(status_code=404, detail={"error": "User not found", "connection_name": connection_name})
+        raise HTTPException(status_code=404, detail={"error": "User not found", "connection_name": connection_name})
+    
+    print("User found retrieving connection details")
 
     # retrieve user connection credentials
 
-    GET_USERNAME_QUERY = f"SELECT {db_constants.USERNAME} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = '%s';"
+    GET_USERNAME_QUERY = f"SELECT {db_constants.USERNAME} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s;"
     cursor.execute(GET_USERNAME_QUERY,(connection_name,))
-    username = cursor.fetchall()
+    retrieved_username = cursor.fetchall()
+    try:
+        username = retrieved_username[0][0] # extracting data from tuple, tuple format: (('user'),)
+    except ValueError as ve:
+        raise Exception(f"Required string type value for username\n{str(ve)}")
 
-    GET_PASSWORD_QUERY = f"SELECT {db_constants.PASSWORD} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = '%s';"
+    print("Username successfully retrieved")
+
+    GET_PASSWORD_QUERY = f"SELECT {db_constants.PASSWORD} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s;"
     cursor.execute(GET_PASSWORD_QUERY,(connection_name,))
-    password = cursor.fetchall()
+    retrieved_password = cursor.fetchall()
+    try:
+        password = retrieved_password[0][0]
+    except ValueError as ve:
+        raise Exception(f"Required string type value for password\n{str(ve)}")
 
-    GET_HOSTNAME_QUERY = f"SELECT {db_constants.HOSTNAME} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = '%s';"
+    print("Password successfully retrieved")
+
+    GET_HOSTNAME_QUERY = f"SELECT {db_constants.HOSTNAME} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s;"
     cursor.execute(GET_HOSTNAME_QUERY,(connection_name,))
-    hostname = cursor.fetchall()
+    retrieved_hostname = cursor.fetchall()
+    try:
+        hostname = retrieved_hostname[0][0]
+    except ValueError as ve:
+        raise Exception(f"Required string type value for hostname\n{str(ve)}")
 
-    GET_PORT_QUERY = f"SELECT {db_constants.PORT} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = '%s';"
+    print("Hostname successfully retrieved")
+
+    GET_PORT_QUERY = f"SELECT {db_constants.PORT} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s;"
     cursor.execute(GET_PORT_QUERY,(connection_name,))
-    port = cursor.fetchall()
+    retrieved_port = cursor.fetchall() 
+    try:
+        port = retrieved_port[0][0] # extracting data from tuple, tuple format: ((4000),)
+    except ValueError as ve:
+        raise Exception(f"Required integer type value for port\n{str(ve)}")
 
-    GET_SOURCE_QUERY = f"SELECT {db_constants.DATABASE} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = '%s';"
+    print("Port successfully retrieved")
+
+    GET_SOURCE_QUERY = f"SELECT {db_constants.DATABASE} FROM {db_constants.USER_LOGIN_TABLE} WHERE {db_constants.CONNECTION_NAME} = %s;"
     cursor.execute(GET_SOURCE_QUERY,(connection_name,))
-    data_source = cursor.fetchall()
+    retrieved_data_source = cursor.fetchall()
+    try:
+        data_source = retrieved_data_source[0][0]
+    except ValueError as ve:
+        raise Exception(f"Required string type value for data source\n{str(ve)}")
+
+    print("Data source successfully retrieved")
 
     # cursor.commit()
     cursor.close()
     conn.close()
 
+    print("Creating user connection")
     # create user connection
 
     user_conn = get_mysql_db(
