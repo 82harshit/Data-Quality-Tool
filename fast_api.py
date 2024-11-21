@@ -173,7 +173,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
   "data_target": {
     "target_data_type": "csv",
     "target_path": "C:/user/sink_dataset",
-    "target_data_format": "string",
+    "target_data_format": "string"
     # "target_schema": "string"
   },
   "quality_checks": [
@@ -326,17 +326,43 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     print(f"User {username} successfully connected to {data_source} in server {hostname} on {port} \n Connection obj:{user_conn}")
 
+    """
+    TODO: Remove following temp vars
+    """
+    datasource_name = f"customer_table" # f"{table_name}_table"
+    table_name = "customers"
+
     # creating new data source
-    # create_new_datasource(datasource_type=data_source_type, port=port, host=hostname, password=password, database=data_source)    
+    from ge import create_new_datasource
+    if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+        
+        create_new_datasource(datasource_type=data_source_type, port=port, host=hostname, password=password, database=data_source,
+                              username=username, datasource_name=datasource_name, table_name=table_name) # add table name
+    else: # if its a file
+        create_new_datasource(datasource_type=data_source_type, port=port, host=hostname, password=password, database=data_source)   
+  
+    from ge import create_expectation_suite
+    expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}"
+    create_expectation_suite(expectation_suite_name=expectation_suite_name)
+    print("Successfully created expectation suite")
 
+    # from ge import create_batch_request
+    # if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+    #     batch_request_json = create_batch_request(datasource_name=datasource_name)
+    # else: # if file
+    #     batch_request_json = create_batch_request(datasource_name=datasource_name, data_asset_name="") # add filename in data_asset_name
+    # print("Successfully created batch request")
 
-    # quality_checks = job.quality_checks # list of all the validation checks
+    # from ge import create_validator
+    # validator = create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
+    
+    # TODO: add expectations to validator
+    quality_checks = job.quality_checks # list of all the validation checks
+    print(f"Quality_checks:\n{quality_checks}")
 
     """
     TODO:
    
-    1. Create a new data source
-    2. Create an expectation suite
     3. Get the data from the data_source
     4. Create a checkpoint using the expectation suite and the data_source
     5. Run the checkpoint
