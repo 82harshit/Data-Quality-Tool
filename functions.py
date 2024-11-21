@@ -21,21 +21,10 @@ async def search_file_on_server(connection: connection_model.Connection):
 
             # Extract connection details
             file_name = connection.connection_credentials.file_name
-            file_path = connection.connection_credentials.file_path
             dir_path = connection.connection_credentials.dir_path
 
-            # Case 1: If `file_path` is provided, it takes precedence
-            if file_path:
-                search_command = f"ls -l {file_path}"
-                result = await conn.run(search_command)
-
-                if result.exit_status == 0:
-                    return {"file_found": True, "file_path": file_path}
-                else:
-                    return {"file_found": False, "message": f"File {file_path} not found."}
-
-            # Case 2: If `dir_path` and `file_name` are provided, search within the directory (no subdirectories)
-            elif dir_path and file_name:
+            # Case 1: If `dir_path` and `file_name` are provided, search within the directory (no subdirectories)
+            if dir_path and file_name:
                 # Handle wildcard pattern in file_name (e.g., '*.json')
                 if '*' in file_name:
                     # Use globbing logic to find all matching files within the directory (not subdirectories)
@@ -59,7 +48,7 @@ async def search_file_on_server(connection: connection_model.Connection):
                     else:
                         return {"file_found": False, "message": f"File {file_name} not found in {dir_path}."}
 
-            # Case 3: If only `file_name` is provided, perform a global search
+            # Case 2: If only `file_name` is provided, perform a global search
             elif file_name:
                 # Handle wildcard pattern for global search
                 if '*' in file_name:
@@ -81,9 +70,9 @@ async def search_file_on_server(connection: connection_model.Connection):
                     else:
                         return {"file_found": False, "message": f"File {file_name} not found."}
 
-            # Case 4: Invalid configuration (fallback from `ConnectionCredentials` validation)
+            # Case 3: Invalid configuration (fallback from `ConnectionCredentials` validation)
             else:
-                raise ValueError("Invalid connection configuration. Please provide either 'file_path', 'dir_path' with 'file_name', or just 'file_name'.")
+                raise ValueError("Invalid connection configuration. Please provide either 'dir_path' with 'file_name', or just 'file_name'.")
 
     except asyncssh.PermissionDenied:
         raise HTTPException(status_code=403, detail="SSH permission denied. Check your credentials.")

@@ -26,7 +26,6 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             "server": "server_IP",
             "database": "test_DB",
             "file_name" : "customers-100.csv",
-            "file_path" : "/home/merit/Desktop/sample_avro.avro",
             "dir_path" : "/home/merit/Desktop"
         },
         "metadata": {
