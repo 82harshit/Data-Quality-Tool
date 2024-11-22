@@ -184,11 +184,11 @@ def create_batch_request(datasource_name: str, data_asset_name: Optional[str] = 
     """
     if limit == 0:
         batch_request = {'datasource_name': datasource_name, 
-                         'data_connector_name': 'default_inferred_data_connector_name', 
+                         'data_connector_name': 'default_configured_data_connector_name', 
                          'data_asset_name': data_asset_name}
     else:
         batch_request = {'datasource_name': datasource_name, 
-                        'data_connector_name': 'default_inferred_data_connector_name', 
+                        'data_connector_name': 'default_configured_data_connector_name', 
                         'data_asset_name': data_asset_name, 
                         'limit': limit}
 

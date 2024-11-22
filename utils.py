@@ -101,8 +101,18 @@ def find_validation_result(data):
 
     :return: JSON containing validation results or None  
     """
-    for key in data:
-        if key.startswith("ValidationResultIdentifier::"):
-            # Access the 'validation_result' inside the matched key
-            return data[key].get("validation_result")
-    return None  # Return None if no matching key is found
+
+    try:
+        # Accessing the 'run_results' and then navigating to the specific validation result
+        run_results = data.get('run_results', {})
+        
+        # Iterate over each key in the run_results
+        for result_key, result_value in run_results.items():
+            # Check if the 'validation_result' key exists
+            if 'validation_result' in result_value:
+                return result_value['validation_result']
+        return None  # Return None if no validation_result is found
+    except Exception as e:
+        print(f"Error extracting validation result: {e}")
+        return None
+
