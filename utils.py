@@ -1,4 +1,6 @@
-from request_models import connection_model
+from fastapi import HTTPException
+from request_models import connection_enum_and_metadata, connection_model
+import pymysql
 from datetime import datetime
 import random
 import re
@@ -17,50 +19,77 @@ def remove_special_characters(input_string) -> str:
 
 def generate_connection_name(connection: connection_model.Connection) -> str:
     """
-    This function generates a unique connection name using timestamp, connection credentials and a random integer
-    in the range of 1000 and 9999 like:
-    `20241120162230_test_3233347_3006_testdb_3694`
+    Generates a unique connection name using timestamp, connection credentials, and a random integer.
+    Supports both database and file-based connections:
+    - Database example: `20241120162230_test_3233347_3006_testdb_3694`
+    - File-based example: `20241120162230_test_3233347_3006_data.json_3694`
 
     :param connection: Connection object
 
-    :return unique_connection_name (str): Generated connection name created using connection credentials, random integer 
-    and timestamp
+    :return: Unique connection name
     """
     hostname = connection.connection_credentials.server
     username = connection.user_credentials.username
     port = connection.connection_credentials.port
-    database = connection.connection_credentials.database
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    rand_int = random.randint(1000,9999) # random generated integer in the range of 1000 to 9999
+    rand_int = random.randint(1000, 9999)  # Random integer in the range of 1000 to 9999
 
-    # removing all alphanumeric characters
+    # Extract the connection type correctly
+    connection_type = connection.connection_credentials.connection_type
+
+    # Determine whether to use database or file_name
+    if connection_type in {
+        connection_enum_and_metadata.ConnectionEnum.JSON,
+        connection_enum_and_metadata.ConnectionEnum.CSV,
+        connection_enum_and_metadata.ConnectionEnum.ORC,
+        connection_enum_and_metadata.ConnectionEnum.PARQUET,
+        connection_enum_and_metadata.ConnectionEnum.AVRO,
+    }:
+        target = connection.connection_credentials.connection_type
+    else:
+        target = connection.connection_credentials.database
+
+    # Remove special characters from all components
     hostname = remove_special_characters(hostname)
     username = remove_special_characters(username)
     port = remove_special_characters(port)
-    database = remove_special_characters(database)
+    target = remove_special_characters(target)
 
-    unique_connection_name = f"{timestamp}_{username}_{hostname}_{port}_{database}_{rand_int}"
+    # Generate the unique connection name
+    unique_connection_name = f"{timestamp}_{username}_{hostname}_{port}_{target}_{rand_int}"
     return unique_connection_name
 
 
 def generate_connection_string(connection: connection_model.Connection) -> str:
     """
-    This function generates a connections string like:
-    `mysql://test_user:test_password@0.0.0.0:3000/test_database`
-    using the connection credentials
+    Generates a connection string for the provided connection type.
+    - Database connections: `mysql://test_user:test_password@0.0.0.0:3000/test_database`
+    - File-based connections: `json://test_user:test_password@0.0.0.0:3000/test_file.json`
 
     :param connection: Connection object
 
-    :return generated_connection_string (str): Generated connection string created using connection credentials
+    :return: Generated connection string
     """
     hostname = connection.connection_credentials.server
     username = connection.user_credentials.username
     password = connection.user_credentials.password
     port = connection.connection_credentials.port
-    database = connection.connection_credentials.database
     connection_type = connection.connection_credentials.connection_type
 
-    generated_connection_string = f"{connection_type}://{username}:{password}@{hostname}:{port}/{database}"
+    # Determine whether to use database or file_name for connection string
+    if connection_type in {
+        connection_enum_and_metadata.ConnectionEnum.JSON,
+        connection_enum_and_metadata.ConnectionEnum.CSV,
+        connection_enum_and_metadata.ConnectionEnum.ORC,
+        connection_enum_and_metadata.ConnectionEnum.PARQUET,
+        connection_enum_and_metadata.ConnectionEnum.AVRO,
+    }:
+        target = connection.connection_credentials.file_name  # Use file name for file-based connections
+    else:
+        target = connection.connection_credentials.database  # Use database for database connections
+
+    # Generate connection string
+    generated_connection_string = f"{connection_type}://{username}:{password}@{hostname}:{port}/{target}"
     return generated_connection_string
 
 

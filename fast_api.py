@@ -19,9 +19,9 @@ and generates a unique `connection name` for the user
 
 from fastapi import FastAPI, Body, HTTPException
 from request_models import connection_enum_and_metadata, connection_model, job_model
-from utils import generate_connection_name, generate_connection_string, find_validation_result
+from utils import generate_connection_name, generate_connection_string
 import db_constants
-from server_functions import search_file_on_server, get_mysql_db
+from server_functions import get_mysql_db,handle_file_connection
 
 app = FastAPI()
 
@@ -123,12 +123,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
         
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.JSON:
-        if connection.connection_credentials.file_name.endswith(".json") or connection.connection_credentials.file_path.endswith('.json'):
-            result = await search_file_on_server(connection)
-            return result
-        else:
-            raise HTTPException(status_code=400, detail="The provided file is not a JSON file.")
-        
+        return await handle_file_connection(connection, expected_extension=".json")
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.SAP:
         raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.SAP} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.STREAMING:
@@ -136,31 +131,15 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.FILESERVER:
         raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.FILESERVER} not impelemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.ORC:
-        if connection.connection_credentials.filename.endswith(".orc"):
-            result = await search_file_on_server(connection)
-            return result
-        else:
-            raise HTTPException(status_code=400, detail="The provided file is not a ORC file.")
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.AVRO or connection.connection_credentials.file_path.endswith('.avro'):
-        if connection.connection_credentials.file_name.endswith(".avro"):
-            result = await search_file_on_server(connection)
-            return result
-        else:
-            raise HTTPException(status_code=400, detail="The provided file is not a AVRO file.")
+        return await handle_file_connection(connection, expected_extension=".orc")
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.AVRO:
+        return await handle_file_connection(connection, expected_extension=".avro")
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.CSV:
-        if connection.connection_credentials.filename.endswith(".csv"):
-            result = await search_file_on_server(connection)
-            return result
-        else:
-            raise HTTPException(status_code=400, detail="The provided file is not a CSV file.")
+        return await handle_file_connection(connection, expected_extension=".csv")
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.REDSHIFT:
         raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.REDSHIFT} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.PARQUET:
-        if connection.connection_credentials.filename.endswith(".parquet") or connection.connection_credentials.file_path.endswith('.parquet'):
-            result = await search_file_on_server(connection)
-            return result
-        else:
-            raise HTTPException(status_code=400, detail="The provided file is not a PARQUET file.")
+        return await handle_file_connection(connection, expected_extension=".parquet")
     else:
         raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", "request_json": connection.model_dump_json()})
 
