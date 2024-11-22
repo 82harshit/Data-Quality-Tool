@@ -19,7 +19,7 @@ and generates a unique `connection name` for the user
 
 from fastapi import FastAPI, Body, HTTPException
 from request_models import connection_enum_and_metadata, connection_model, job_model
-from utils import generate_connection_name, generate_connection_string
+from utils import generate_connection_name, generate_connection_string, find_validation_result
 import db_constants
 from server_functions import get_mysql_db,handle_file_connection
 
