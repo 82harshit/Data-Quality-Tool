@@ -104,11 +104,73 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
         
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.JSON:
-        if connection.connection_credentials.file_name.endswith(".json") or connection.connection_credentials.file_path.endswith('.json'):
+        try:
+            # Validate the file type
+            if not connection.connection_credentials.file_name.endswith(".json"):
+                raise HTTPException(status_code=400, detail="The provided file is not a JSON file.")
+
+            # Search for the JSON file on the server
             result = await search_file_on_server(connection)
-            return result
-        else:
-            raise HTTPException(status_code=400, detail="The provided file is not a JSON file.")
+            if not result["file_found"]:
+                raise HTTPException(status_code=404, detail="JSON file not found on server.")
+
+            # Extract connection details
+            file_name = connection.connection_credentials.file_name
+            file_path = result["file_path"]
+            hostname = connection.connection_credentials.server
+            username = connection.user_credentials.username
+            password = connection.user_credentials.password
+            port = connection.connection_credentials.port
+
+            # Generate unique connection name
+            unique_connection_name = generate_connection_name(connection=connection)
+
+            # Generate connection string
+            connection_string = generate_connection_string(connection=connection)
+
+            print(f"Unique connection name: {unique_connection_name}")
+            print(f"Connection string: {connection_string}")
+
+            # Connect to the database to store connection details
+            conn = get_mysql_db(
+                hostname=db_constants.ADMIN_HOSTNAME,
+                username=db_constants.ADMIN_USERNAME,
+                password=db_constants.ADMIN_PASSWORD,
+                port=db_constants.ADMIN_PORT,
+                database=db_constants.USER_CREDENTIALS_DATABASE
+            )
+            cursor = conn.cursor()
+
+            # Insert connection details into the database
+            INSERT_CONN_DETAILS_QUERY = f"INSERT INTO {db_constants.USER_LOGIN_TABLE} VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
+            cursor.execute(INSERT_CONN_DETAILS_QUERY,(
+                            unique_connection_name,
+                            connection_string,
+                            username,
+                            connection_type,
+                            password,
+                            hostname,
+                            port,
+                            file_name
+                        ))
+        
+            conn.commit()
+
+            conn.commit()
+            print("JSON connection details insertion completed.")
+
+            # Close the database connection
+            cursor.close()
+            conn.close()
+
+            return {
+                "status": "connected",
+                "connection_name": unique_connection_name,
+                "file_path": file_path
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error processing JSON connection: {str(e)}")
         
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.SAP:
         raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.SAP} not implemented", "request_json": connection.model_dump_json()})
@@ -117,31 +179,271 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.FILESERVER:
         raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.FILESERVER} not impelemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.ORC:
-        if connection.connection_credentials.filename.endswith(".orc"):
+        try:
+            # Validate the file type
+            if not connection.connection_credentials.file_name.endswith(".orc"):
+                raise HTTPException(status_code=400, detail="The provided file is not an ORC file.")
+
+            # Search for the ORC file on the server
             result = await search_file_on_server(connection)
-            return result
-        else:
-            raise HTTPException(status_code=400, detail="The provided file is not a ORC file.")
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.AVRO or connection.connection_credentials.file_path.endswith('.avro'):
-        if connection.connection_credentials.file_name.endswith(".avro"):
+            if not result["file_found"]:
+                raise HTTPException(status_code=404, detail="ORC file not found on server.")
+
+            # Extract connection details
+            file_name = connection.connection_credentials.file_name
+            file_path = result["file_path"]
+            hostname = connection.connection_credentials.server
+            username = connection.user_credentials.username
+            password = connection.user_credentials.password
+            port = connection.connection_credentials.port
+
+            # Generate unique connection name
+            unique_connection_name = generate_connection_name(connection=connection)
+
+            # Generate connection string
+            connection_string = generate_connection_string(connection=connection)
+
+            print(f"Unique connection name: {unique_connection_name}")
+            print(f"Connection string: {connection_string}")
+
+            # Connect to the database to store connection details
+            conn = get_mysql_db(
+                hostname=db_constants.ADMIN_HOSTNAME,
+                username=db_constants.ADMIN_USERNAME,
+                password=db_constants.ADMIN_PASSWORD,
+                port=db_constants.ADMIN_PORT,
+                database=db_constants.USER_CREDENTIALS_DATABASE
+            )
+            cursor = conn.cursor()
+
+            # Insert connection details into the database
+            INSERT_CONN_DETAILS_QUERY = f"INSERT INTO {db_constants.USER_LOGIN_TABLE} VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
+            cursor.execute(INSERT_CONN_DETAILS_QUERY, (
+                unique_connection_name,
+                connection_string,
+                username,
+                connection_type,
+                password,
+                hostname,
+                port,
+                file_name
+            ))
+
+            conn.commit()
+            print("ORC connection details insertion completed.")
+
+            # Close the database connection
+            cursor.close()
+            conn.close()
+
+            return {
+                "status": "connected",
+                "connection_name": unique_connection_name,
+                "file_path": file_path
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error processing ORC connection: {str(e)}")
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.AVRO:
+        try:
+            # Validate the file type
+            if not connection.connection_credentials.file_name.endswith(".avro"):
+                raise HTTPException(status_code=400, detail="The provided file is not an AVRO file.")
+
+            # Search for the AVRO file on the server
             result = await search_file_on_server(connection)
-            return result
-        else:
-            raise HTTPException(status_code=400, detail="The provided file is not a AVRO file.")
+            if not result["file_found"]:
+                raise HTTPException(status_code=404, detail="AVRO file not found on server.")
+
+            # Extract connection details
+            file_name = connection.connection_credentials.file_name
+            file_path = result["file_path"]
+            hostname = connection.connection_credentials.server
+            username = connection.user_credentials.username
+            password = connection.user_credentials.password
+            port = connection.connection_credentials.port
+
+            # Generate unique connection name
+            unique_connection_name = generate_connection_name(connection=connection)
+
+            # Generate connection string
+            connection_string = generate_connection_string(connection=connection)
+
+            print(f"Unique connection name: {unique_connection_name}")
+            print(f"Connection string: {connection_string}")
+
+            # Connect to the database to store connection details
+            conn = get_mysql_db(
+                hostname=db_constants.ADMIN_HOSTNAME,
+                username=db_constants.ADMIN_USERNAME,
+                password=db_constants.ADMIN_PASSWORD,
+                port=db_constants.ADMIN_PORT,
+                database=db_constants.USER_CREDENTIALS_DATABASE
+            )
+            cursor = conn.cursor()
+
+            # Insert connection details into the database
+            INSERT_CONN_DETAILS_QUERY = f"INSERT INTO {db_constants.USER_LOGIN_TABLE} VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
+            cursor.execute(INSERT_CONN_DETAILS_QUERY, (
+                unique_connection_name,
+                connection_string,
+                username,
+                connection_type,
+                password,
+                hostname,
+                port,
+                file_name
+            ))
+
+            conn.commit()
+            print("AVRO connection details insertion completed.")
+
+            # Close the database connection
+            cursor.close()
+            conn.close()
+
+            return {
+                "status": "connected",
+                "connection_name": unique_connection_name,
+                "file_path": file_path
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error processing AVRO connection: {str(e)}")
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.CSV:
-        if connection.connection_credentials.filename.endswith(".csv"):
+        try:
+            # Validate the file type
+            if not connection.connection_credentials.file_name.endswith(".csv"):
+                raise HTTPException(status_code=400, detail="The provided file is not a CSV file.")
+
+            # Search for the CSV file on the server
             result = await search_file_on_server(connection)
-            return result
-        else:
-            raise HTTPException(status_code=400, detail="The provided file is not a CSV file.")
+            if not result["file_found"]:
+                raise HTTPException(status_code=404, detail="CSV file not found on server.")
+
+            # Extract connection details
+            file_name = connection.connection_credentials.file_name
+            file_path = result["file_path"]
+            hostname = connection.connection_credentials.server
+            username = connection.user_credentials.username
+            password = connection.user_credentials.password
+            port = connection.connection_credentials.port
+
+            # Generate unique connection name
+            unique_connection_name = generate_connection_name(connection=connection)
+
+            # Generate connection string
+            connection_string = generate_connection_string(connection=connection)
+
+            print(f"Unique connection name: {unique_connection_name}")
+            print(f"Connection string: {connection_string}")
+
+            # Connect to the database to store connection details
+            conn = get_mysql_db(
+                hostname=db_constants.ADMIN_HOSTNAME,
+                username=db_constants.ADMIN_USERNAME,
+                password=db_constants.ADMIN_PASSWORD,
+                port=db_constants.ADMIN_PORT,
+                database=db_constants.USER_CREDENTIALS_DATABASE
+            )
+            cursor = conn.cursor()
+
+            # Insert connection details into the database
+            INSERT_CONN_DETAILS_QUERY = f"INSERT INTO {db_constants.USER_LOGIN_TABLE} VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
+            cursor.execute(INSERT_CONN_DETAILS_QUERY, (
+                unique_connection_name,
+                connection_string,
+                username,
+                connection_type,
+                password,
+                hostname,
+                port,
+                file_name
+            ))
+
+            conn.commit()
+            print("CSV connection details insertion completed.")
+
+            # Close the database connection
+            cursor.close()
+            conn.close()
+
+            return {
+                "status": "connected",
+                "connection_name": unique_connection_name,
+                "file_path": file_path
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error processing CSV connection: {str(e)}")
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.REDSHIFT:
         raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.REDSHIFT} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.PARQUET:
-        if connection.connection_credentials.filename.endswith(".parquet") or connection.connection_credentials.file_path.endswith('.parquet'):
+        try:
+            # Validate the file type
+            if not connection.connection_credentials.file_name.endswith(".parquet"):
+                raise HTTPException(status_code=400, detail="The provided file is not a Parquet file.")
+
+            # Search for the Parquet file on the server
             result = await search_file_on_server(connection)
-            return result
-        else:
-            raise HTTPException(status_code=400, detail="The provided file is not a PARQUET file.")
+            if not result["file_found"]:
+                raise HTTPException(status_code=404, detail="Parquet file not found on server.")
+
+            # Extract connection details
+            file_name = connection.connection_credentials.file_name
+            file_path = result["file_path"]
+            hostname = connection.connection_credentials.server
+            username = connection.user_credentials.username
+            password = connection.user_credentials.password
+            port = connection.connection_credentials.port
+
+            # Generate unique connection name
+            unique_connection_name = generate_connection_name(connection=connection)
+
+            # Generate connection string
+            connection_string = generate_connection_string(connection=connection)
+
+            print(f"Unique connection name: {unique_connection_name}")
+            print(f"Connection string: {connection_string}")
+
+            # Connect to the database to store connection details
+            conn = get_mysql_db(
+                hostname=db_constants.ADMIN_HOSTNAME,
+                username=db_constants.ADMIN_USERNAME,
+                password=db_constants.ADMIN_PASSWORD,
+                port=db_constants.ADMIN_PORT,
+                database=db_constants.USER_CREDENTIALS_DATABASE
+            )
+            cursor = conn.cursor()
+
+            # Insert connection details into the database
+            INSERT_CONN_DETAILS_QUERY = f"INSERT INTO {db_constants.USER_LOGIN_TABLE} VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
+            cursor.execute(INSERT_CONN_DETAILS_QUERY, (
+                unique_connection_name,
+                connection_string,
+                username,
+                connection_type,
+                password,
+                hostname,
+                port,
+                file_name
+            ))
+
+            conn.commit()
+            print("Parquet connection details insertion completed.")
+
+            # Close the database connection
+            cursor.close()
+            conn.close()
+
+            return {
+                "status": "connected",
+                "connection_name": unique_connection_name,
+                "file_path": file_path
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error processing Parquet connection: {str(e)}")
     else:
         raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", "request_json": connection.model_dump_json()})
 
