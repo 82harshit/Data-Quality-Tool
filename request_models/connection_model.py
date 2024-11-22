@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, IPvAnyAddress, model_validator
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional
 from request_models import connection_enum_and_metadata as conn
 
@@ -14,6 +14,7 @@ class UserCredentials(BaseModel):
             'password': {'exclude': True},  # This will exclude password field in the response
             'access_token' : {'exclude' : True}
         } 
+
 
 class ConnectionCredentials(BaseModel):
     connection_type: str
@@ -46,6 +47,8 @@ class ConnectionCredentials(BaseModel):
             )
 
         return values
+    
+
 class Connection(BaseModel):
     """
     This is the request body for API POST request

@@ -1,14 +1,33 @@
+"""
+This file contains two FastAPI endpoints:-
+
+1. /create-connection: 
+
+This endpoint is used to test connection with server or filesystem, it stores the user credentials 
+and generates a unique `connection name` for the user
+
+2. /submit-job:
+
+    2.1 This endpoint is used to establish a connection with server or filesystem,
+        using the `connection name` from the `create-connection` endpoint.
+    2.2 Using the established connection it fetches the data from server on which the
+        data quality checks need to be applied
+    2.3 It validates the data using the requested checks on the data source,
+        both of which are provided by the user
+    2.4 The validation results generated are then saved in a relational database
+"""
+
 from fastapi import FastAPI, Body, HTTPException
 from request_models import connection_enum_and_metadata, connection_model, job_model
-from utils import get_mysql_db, generate_connection_name, generate_connection_string
+from utils import generate_connection_name, generate_connection_string
 import db_constants
-from functions import handle_file_connection, search_file_on_server
+from server_functions import get_mysql_db,handle_file_connection
 
 app = FastAPI()
 
 @app.get("/", description='This is the root route')
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Welcome to Data Quality Tool"}
 
 
 @app.post("/create-connection", description="This endpoint allows connection to the provided connection type")
@@ -124,20 +143,6 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     else:
         raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", "request_json": connection.model_dump_json()})
 
-# Function to find and return the 'validation_result'
-def find_validation_result(data, partial_key):
-    for key in data:
-        if key.startswith(partial_key):
-            # Access the 'validation_result' inside the matched key
-            return data[key].get("validation_result")
-    return None  # Return None if no matching key is found
-
-
-PARTIAL_KEY = "ValidationResultIdentifier::"
-
-# @app.post("/upload-file", description='This endpoint allows users to upload a file via the API')
-# def upload_file(file: UploadFile):
-#     return {"uploaded file name": file.filename, "uploaded file size": file.size}
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests") 
         #   response_model=data_quality_metric.DataQualityMetric)
@@ -151,7 +156,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
   "data_target": {
     "target_data_type": "csv",
     "target_path": "C:/user/sink_dataset",
-    "target_data_format": "string",
+    "target_data_format": "string"
     # "target_schema": "string"
   },
   "quality_checks": [
@@ -222,6 +227,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     retrieved_username = admin_cursor.fetchall()
     try:
         username = retrieved_username[0][0] # extracting data from tuple, tuple format: (('user'),)
+        print(f"Username:{username}")
     except ValueError as ve:
         raise Exception(f"Required string type value for username\n{str(ve)}")
 
@@ -234,6 +240,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     retrieved_password = admin_cursor.fetchall()
     try:
         password = retrieved_password[0][0]
+        print(f"Password:{password}")
     except ValueError as ve:
         raise Exception(f"Required string type value for password\n{str(ve)}")
 
@@ -246,6 +253,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     retrieved_hostname = admin_cursor.fetchall()
     try:
         hostname = retrieved_hostname[0][0]
+        print(f"Hostname:{hostname}")
     except ValueError as ve:
         raise Exception(f"Required string type value for hostname\n{str(ve)}")
 
@@ -258,6 +266,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     retrieved_port = admin_cursor.fetchall() 
     try:
         port = retrieved_port[0][0] # extracting data from tuple, tuple format: ((4000),)
+        print(f"Port:{port}")
     except ValueError as ve:
         raise Exception(f"Required integer type value for port\n{str(ve)}")
 
@@ -270,6 +279,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     retrieved_data_source_type = admin_cursor.fetchall()
     try:
         data_source_type = retrieved_data_source_type[0][0]
+        print(f"Data source type:{data_source_type}")
     except ValueError as ve:
         raise Exception(f"Required string type value for data source type\n{str(ve)}")
     
@@ -283,6 +293,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         retrieved_data_source = admin_cursor.fetchall()
         try:
             data_source = retrieved_data_source[0][0]
+            print(f"Data source:{data_source}")
         except ValueError as ve:
             raise Exception(f"Required string type value for data source\n{str(ve)}")
 
@@ -304,21 +315,52 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     print(f"User {username} successfully connected to {data_source} in server {hostname} on {port} \n Connection obj:{user_conn}")
 
+    """
+    TODO: Remove following temp vars
+    """
+    datasource_name = f"customer_table" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS else: f"{filename}_file"
+    table_name = "customers"
+
     # creating new data source
-    # create_new_datasource(datasource_type=data_source_type, port=port, host=hostname, password=password, database=data_source)    
+    from ge import create_new_datasource
+    # if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+    create_new_datasource(datasource_type=data_source_type, port=port, host=hostname, password=password, database=data_source,
+                              username=username, datasource_name=datasource_name, table_name=table_name, schema_name=data_source) # add table name
+    # else: # if its a file
+    #     create_new_datasource(datasource_type=data_source_type, port=port, host=hostname, password=password, database=data_source)   
+  
+    from ge import create_expectation_suite
+    expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
+    create_expectation_suite(expectation_suite_name=expectation_suite_name)
+    print("Successfully created expectation suite")
 
+    from ge import create_batch_request
+    # if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+    batch_request_json = create_batch_request(datasource_name=datasource_name, data_asset_name=table_name)
+    # else: # if file
+    #     batch_request_json = create_batch_request(datasource_name=datasource_name, data_asset_name=table_name) # add filename in data_asset_name
+    print(f"Successfully created batch request JSON:\n{batch_request_json}")
 
-    # quality_checks = job.quality_checks # list of all the validation checks
+    # TODO: Fix = data_asset_name customers is not recognized.
+    from ge import create_validator
+    validator = create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
+    print(f"Validator:{validator}")
+
+    quality_checks = job.quality_checks # list of all the validation checks
+    print(f"Quality_checks:\n{quality_checks}")
+
+    # from ge import add_expectations_to_validator
+    # add_expectations_to_validator(validator=validator,expectations=quality_checks)
+
+    # from ge import run_checkpoint
+    # checkpoint_results = run_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, batch_request=batch_request_json)
+
+    # validation_results = find_validation_result(data=checkpoint_results) # final validation results
+    # TODO: store these validation results in a database
+
 
     """
-    TODO:
-   
-    1. Create a new data source
-    2. Create an expectation suite
-    3. Get the data from the data_source
-    4. Create a checkpoint using the expectation suite and the data_source
-    5. Run the checkpoint
-    6. Return the checkpoint results
+    TODO: Use the user_cursor to get data from the filesystem, ignore the rest of code below
     """
 
     # user_cursor = user_conn.cursor()
