@@ -1,6 +1,8 @@
 import asyncssh
 from fastapi import HTTPException
-from request_models import connection_model
+import db_constants
+from request_models import connection_enum_and_metadata, connection_model
+from utils import generate_connection_name, generate_connection_string, get_mysql_db
 
 
 async def search_file_on_server(connection: connection_model.Connection):
@@ -23,48 +25,36 @@ async def search_file_on_server(connection: connection_model.Connection):
             if dir_path and file_name:
                 # Handle wildcard pattern in file_name (e.g., '*.json')
                 if '*' in file_name:
-                    # Use globbing logic to find all matching files within the directory (not subdirectories)
+                    # Handle wildcard pattern: return multiple file paths in a list
                     search_command = f"find {dir_path} -maxdepth 1 -name '{file_name}' -type f"
                     result = await conn.run(search_command)
 
-                    # Check if files are found
                     if result.exit_status == 0 and result.stdout.strip():
                         file_paths = result.stdout.strip().splitlines()
-                        return {"file_found": True, "file_paths": file_paths}  # Return all matching file paths
+                        return {"file_found": True, "file_paths": file_paths}  # Return a list of file paths
                     else:
                         return {"file_found": False, "message": f"No files matching {file_name} found in {dir_path}."}
                 else:
-                    # If no wildcard, search for the specific file name (within the directory only)
+                    # If no wildcard, search for a specific file name (return a list with one file path)
                     search_command = f"find {dir_path} -maxdepth 1 -name '{file_name}' -type f"
                     result = await conn.run(search_command)
 
                     if result.exit_status == 0 and result.stdout.strip():
                         file_path = result.stdout.strip().split()[-1]
-                        return {"file_found": True, "file_path": file_path}
+                        return {"file_found": True, "file_paths": [file_path]}  # Return file_path as a list
                     else:
                         return {"file_found": False, "message": f"File {file_name} not found in {dir_path}."}
 
             # Case 2: If only `file_name` is provided, perform a global search
             elif file_name:
-                # Handle wildcard pattern for global search
-                if '*' in file_name:
-                    search_command = f"find / -name '{file_name}' -type f"
-                    result = await conn.run(search_command)
+                search_command = f"find / -name '{file_name}' -type f -exec ls -lt {{}} + | head -n 1"
+                result = await conn.run(search_command)
 
-                    if result.exit_status == 0 and result.stdout.strip():
-                        file_paths = result.stdout.strip().splitlines()
-                        return {"file_found": True, "file_paths": file_paths}  # Return all matching file paths
-                    else:
-                        return {"file_found": False, "message": f"No files matching {file_name} found."}
+                if result.exit_status == 0 and result.stdout.strip():
+                    file_path = result.stdout.strip().split()[-1]
+                    return {"file_found": True, "file_path": file_path}
                 else:
-                    search_command = f"find / -name '{file_name}' -type f -exec ls -lt {{}} + | head -n 1"
-                    result = await conn.run(search_command)
-
-                    if result.exit_status == 0 and result.stdout.strip():
-                        file_path = result.stdout.strip().split()[-1]
-                        return {"file_found": True, "file_path": file_path}
-                    else:
-                        return {"file_found": False, "message": f"File {file_name} not found."}
+                    return {"file_found": False, "message": f"File {file_name} not found."}
 
             # Case 3: Invalid configuration (fallback from `ConnectionCredentials` validation)
             else:
@@ -75,6 +65,86 @@ async def search_file_on_server(connection: connection_model.Connection):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
+async def handle_file_connection(connection, expected_extension):
+    """
+    Generalized function to handle file-based connections.
+
+    :param connection: Connection object
+    :param expected_extension: The file extension to validate (e.g., '.json', '.csv')
+    :return: Response with connection details
+    """
+    try:
+        # Validate the file type
+        if not connection.connection_credentials.file_name.endswith(expected_extension):
+            raise HTTPException(status_code=400, detail=f"The provided file is not a {expected_extension.upper()} file.")
+
+        # Search for the file on the server
+        result = await search_file_on_server(connection)
+
+        if not result["file_found"]:
+            raise HTTPException(status_code=404, detail=f"{expected_extension.upper()} file not found on server.")
+
+        # Extract connection details
+        file_name = connection.connection_credentials.file_name
+        file_paths = result.get("file_paths", [])  # This can be a list of paths
+        hostname = connection.connection_credentials.server
+        username = connection.user_credentials.username
+        password = connection.user_credentials.password
+        port = connection.connection_credentials.port
+
+        # Handle the case where there are multiple file paths or a single file path
+        if file_paths:
+            if len(file_paths) == 1:
+                file_path = file_paths[0]  # Single file found
+            else:
+                file_path = file_paths  # Multiple files found
+        else:
+            raise HTTPException(status_code=404, detail=f"No valid file found for {expected_extension.upper()}.")
+
+        # Generate unique connection name and string
+        unique_connection_name = generate_connection_name(connection=connection)
+        connection_string = generate_connection_string(connection=connection)
+
+        print(f"Unique connection name: {unique_connection_name}")
+        print(f"Connection string: {connection_string}")
+
+        # Store connection details in the database
+        conn = get_mysql_db(
+            hostname=db_constants.ADMIN_HOSTNAME,
+            username=db_constants.ADMIN_USERNAME,
+            password=db_constants.ADMIN_PASSWORD,
+            port=db_constants.ADMIN_PORT,
+            database=db_constants.USER_CREDENTIALS_DATABASE
+        )
+        cursor = conn.cursor()
+
+        INSERT_CONN_DETAILS_QUERY = f"INSERT INTO {db_constants.USER_LOGIN_TABLE} VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
+        cursor.execute(INSERT_CONN_DETAILS_QUERY, (
+            unique_connection_name,
+            connection_string,
+            username,
+            connection.connection_credentials.connection_type,
+            password,
+            hostname,
+            port,
+            file_name
+        ))
+        conn.commit()
+        print(f"{expected_extension.upper()} connection details insertion completed.")
+
+        # Close the database connection
+        cursor.close()
+        conn.close()
+
+        # Return the response with connection details
+        return {
+            "status": "connected",
+            "connection_name": unique_connection_name,
+            "file_paths": file_path  # This will either be a list or a single file path
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing {expected_extension.upper()} connection: {str(e)}")
 # Function to read the file and return columns
 # async def read_file_columns(conn, file_path: str):
 #     try:
