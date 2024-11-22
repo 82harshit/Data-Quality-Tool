@@ -1,34 +1,7 @@
-from fastapi import HTTPException
 from request_models import connection_model
-import pymysql
 from datetime import datetime
 import random
 import re
-
-def get_mysql_db(hostname: str, username: str, password: str, database: str, port: int):
-    """
-    This function establishes a MySQL connection using the provided credentials
-
-    :param hostname: The server IP that the user wants to connect to
-    :param username: Name of the user who wants to connect to the server
-    :param database: Name of the database to connect to
-    :param port: Port number to connect to
-    
-    :return conn: Established connection object 
-    """
-
-    try:
-        conn = pymysql.connect(
-                host=hostname,
-                user=username,      
-                password=password,  
-                database=database,  
-                port=port
-            )
-        print("Successfully connected")
-        return conn
-    except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"Error connecting to database: {str(e)}")
 
 
 def remove_special_characters(input_string) -> str:
@@ -89,3 +62,18 @@ def generate_connection_string(connection: connection_model.Connection) -> str:
 
     generated_connection_string = f"{connection_type}://{username}:{password}@{hostname}:{port}/{database}"
     return generated_connection_string
+
+
+def find_validation_result(data):
+    """
+    This utility function finds the key 'validation_result' in the provided JSON data
+    
+    :param data (json): Validation result JSON
+
+    :return: JSON containing validation results or None  
+    """
+    for key in data:
+        if key.startswith("ValidationResultIdentifier::"):
+            # Access the 'validation_result' inside the matched key
+            return data[key].get("validation_result")
+    return None  # Return None if no matching key is found

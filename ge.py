@@ -1,5 +1,5 @@
 import json
-
+import yaml
 import great_expectations as gx
 from great_expectations.cli.datasource import sanitize_yaml_and_save_datasource
 from great_expectations.core.batch import BatchRequest
@@ -15,7 +15,7 @@ context = gx.get_context()
 def create_new_datasource(datasource_name: str, datasource_type: str, host: str, port: int, 
                           username: str, password: str, database: Optional[str] = "test_db", 
                           table_name: Optional[str] = "test_table", schema_name: Optional[str] = "test_schema", 
-                          dir_name: Optional[str] = "test_dir"):
+                          dir_name: Optional[str] = "test_dir") -> None:
     """
     This function creates a new datasource for great_expectations library
 
@@ -32,70 +32,143 @@ def create_new_datasource(datasource_name: str, datasource_type: str, host: str,
 
     :return: None
     """
-    if datasource_type == conn.ConnectionEnum.FILESERVER:
-        datasource_fileserver = f"""
-        name: {datasource_name}
-        class_name: Datasource
-        execution_engine:
-          class_name: PandasExecutionEngine
-        data_connectors:
-          default_inferred_data_connector_name:
-            class_name: InferredAssetFilesystemDataConnector
-            base_directory: {dir_name}
-            default_regex:
-              group_names:
-                - data_asset_name
-              pattern: (.*)
-          default_runtime_data_connector_name:
-            class_name: RuntimeDataConnector
-            assets:
-              my_runtime_asset_name:
-                batch_identifiers:
-                  - runtime_batch_identifier_name
-        """
+    if datasource_type == conn.ConnectionEnum.FILESERVER or datasource_type == conn.ConnectionEnum.CSV:
+        # datasource_fileserver = f"""
+        # name: {datasource_name}
+        # class_name: Datasource
+        # execution_engine:
+        #   class_name: PandasExecutionEngine
+        # data_connectors:
+        #   default_inferred_data_connector_name:
+        #     class_name: InferredAssetFilesystemDataConnector
+        #     base_directory: {dir_name}
+        #     default_regex:
+        #       group_names:
+        #         - data_asset_name
+        #       pattern: (.*)
+        #   default_runtime_data_connector_name:
+        #     class_name: RuntimeDataConnector
+        #     assets:
+        #       my_runtime_asset_name:
+        #         batch_identifiers:
+        #           - runtime_batch_identifier_name
+        # """
+
+        datasource_fileserver_json = {
+            "name": datasource_name,
+            "class_name": "Datasource",
+            "execution_engine": {
+                "class_name": "PandasExecutionEngine"
+            },
+            "data_connectors": {
+                "default_inferred_data_connector_name": {
+                    "class_name": "InferredAssetFilesystemDataConnector",
+                    "base_directory": dir_name,
+                    "default_regex": {
+                        "group_names": ["data_asset_name"],
+                        "pattern": "(.*)"
+                    }
+                },
+                "default_runtime_data_connector_name": {
+                    "class_name": "RuntimeDataConnector",
+                    "assets": {
+                        "my_runtime_asset_name": {
+                            "batch_identifiers": ["runtime_batch_identifier_name"]
+                        }
+                    }
+                }
+            }
+        }
+
+        datasource_fileserver_yaml = yaml.dump(datasource_fileserver_json)
+
         try:
-            context.test_yaml_config(yaml_config=datasource_fileserver)
-            sanitize_yaml_and_save_datasource(context, datasource_fileserver, overwrite_existing=True)
+            context.test_yaml_config(yaml_config=datasource_fileserver_yaml)
+            sanitize_yaml_and_save_datasource(context, datasource_fileserver_yaml, overwrite_existing=True)
         except Exception as e:
             raise Exception(f"Datasource could not be created\n{str(e)}")
         
     elif datasource_type == conn.ConnectionEnum.MYSQL:
-        datasource_mysql = f"""
-        name: {datasource_name}
-        class_name: Datasource
-        execution_engine:
-          class_name: SqlAlchemyExecutionEngine
-          credentials:
-            host: {host}
-            port: '{port}'
-            username: {username}
-            password: {password}
-            database: {database}
-            drivername: mysql+pymysql
-        data_connectors:
-          default_runtime_data_connector_name:
-            class_name: RuntimeDataConnector
-            batch_identifiers:
-              - default_identifier_name
-          default_inferred_data_connector_name:
-            class_name: InferredAssetSqlDataConnector
-            include_schema_name: True
-            introspection_directives:
-            schema_name: {schema_name}
-          default_configured_data_connector_name:
-            class_name: ConfiguredAssetSqlDataConnector
-            assets:
-            {table_name}:
-                class_name: Asset
-                schema_name: {schema_name}
-        """
+        # datasource_mysql = f"""
+        # name: {datasource_name}
+        # class_name: Datasource
+        # execution_engine:
+        #   class_name: SqlAlchemyExecutionEngine
+        #   credentials:
+        #     host: {host}
+        #     port: '{port}'
+        #     username: {username}
+        #     password: {password}
+        #     database: {database}
+        #     drivername: mysql+pymysql
+        # data_connectors:
+        #   default_runtime_data_connector_name:
+        #     class_name: RuntimeDataConnector
+        #     batch_identifiers:
+        #       - default_identifier_name
+        #   default_inferred_data_connector_name:
+        #     class_name: InferredAssetSqlDataConnector
+        #     include_schema_name: True
+        #     introspection_directives:
+        #       schema_name: {schema_name}
+        #   default_configured_data_connector_name:
+        #     class_name: ConfiguredAssetSqlDataConnector
+        #     assets:
+        #       {table_name}:
+        #         class_name: Asset
+        #         schema_name: {schema_name}
+        # """
+
+        datasource_mysql_json = {
+            "name": datasource_name,
+            "class_name": "Datasource",
+            "execution_engine": {
+                "class_name": "SqlAlchemyExecutionEngine",
+                "credentials": {
+                "host": host,
+                "port": str(port),
+                "username": username,
+                "password": password,
+                "database": database,
+                "drivername": "mysql+pymysql"
+                }
+            },
+            "data_connectors": {
+                "default_runtime_data_connector_name": {
+                "class_name": "RuntimeDataConnector",
+                    "batch_identifiers": [
+                        "default_identifier_name"
+                    ]
+                },
+                    "default_inferred_data_connector_name": {
+                    "class_name": "InferredAssetSqlDataConnector",
+                    "include_schema_name": True,
+                    "introspection_directives": {
+                        "schema_name": schema_name
+                    }
+                },
+                "default_configured_data_connector_name": {
+                "class_name": "ConfiguredAssetSqlDataConnector",
+                    "assets": {
+                        table_name: {
+                        "class_name": "Asset",
+                        "schema_name": schema_name
+                        }
+                    }
+                }
+            }
+        }
+        
+        datasource_mysql_yaml = yaml.dump(datasource_mysql_json)
+
         try:
-            context.test_yaml_config(yaml_config=datasource_mysql)
-            sanitize_yaml_and_save_datasource(context, datasource_mysql, overwrite_existing=True)
+            context.test_yaml_config(yaml_config=datasource_mysql_yaml)
+            sanitize_yaml_and_save_datasource(context, datasource_mysql_yaml, overwrite_existing=True)
         except Exception as e:
             raise Exception(f"Datasource could not be created\n{str(e)}")
-
-    print("Data source successfully created")
+    
+    else:
+        print("Invalid format for datasource type")
 
 
 def create_batch_request(datasource_name: str, data_asset_name: Optional[str] = "test_data_asset", limit: Optional[int] = 0) -> json:
@@ -153,10 +226,11 @@ def create_validator(expectation_suite_name: str, batch_request: json):
     )
 
     validator.save_expectation_suite(discard_failed_expectations=False)
+    print("Validator created and expectation suite added")
     return validator
 
 
-def add_expectation_to_validator(validator, expectations) -> None:
+def add_expectations_to_validator(validator, expectations) -> None:
     """
     This function adds the provided expectations to the validation suite
 
@@ -184,7 +258,10 @@ def add_expectation_to_validator(validator, expectations) -> None:
 
 def run_checkpoint(expectation_suite_name: str, validator, batch_request: json) -> json:
     """
-    This function creates a new checkpoint and executes it
+    This function creates a new checkpoint and executes it.
+    A great_expectations checkpoint includes a batch of data that needs to be validated,
+    a expectations suite which contains the checks that need to be applied and 
+    a validator that applies the checks defined in the expectation suite on the batch of data.
 
     :param expectation_suite_name (str): The name of the expectation suite  
     :param validator: Validator object
@@ -211,9 +288,5 @@ def run_checkpoint(expectation_suite_name: str, validator, batch_request: json) 
     checkpoint_result = checkpoint.run()
     return checkpoint_result
 
-
-# expectation_suite_name = create_expectation_suite("")
-# validator = create_validator(expectation_suite_name)
-# checkpoint_result = run_checkpoint(expectation_suite_name,validator)
 
 # validation_result_identifier = checkpoint_result.list_validation_result_identifiers()[0]
