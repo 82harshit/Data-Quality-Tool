@@ -182,11 +182,9 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
   },
   "quality_checks": [
       {
-        "expectation_type": "expect_column_values_to_be_in_range",
+        "expectation_type": "expect_column_values_to_not_be_null",
         "kwargs": {
-            "column": "Customer Id",
-            "min": 1,
-            "max": 1000
+            "column": "Customer Id"
         },
       },{
         "expectation_type": "expect_column_values_to_match_regex",
@@ -339,7 +337,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     """
     TODO: Remove following temp vars
     """
-    datasource_name = f"customer_table" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS else: f"{filename}_file"
+    datasource_name = f"test_datasource_for_mysql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS else: f"{filename}_file"
     table_name = "customers"
 
     # creating new data source
@@ -362,7 +360,6 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     #     batch_request_json = create_batch_request(datasource_name=datasource_name, data_asset_name=table_name) # add filename in data_asset_name
     print(f"Successfully created batch request JSON:\n{batch_request_json}")
 
-    # TODO: Fix = data_asset_name customers is not recognized.
     from ge import create_validator
     validator = create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
     print(f"Validator:{validator}")
@@ -370,13 +367,15 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     quality_checks = job.quality_checks # list of all the validation checks
     print(f"Quality_checks:\n{quality_checks}")
 
-    # from ge import add_expectations_to_validator
-    # add_expectations_to_validator(validator=validator,expectations=quality_checks)
+    from ge import add_expectations_to_validator
+    add_expectations_to_validator(validator=validator,expectations=quality_checks)
 
-    # from ge import run_checkpoint
-    # checkpoint_results = run_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, batch_request=batch_request_json)
+    from ge import run_checkpoint
+    checkpoint_results = run_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, batch_request=batch_request_json)
 
-    # validation_results = find_validation_result(data=checkpoint_results) # final validation results
+    validation_results = find_validation_result(data=checkpoint_results) # final validation results
+    return {"Validation results": validation_results} 
+
     # TODO: store these validation results in a database
 
 
