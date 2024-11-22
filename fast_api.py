@@ -342,12 +342,12 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     print(f"Successfully created batch request JSON:\n{batch_request_json}")
 
     # TODO: Fix = data_asset_name customers is not recognized.
-    from ge import create_validator
-    validator = create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
-    print(f"Validator:{validator}")
+    # from ge import create_validator
+    # validator = create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
+    # print(f"Validator:{validator}")
 
-    quality_checks = job.quality_checks # list of all the validation checks
-    print(f"Quality_checks:\n{quality_checks}")
+    # quality_checks = job.quality_checks # list of all the validation checks
+    # print(f"Quality_checks:\n{quality_checks}")
 
     # from ge import add_expectations_to_validator
     # add_expectations_to_validator(validator=validator,expectations=quality_checks)
