@@ -1,13 +1,13 @@
 from fastapi import HTTPException
 import pymysql
-from request_models import connection_model
-from utils import generate_connection_name, generate_connection_string, get_cred_db_connection_config
+from request_models import connection_enum_and_metadata
+from utils import get_cred_db_connection_config
 import json
 
 class DBFunctions:
     # TODO: Test with non static
     @staticmethod
-    def get_mysql_db(hostname: str, username: str, password: str, database: str, port: int):
+    def __get_mysql_db(hostname: str, username: str, password: str, database: str, port: int):
         """
         This function establishes a MySQL connection using the provided credentials
 
@@ -33,7 +33,7 @@ class DBFunctions:
             raise HTTPException(status_code=500, detail=f"Error connecting to database: {str(e)}")
         
 
-    def connect_to_credentials_db(self, connection: connection_model.Connection) -> json:
+    def connect_to_credentials_db(self, connection_type: str) -> json:
         """
         This function connects to the `user_credentials` database using the connection
         credentials retrieved from the `database_config.ini`
@@ -55,7 +55,7 @@ class DBFunctions:
         app_table = db_conn_details.get('app_table')
 
         # create connection using app credentials
-        app_conn = DBFunctions.get_mysql_db(
+        app_conn = DBFunctions.__get_mysql_db(
                             hostname=app_hostname, 
                             username=app_username, 
                             password=app_password, 
@@ -63,16 +63,17 @@ class DBFunctions:
                             database=app_database
                             )
         
-        # create unique connection name
-        unique_connection_name = generate_connection_name(connection=connection)
-        # create connection string
-        connection_string = generate_connection_string(connection=connection)
-
-        return {"unique_connection_name": unique_connection_name, 
-                "connection_string": connection_string, 
-                "app_connection": app_conn,
-                "app_table": app_table}
-    
+        if connection_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+            return {"app_connection": app_conn,
+                    "app_table": app_table}
+        elif connection_type in {connection_enum_and_metadata.ConnectionEnum.ORC, 
+                             connection_enum_and_metadata.ConnectionEnum.AVRO,
+                             connection_enum_and_metadata.ConnectionEnum.CSV,
+                             connection_enum_and_metadata.ConnectionEnum.PARQUET,
+                             connection_enum_and_metadata.ConnectionEnum.JSON
+                             }:
+            return {"app_connection": app_conn}
+        
     
     def execute_sql_query(self, db_connection, sql_query: str, params: None):
         """
@@ -104,5 +105,25 @@ class DBFunctions:
             print('Database connection closed')
 
 
+    def check_and_get_user_creds(self, connection_name: str) -> json:
+        """
+        This function checks for the existence of a user in the `login_credentials` table
+        and extracts the credentials, if present
+
+        :param connection_name (str): A unique identifier that is used to search for user credentials
+        
+        :return user_credentials (json): A json containing all extracted user credentials
+        """
+        pass
+
+
     def save_validation_results_to_db(self, validation_results: json, database_connection_details: json) -> None:
+        """
+        This function saves the validation results to the given database
+        
+        :param validation_results (json): A json containing validation results that need to be saved in the database
+        :param database_connection_details (json): A json containing details useful to connect to given database
+
+        :return: None
+        """
         pass

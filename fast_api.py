@@ -19,10 +19,11 @@ and generates a unique `connection name` for the user
 
 from fastapi import FastAPI, Body, HTTPException
 from request_models import connection_enum_and_metadata, connection_model, job_model
-from utils import find_validation_result
+from utils import find_validation_result, generate_connection_name, generate_connection_string
 import db_constants
 from server_functions import get_mysql_db, handle_file_connection
 from database import db_functions, sql_queries as query
+from ge import run_quality_checks
 
 app = FastAPI()
 
@@ -73,12 +74,15 @@ async def create_connection(connection: connection_model.Connection = Body(...,
 
     if connection_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
         try:
-            connection_response = db.connect_to_credentials_db(connection)
+            app_connection_response = db.connect_to_credentials_db(connection_type)
 
-            unique_connection_name = connection_response.get('unique_connection_name')
-            connection_string = connection_response.get('connection_string')
-            app_connection = connection_response.get('app_connection')
-            app_table = connection_response.get('app_table')
+            app_connection = app_connection_response.get('app_connection')
+            app_table = app_connection_response.get('app_table')
+
+            # create unique connection name
+            unique_connection_name = generate_connection_name(connection=connection)
+            # create connection string
+            connection_string = generate_connection_string(connection=connection)
 
             db.execute_sql_query(db_connection=app_connection, 
                     sql_query=query.INSERT_CONN_DETAILS_QUERY.format(app_table), # insert in app table
@@ -166,6 +170,20 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     #     raise HTTPException(status_code=400, detail={"error": "Missing data target"})
 
     connection_name = job.connection_name
+    quality_checks = job.quality_checks
+
+    # db = db_functions.DBFunctions() # database object
+
+    # # TODO: write a utils function to get connection_type given the data source
+    """
+    Logic: Check if table_name is None, null or "" and dir_path, file_name is not None
+    """
+
+    # app_connection_response = db.connect_to_credentials_db(connection_type)
+
+    # app_connection = app_connection_response.get('app_connection')
+    # app_table = app_connection_response.get('app_table')
+
 
     # check if the connection_name exists in the database
     # root user logging in user_credentials database
@@ -288,44 +306,13 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     """
     TODO: Remove following temp vars
     """
-    datasource_name = f"test_datasource_for_mysql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS else: f"{filename}_file"
+    datasource_name = f"test_datasource_for_mysql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
     table_name = "customers"
 
-    # creating new data source
-    from ge import create_new_datasource
-    # if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
-    create_new_datasource(datasource_type=data_source_type, port=port, host=hostname, password=password, database=data_source,
-                              username=username, datasource_name=datasource_name, table_name=table_name, schema_name=data_source) # add table name
-    # else: # if its a file
-    #     create_new_datasource(datasource_type=data_source_type, port=port, host=hostname, password=password, database=data_source)   
-  
-    from ge import create_expectation_suite
-    expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
-    create_expectation_suite(expectation_suite_name=expectation_suite_name)
-    print("Successfully created expectation suite")
+    validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
+                                            database=data_source, table_name=table_name, schema_name=data_source, 
+                                            username=username, quality_checks=quality_checks, datasource_type=data_source_type)
 
-    from ge import create_batch_request
-    # if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
-    batch_request_json = create_batch_request(datasource_name=datasource_name, data_asset_name=table_name)
-    # else: # if file
-    #     batch_request_json = create_batch_request(datasource_name=datasource_name, data_asset_name=table_name) # add filename in data_asset_name
-    print(f"Successfully created batch request JSON:\n{batch_request_json}")
-
-    from ge import create_validator
-    validator = create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
-    print(f"Validator:{validator}")
-
-    quality_checks = job.quality_checks # list of all the validation checks
-    print(f"Quality_checks:\n{quality_checks}")
-
-    from ge import add_expectations_to_validator
-    add_expectations_to_validator(validator=validator,expectations=quality_checks)
-
-    from ge import create_and_execute_checkpoint
-    checkpoint_results = create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, 
-                                                       batch_request=batch_request_json)
-
-    validation_results = find_validation_result(data=checkpoint_results) # final validation results
     return {"validation_results": validation_results} 
 
     # TODO: store these validation results in a database

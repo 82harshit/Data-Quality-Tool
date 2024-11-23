@@ -1,5 +1,6 @@
 import json
 import yaml
+
 import great_expectations as gx
 from great_expectations.cli.datasource import sanitize_yaml_and_save_datasource
 from great_expectations.core.batch import BatchRequest
@@ -160,8 +161,8 @@ def create_expectation_suite(expectation_suite_name: str) -> None:
     """
     try:
         suite = context.get_expectation_suite(expectation_suite_name=expectation_suite_name)
-        print(f'Loaded ExpectationSuite "{suite.expectation_suite_name}" 
-              containing {len(suite.expectations)} expectations.')
+        print(f"""Loaded ExpectationSuite "{suite.expectation_suite_name}" 
+              containing {len(suite.expectations)} expectations.""")
     except DataContextError:
         suite = context.add_expectation_suite(expectation_suite_name=expectation_suite_name)
         print(f'Created ExpectationSuite "{suite.expectation_suite_name}".')
