@@ -8,13 +8,15 @@ from great_expectations.exceptions import DataContextError
 
 from typing import Optional
 
+from utils import find_validation_result
 from request_models import connection_enum_and_metadata as conn
 
 context = gx.get_context()
 
 def create_new_datasource(datasource_name: str, datasource_type: str, host: str, port: int, 
                           username: str, password: str, database: Optional[str] = "test_db", 
-                          table_name: Optional[str] = "test_table", schema_name: Optional[str] = "test_schema", 
+                          table_name: Optional[str] = "test_table", 
+                          schema_name: Optional[str] = "test_schema", 
                           dir_name: Optional[str] = "test_dir") -> None:
     """
     This function creates a new datasource for great_expectations library
@@ -32,28 +34,7 @@ def create_new_datasource(datasource_name: str, datasource_type: str, host: str,
 
     :return: None
     """
-    if datasource_type == conn.ConnectionEnum.FILESERVER or datasource_type == conn.ConnectionEnum.CSV:
-        # datasource_fileserver = f"""
-        # name: {datasource_name}
-        # class_name: Datasource
-        # execution_engine:
-        #   class_name: PandasExecutionEngine
-        # data_connectors:
-        #   default_inferred_data_connector_name:
-        #     class_name: InferredAssetFilesystemDataConnector
-        #     base_directory: {dir_name}
-        #     default_regex:
-        #       group_names:
-        #         - data_asset_name
-        #       pattern: (.*)
-        #   default_runtime_data_connector_name:
-        #     class_name: RuntimeDataConnector
-        #     assets:
-        #       my_runtime_asset_name:
-        #         batch_identifiers:
-        #           - runtime_batch_identifier_name
-        # """
-
+    if datasource_type in {conn.ConnectionEnum.FILESERVER, conn.ConnectionEnum.CSV}:
         datasource_fileserver_json = {
             "name": datasource_name,
             "class_name": "Datasource",
@@ -84,41 +65,12 @@ def create_new_datasource(datasource_name: str, datasource_type: str, host: str,
 
         try:
             context.test_yaml_config(yaml_config=datasource_fileserver_yaml)
-            sanitize_yaml_and_save_datasource(context, datasource_fileserver_yaml, overwrite_existing=True)
+            sanitize_yaml_and_save_datasource(context, datasource_fileserver_yaml, 
+                                              overwrite_existing=True)
         except Exception as e:
             raise Exception(f"Datasource could not be created\n{str(e)}")
         
     elif datasource_type == conn.ConnectionEnum.MYSQL:
-        # datasource_mysql = f"""
-        # name: {datasource_name}
-        # class_name: Datasource
-        # execution_engine:
-        #   class_name: SqlAlchemyExecutionEngine
-        #   credentials:
-        #     host: {host}
-        #     port: '{port}'
-        #     username: {username}
-        #     password: {password}
-        #     database: {database}
-        #     drivername: mysql+pymysql
-        # data_connectors:
-        #   default_runtime_data_connector_name:
-        #     class_name: RuntimeDataConnector
-        #     batch_identifiers:
-        #       - default_identifier_name
-        #   default_inferred_data_connector_name:
-        #     class_name: InferredAssetSqlDataConnector
-        #     include_schema_name: True
-        #     introspection_directives:
-        #       schema_name: {schema_name}
-        #   default_configured_data_connector_name:
-        #     class_name: ConfiguredAssetSqlDataConnector
-        #     assets:
-        #       {table_name}:
-        #         class_name: Asset
-        #         schema_name: {schema_name}
-        # """
-
         datasource_mysql_json = {
             "name": datasource_name,
             "class_name": "Datasource",
@@ -163,7 +115,8 @@ def create_new_datasource(datasource_name: str, datasource_type: str, host: str,
 
         try:
             context.test_yaml_config(yaml_config=datasource_mysql_yaml)
-            sanitize_yaml_and_save_datasource(context, datasource_mysql_yaml, overwrite_existing=True)
+            sanitize_yaml_and_save_datasource(context, datasource_mysql_yaml, 
+                                              overwrite_existing=True)
         except Exception as e:
             raise Exception(f"Datasource could not be created\n{str(e)}")
     
@@ -171,16 +124,18 @@ def create_new_datasource(datasource_name: str, datasource_type: str, host: str,
         print("Invalid format for datasource type")
 
 
-def create_batch_request(datasource_name: str, data_asset_name: Optional[str] = "test_data_asset", limit: Optional[int] = 0) -> json:
+def create_batch_request(datasource_name: str, data_asset_name: Optional[str] = "test_data_asset", 
+                         limit: Optional[int] = 0) -> json:
     """
     This function creates a new batch request json
 
     :param datasource_name (str): The name of the data source
     :param data_asset_name (str): The name of the data asset
-    :param limit (int) [optional]: The number of data points to be taken in the batch, 
-    by default all the data in the dataset is taken. The default value of this param is 0.
+    :param limit (int) [optional]: If specified, the maximum number of *batches* to be returned
+    (limit does not affect the number of records in each batch). The default value of this param is 0.
 
-    :return batch_request (json): A json created for a batch request executed in a great_expectations checkpoint
+    :return batch_request (json): A json created for a batch request executed in a great_expectations 
+    checkpoint
     """
     if limit == 0:
         batch_request = {'datasource_name': datasource_name, 
@@ -205,7 +160,8 @@ def create_expectation_suite(expectation_suite_name: str) -> None:
     """
     try:
         suite = context.get_expectation_suite(expectation_suite_name=expectation_suite_name)
-        print(f'Loaded ExpectationSuite "{suite.expectation_suite_name}" containing {len(suite.expectations)} expectations.')
+        print(f'Loaded ExpectationSuite "{suite.expectation_suite_name}" 
+              containing {len(suite.expectations)} expectations.')
     except DataContextError:
         suite = context.add_expectation_suite(expectation_suite_name=expectation_suite_name)
         print(f'Created ExpectationSuite "{suite.expectation_suite_name}".')
@@ -256,12 +212,14 @@ def add_expectations_to_validator(validator, expectations) -> None:
     print("Successfully added expectations")
 
 
-def run_checkpoint(expectation_suite_name: str, validator, batch_request: json) -> json:
+def create_and_execute_checkpoint(expectation_suite_name: str, validator, 
+                                  batch_request: json) -> json:
     """
     This function creates a new checkpoint and executes it.
     A great_expectations checkpoint includes a batch of data that needs to be validated,
     a expectations suite which contains the checks that need to be applied and 
-    a validator that applies the checks defined in the expectation suite on the batch of data.
+    a validator that applies the checks defined in the expectation suite on the 
+    batch of data.
 
     :param expectation_suite_name (str): The name of the expectation suite  
     :param validator: Validator object
@@ -289,4 +247,38 @@ def run_checkpoint(expectation_suite_name: str, validator, batch_request: json) 
     return checkpoint_result
 
 
-# validation_result_identifier = checkpoint_result.list_validation_result_identifiers()[0]
+def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str, 
+                       password: str, port: str, database: str, table_name: str, 
+                       schema_name: str, datasource_name: str, username: str) -> json:
+    """
+    This function executes all the great_expectation functions 
+
+    :quality_checks (json):
+    :datasource_type (str):
+    :hostname (str):
+    :password (str):
+    :port (str):
+    :database (str):
+    :table_name (str):
+    :schema_name (str):
+    :datasource_name (str):
+    :username (str):
+
+    :return: A JSON containing validation results
+    """
+    
+    create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
+                              username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name)
+    
+    expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
+    create_expectation_suite(expectation_suite_name=expectation_suite_name)
+
+    batch_request_json = create_batch_request(datasource_name=datasource_name, data_asset_name=table_name)
+    validator = create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
+
+    add_expectations_to_validator(validator=validator,expectations=quality_checks)
+    checkpoint_results = create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, 
+                                                       batch_request=batch_request_json)
+    
+    validation_results = find_validation_result(data=checkpoint_results) # final validation results
+    return validation_results 

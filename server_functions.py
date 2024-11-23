@@ -104,6 +104,7 @@ def get_mysql_db(hostname: str, username: str, password: str, database: str, por
     except pymysql.MySQLError as e:
         raise HTTPException(status_code=500, detail=f"Error connecting to database: {str(e)}")
     
+
 async def handle_file_connection(connection, expected_extension):
     """
     Generalized function to handle file-based connections.
@@ -149,10 +150,10 @@ async def handle_file_connection(connection, expected_extension):
 
         # Store connection details in the database
         conn = get_mysql_db(
-            hostname=db_constants.ADMIN_HOSTNAME,
-            username=db_constants.ADMIN_USERNAME,
-            password=db_constants.ADMIN_PASSWORD,
-            port=db_constants.ADMIN_PORT,
+            hostname=db_constants.APP_HOSTNAME,
+            username=db_constants.APP_USERNAME,
+            password=db_constants.APP_PASSWORD,
+            port=db_constants.APP_PORT,
             database=db_constants.USER_CREDENTIALS_DATABASE
         )
         cursor = conn.cursor()
@@ -184,6 +185,8 @@ async def handle_file_connection(connection, expected_extension):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing {expected_extension.upper()} connection: {str(e)}")
+        
+
 # Function to read the file and return columns
 # async def read_file_columns(conn, file_path: str):
 #     try:

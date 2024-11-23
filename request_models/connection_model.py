@@ -18,7 +18,7 @@ class UserCredentials(BaseModel):
 
 class ConnectionCredentials(BaseModel):
     connection_type: str
-    database: Optional[str] = Field("quality_tool", description="Name of the database to connect to", min_length=1)
+    database: Optional[str] = Field("", description="Name of the database to connect to", min_length=1)
     server: Optional[str] = Field("0.0.0.0", description="Name of the server to connect to")
     port: Optional[int] = Field(5432, description="Port to connect to", gt=9, lt=10000)
     file_name: Optional[str] = Field("", description="Name of the file to connect to", min_length=1)
@@ -51,7 +51,7 @@ class ConnectionCredentials(BaseModel):
 
 class Connection(BaseModel):
     """
-    This is the request body for API POST request
+    This is the request body for API POST request for `create-connection` endpoint
     """
     user_credentials: UserCredentials
     connection_credentials: ConnectionCredentials

@@ -19,9 +19,10 @@ and generates a unique `connection name` for the user
 
 from fastapi import FastAPI, Body, HTTPException
 from request_models import connection_enum_and_metadata, connection_model, job_model
-from utils import generate_connection_name, generate_connection_string, find_validation_result
+from utils import find_validation_result
 import db_constants
-from server_functions import get_mysql_db,handle_file_connection
+from server_functions import get_mysql_db, handle_file_connection
+from database import db_functions, sql_queries as query
 
 app = FastAPI()
 
@@ -62,86 +63,58 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     else:
         raise HTTPException(status_code=400, detail={"error": "Missing connection credentials"})
 
+    hostname = connection.connection_credentials.server
+    username = connection.user_credentials.username
+    password = connection.user_credentials.password
+    port = connection.connection_credentials.port
+    database = connection.connection_credentials.database
+
+    db = db_functions.DBFunctions() # database object
+
     if connection_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
         try:
-            hostname = connection.connection_credentials.server
-            username = connection.user_credentials.username
-            password = connection.user_credentials.password
-            port = connection.connection_credentials.port
-            database = connection.connection_credentials.database
+            connection_response = db.connect_to_credentials_db(connection)
 
-            # root user logging in user_credentials database
-            conn = get_mysql_db(hostname=db_constants.ADMIN_HOSTNAME, 
-                                username=db_constants.ADMIN_USERNAME, 
-                                password=db_constants.ADMIN_PASSWORD, 
-                                port=db_constants.ADMIN_PORT, 
-                                database=db_constants.USER_CREDENTIALS_DATABASE
-                                )
-            
-            cursor = conn.cursor()
+            unique_connection_name = connection_response.get('unique_connection_name')
+            connection_string = connection_response.get('connection_string')
+            app_connection = connection_response.get('app_connection')
+            app_table = connection_response.get('app_table')
 
-            # create unique connection name
-            unique_connection_name = generate_connection_name(connection=connection)
-
-            # create connection string
-            connection_string = generate_connection_string(connection=connection)
-
-            print(f"Unique connection name: {unique_connection_name}")
-            print(f"Connection string: {connection_string}")
-
-            # insert values in table
-            INSERT_CONN_DETAILS_QUERY = f"INSERT INTO {db_constants.USER_LOGIN_TABLE} VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
-            cursor.execute(INSERT_CONN_DETAILS_QUERY,(
-                            unique_connection_name,
-                            connection_string,
-                            username,
-                            connection_type,
-                            password,
-                            hostname,
-                            port,
-                            database
-                        ))
-        
-            conn.commit()
+            db.execute_sql_query(db_connection=app_connection, 
+                    sql_query=query.INSERT_CONN_DETAILS_QUERY.format(app_table), # insert in app table
+                    params=(
+                        unique_connection_name,
+                        connection_string,
+                        username,
+                        connection_type,
+                        password,
+                        hostname,
+                        port,
+                        database
+                    ))
+    
             print("Login credential insertion completed")
-
-            print("Closing connection")
-            cursor.close()
-            conn.close() 
-
             return {"status": "connected", "connection_name": unique_connection_name}
-        
-        except ConnectionAbortedError as car:
-            raise HTTPException(status_code=503, detail={"error": str(car), "request_json": connection.model_dump_json()})
-        except ConnectionError as ce:
-            raise HTTPException(status_code=503, detail={"error": str(ce), "request_json": connection.model_dump_json()})
-        except ConnectionRefusedError as cref:
-            raise HTTPException(status_code=503, detail={"error": str(cref), "request_json": connection.model_dump_json()})
-        except ConnectionResetError as cres:
-            raise HTTPException(status_code=503, detail={"error": str(cres), "request_json": connection.model_dump_json()})
         except Exception as e:
             raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
-        
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.JSON:
-        return await handle_file_connection(connection, expected_extension=".json")
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.SAP:
-        raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.SAP} not implemented", "request_json": connection.model_dump_json()})
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.STREAMING:
-        raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.STREAMING} not implemented", "request_json": connection.model_dump_json()})
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.FILESERVER:
-        raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.FILESERVER} not impelemented", "request_json": connection.model_dump_json()})
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.ORC:
-        return await handle_file_connection(connection, expected_extension=".orc")
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.AVRO:
-        return await handle_file_connection(connection, expected_extension=".avro")
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.CSV:
-        return await handle_file_connection(connection, expected_extension=".csv")
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.REDSHIFT:
-        raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.REDSHIFT} not implemented", "request_json": connection.model_dump_json()})
-    elif connection_type == connection_enum_and_metadata.ConnectionEnum.PARQUET:
-        return await handle_file_connection(connection, expected_extension=".parquet")
+
+    elif connection_type in {connection_enum_and_metadata.ConnectionEnum.SAP, 
+                             connection_enum_and_metadata.ConnectionEnum.STREAMING,
+                             connection_enum_and_metadata.ConnectionEnum.FILESERVER,
+                             connection_enum_and_metadata.ConnectionEnum.REDSHIFT
+                             }:
+        raise HTTPException(status_code=501, detail={"error": f"{connection_type} not implemented", 
+                                                     "request_json": connection.model_dump_json()})
+    elif connection_type in {connection_enum_and_metadata.ConnectionEnum.ORC, 
+                             connection_enum_and_metadata.ConnectionEnum.AVRO,
+                             connection_enum_and_metadata.ConnectionEnum.CSV,
+                             connection_enum_and_metadata.ConnectionEnum.PARQUET,
+                             connection_enum_and_metadata.ConnectionEnum.JSON
+                             }:
+        return await handle_file_connection(connection, expected_extension=f".{connection_type}")
     else:
-        raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", "request_json": connection.model_dump_json()})
+        raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", 
+                                                     "request_json": connection.model_dump_json()})
 
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests") 
@@ -196,20 +169,19 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     # check if the connection_name exists in the database
     # root user logging in user_credentials database
-    admin_conn = get_mysql_db(hostname=db_constants.ADMIN_HOSTNAME, 
-                        username=db_constants.ADMIN_USERNAME, 
-                        password=db_constants.ADMIN_PASSWORD, 
-                        port=db_constants.ADMIN_PORT, 
+    app_conn = get_mysql_db(hostname=db_constants.APP_HOSTNAME, 
+                        username=db_constants.APP_USERNAME, 
+                        password=db_constants.APP_PASSWORD, 
+                        port=db_constants.APP_PORT, 
                         database=db_constants.USER_CREDENTIALS_DATABASE
                         )
     
-    admin_cursor = admin_conn.cursor()
+    app_cursor = app_conn.cursor()
     
     READ_FOR_CONN_NAME_QUERY = f"""SELECT 1 FROM {db_constants.USER_LOGIN_TABLE} 
-    WHERE {db_constants.CONNECTION_NAME} = %s 
-    LIMIT 1;"""
-    admin_cursor.execute(READ_FOR_CONN_NAME_QUERY,(connection_name,))
-    exists = admin_cursor.fetchone() is not None
+    WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    app_cursor.execute(READ_FOR_CONN_NAME_QUERY,(connection_name,))
+    exists = app_cursor.fetchone() is not None
 
     if not exists:
         raise HTTPException(status_code=404, detail={"error": "User not found", "connection_name": connection_name})
@@ -221,8 +193,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     GET_USERNAME_QUERY = f"""SELECT {db_constants.USERNAME} 
     FROM {db_constants.USER_LOGIN_TABLE} 
     WHERE {db_constants.CONNECTION_NAME} = %s;"""
-    admin_cursor.execute(GET_USERNAME_QUERY,(connection_name,))
-    retrieved_username = admin_cursor.fetchall()
+    app_cursor.execute(GET_USERNAME_QUERY,(connection_name,))
+    retrieved_username = app_cursor.fetchall()
     try:
         username = retrieved_username[0][0] # extracting data from tuple, tuple format: (('user'),)
         print(f"Username:{username}")
@@ -234,8 +206,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     GET_PASSWORD_QUERY = f"""SELECT {db_constants.PASSWORD} 
     FROM {db_constants.USER_LOGIN_TABLE} 
     WHERE {db_constants.CONNECTION_NAME} = %s;"""
-    admin_cursor.execute(GET_PASSWORD_QUERY,(connection_name,))
-    retrieved_password = admin_cursor.fetchall()
+    app_cursor.execute(GET_PASSWORD_QUERY,(connection_name,))
+    retrieved_password = app_cursor.fetchall()
     try:
         password = retrieved_password[0][0]
         print(f"Password:{password}")
@@ -247,8 +219,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     GET_HOSTNAME_QUERY = f"""SELECT {db_constants.HOSTNAME} 
     FROM {db_constants.USER_LOGIN_TABLE} 
     WHERE {db_constants.CONNECTION_NAME} = %s;"""
-    admin_cursor.execute(GET_HOSTNAME_QUERY,(connection_name,))
-    retrieved_hostname = admin_cursor.fetchall()
+    app_cursor.execute(GET_HOSTNAME_QUERY,(connection_name,))
+    retrieved_hostname = app_cursor.fetchall()
     try:
         hostname = retrieved_hostname[0][0]
         print(f"Hostname:{hostname}")
@@ -260,8 +232,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     GET_PORT_QUERY = f"""SELECT {db_constants.PORT} 
     FROM {db_constants.USER_LOGIN_TABLE} 
     WHERE {db_constants.CONNECTION_NAME} = %s;"""
-    admin_cursor.execute(GET_PORT_QUERY,(connection_name,))
-    retrieved_port = admin_cursor.fetchall() 
+    app_cursor.execute(GET_PORT_QUERY,(connection_name,))
+    retrieved_port = app_cursor.fetchall() 
     try:
         port = retrieved_port[0][0] # extracting data from tuple, tuple format: ((4000),)
         print(f"Port:{port}")
@@ -273,8 +245,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     GET_SOURCE_TYPE_QUERY = f"""SELECT {db_constants.SOURCE_TYPE} 
     FROM {db_constants.USER_LOGIN_TABLE} 
     WHERE {db_constants.CONNECTION_NAME} = %s;"""
-    admin_cursor.execute(GET_SOURCE_TYPE_QUERY,(connection_name,))
-    retrieved_data_source_type = admin_cursor.fetchall()
+    app_cursor.execute(GET_SOURCE_TYPE_QUERY,(connection_name,))
+    retrieved_data_source_type = app_cursor.fetchall()
     try:
         data_source_type = retrieved_data_source_type[0][0]
         print(f"Data source type:{data_source_type}")
@@ -287,8 +259,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         GET_SOURCE_QUERY = f"""SELECT {db_constants.DATABASE} 
         FROM {db_constants.USER_LOGIN_TABLE} 
         WHERE {db_constants.CONNECTION_NAME} = %s;"""
-        admin_cursor.execute(GET_SOURCE_QUERY,(connection_name,))
-        retrieved_data_source = admin_cursor.fetchall()
+        app_cursor.execute(GET_SOURCE_QUERY,(connection_name,))
+        retrieved_data_source = app_cursor.fetchall()
         try:
             data_source = retrieved_data_source[0][0]
             print(f"Data source:{data_source}")
@@ -297,8 +269,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
         print("Data source successfully retrieved")
 
-    admin_cursor.close()
-    admin_conn.close()
+    app_cursor.close()
+    app_conn.close()
 
     print("Creating user connection")
     # create user connection
@@ -349,29 +321,14 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     from ge import add_expectations_to_validator
     add_expectations_to_validator(validator=validator,expectations=quality_checks)
 
-    from ge import run_checkpoint
-    checkpoint_results = run_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, batch_request=batch_request_json)
+    from ge import create_and_execute_checkpoint
+    checkpoint_results = create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, 
+                                                       batch_request=batch_request_json)
 
     validation_results = find_validation_result(data=checkpoint_results) # final validation results
-    return {"Validation results": validation_results} 
+    return {"validation_results": validation_results} 
 
     # TODO: store these validation results in a database
-
-
-    """
-    TODO: Use the user_cursor to get data from the filesystem, ignore the rest of code below
-    """
+    # TODO: Use the user_cursor to get data from the filesystem
 
     # user_cursor = user_conn.cursor()
-  
-
-    # import run_customer_checkpoint as run
-    # result = run.run_checkpoint(run_name=run_name)
-    # result_dict = result.to_json_dict()
-
-    # validation_result = find_validation_result(result_dict['run_results'], PARTIAL_KEY)
-    # results = validation_result['results']
-    # for result in results:
-    #     metric_type = result['expectation_config'].get('expectation_type')
-    #     return metric_type
-    # # return result_dict
