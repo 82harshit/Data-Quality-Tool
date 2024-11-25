@@ -19,7 +19,7 @@ and generates a unique `connection name` for the user
 
 from fastapi import FastAPI, Body, HTTPException
 from request_models import connection_enum_and_metadata, connection_model, job_model
-from utils import find_validation_result, generate_connection_name, generate_connection_string
+from utils import generate_connection_name, generate_connection_string
 import db_constants
 from server_functions import get_mysql_db, handle_file_connection
 from database import db_functions, sql_queries as query
@@ -291,17 +291,17 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     app_conn.close()
 
     print("Creating user connection")
-    # create user connection
+    # create user connection to read file from SSH server
 
-    user_conn = get_mysql_db(
-        hostname=hostname,
-        username=username,
-        password=password,
-        port=port,
-        database=data_source
-    )
+    # user_conn = get_mysql_db(
+    #     hostname=hostname,
+    #     username=username,
+    #     password=password,
+    #     port=port,
+    #     database=data_source
+    # )
 
-    print(f"User {username} successfully connected to {data_source} in server {hostname} on {port} \n Connection obj:{user_conn}")
+    # print(f"User {username} successfully connected to {data_source} in server {hostname} on {port} \n Connection obj:{user_conn}")
 
     """
     TODO: Remove following temp vars
@@ -316,6 +316,4 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     return {"validation_results": validation_results} 
 
     # TODO: store these validation results in a database
-    # TODO: Use the user_cursor to get data from the filesystem
-
-    # user_cursor = user_conn.cursor()
+    

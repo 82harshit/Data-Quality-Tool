@@ -12,9 +12,18 @@ from typing import Optional
 from utils import find_validation_result
 from request_models import connection_enum_and_metadata as conn
 
+# TODO: Create this module
+class GreatExpectations:
+    context = None
+
+    def __init__(self):
+        self.context = gx.get_context()
+
+    
+
 context = gx.get_context()
 
-def create_new_datasource(datasource_name: str, datasource_type: str, host: str, port: int, 
+def __create_new_datasource(datasource_name: str, datasource_type: str, host: str, port: int, 
                           username: str, password: str, database: Optional[str] = "test_db", 
                           table_name: Optional[str] = "test_table", 
                           schema_name: Optional[str] = "test_schema", 
@@ -125,7 +134,7 @@ def create_new_datasource(datasource_name: str, datasource_type: str, host: str,
         print("Invalid format for datasource type")
 
 
-def create_batch_request(datasource_name: str, data_asset_name: Optional[str] = "test_data_asset", 
+def __create_batch_request(datasource_name: str, data_asset_name: Optional[str] = "test_data_asset", 
                          limit: Optional[int] = 0) -> json:
     """
     This function creates a new batch request json
@@ -151,7 +160,7 @@ def create_batch_request(datasource_name: str, data_asset_name: Optional[str] = 
     return batch_request
 
 
-def create_expectation_suite(expectation_suite_name: str) -> None:
+def __create_expectation_suite(expectation_suite_name: str) -> None:
     """
     This function creates a new expectations suite
 
@@ -168,7 +177,7 @@ def create_expectation_suite(expectation_suite_name: str) -> None:
         print(f'Created ExpectationSuite "{suite.expectation_suite_name}".')
 
 
-def create_validator(expectation_suite_name: str, batch_request: json):
+def __create_validator(expectation_suite_name: str, batch_request: json):
     """
     This function creates a validator using a batch request and expectation suite
 
@@ -187,7 +196,7 @@ def create_validator(expectation_suite_name: str, batch_request: json):
     return validator
 
 
-def add_expectations_to_validator(validator, expectations) -> None:
+def __add_expectations_to_validator(validator, expectations) -> None:
     """
     This function adds the provided expectations to the validation suite
 
@@ -213,7 +222,7 @@ def add_expectations_to_validator(validator, expectations) -> None:
     print("Successfully added expectations")
 
 
-def create_and_execute_checkpoint(expectation_suite_name: str, validator, 
+def __create_and_execute_checkpoint(expectation_suite_name: str, validator, 
                                   batch_request: json) -> json:
     """
     This function creates a new checkpoint and executes it.
@@ -268,17 +277,17 @@ def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str
     :return: A JSON containing validation results
     """
     
-    create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
+    __create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
                               username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name)
     
     expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
-    create_expectation_suite(expectation_suite_name=expectation_suite_name)
+    __create_expectation_suite(expectation_suite_name=expectation_suite_name)
 
-    batch_request_json = create_batch_request(datasource_name=datasource_name, data_asset_name=table_name)
-    validator = create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
+    batch_request_json = __create_batch_request(datasource_name=datasource_name, data_asset_name=table_name)
+    validator = __create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
 
-    add_expectations_to_validator(validator=validator,expectations=quality_checks)
-    checkpoint_results = create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, 
+    __add_expectations_to_validator(validator=validator,expectations=quality_checks)
+    checkpoint_results = __create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, 
                                                        batch_request=batch_request_json)
     
     validation_results = find_validation_result(data=checkpoint_results) # final validation results
