@@ -7,7 +7,7 @@ from great_expectations.checkpoint import SimpleCheckpoint
 from great_expectations.exceptions import DataContextError
 
 from typing import Optional
-
+from utils import find_validation_result
 from request_models import connection_enum_and_metadata as conn
 
 context = gx.get_context()
@@ -171,7 +171,8 @@ def create_new_datasource(datasource_name: str, datasource_type: str, host: str,
         print("Invalid format for datasource type")
 
 
-def create_batch_request(datasource_name: str, data_asset_name: Optional[str] = "test_data_asset", limit: Optional[int] = 0) -> json:
+def create_batch_request(datasource_name: str,data_source_type: str, data_asset_name: Optional[str] = "test_data_asset", 
+                         limit: Optional[int] = 0) -> json:
     """
     This function creates a new batch request json
 
@@ -182,17 +183,31 @@ def create_batch_request(datasource_name: str, data_asset_name: Optional[str] = 
 
     :return batch_request (json): A json created for a batch request executed in a great_expectations checkpoint
     """
-    if limit == 0:
-        batch_request = {'datasource_name': datasource_name, 
-                         'data_connector_name': 'default_configured_data_connector_name', 
-                         'data_asset_name': data_asset_name}
-    else:
-        batch_request = {'datasource_name': datasource_name, 
-                        'data_connector_name': 'default_configured_data_connector_name', 
-                        'data_asset_name': data_asset_name, 
-                        'limit': limit}
+    if data_source_type == conn.ConnectionEnum.MYSQL:
+        if limit == 0:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_configured_data_connector_name', 
+                            'data_asset_name': data_asset_name}
+        else:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_configured_data_connector_name', 
+                            'data_asset_name': data_asset_name, 
+                            'limit': limit}
 
+    elif data_source_type == conn.ConnectionEnum.CSV:
+        if limit == 0:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_inferred_data_connector_name', 
+                            # 'data_connector_name' : 'default_runtime_data_connector_name',
+                            'data_asset_name': data_asset_name}
+        else:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_inferred_data_connector_name', 
+                            # 'data_connector_name' : 'default_runtime_data_connector_name',
+                            'data_asset_name': data_asset_name, 
+                            'limit': limit}
     return batch_request
+    
 
 
 def create_expectation_suite(expectation_suite_name: str) -> None:
@@ -256,7 +271,7 @@ def add_expectations_to_validator(validator, expectations) -> None:
     print("Successfully added expectations")
 
 
-def run_checkpoint(expectation_suite_name: str, validator, batch_request: json) -> json:
+def create_and_execute_checkpoint(expectation_suite_name: str, validator, batch_request: json) -> json:
     """
     This function creates a new checkpoint and executes it.
     A great_expectations checkpoint includes a batch of data that needs to be validated,
@@ -289,4 +304,42 @@ def run_checkpoint(expectation_suite_name: str, validator, batch_request: json) 
     return checkpoint_result
 
 
-# validation_result_identifier = checkpoint_result.list_validation_result_identifiers()[0]
+def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str,datasource_name: str, 
+                       username: str,password: str, port: str, database: Optional[str] = "", table_name: Optional[str] = "", 
+                       schema_name: Optional[str] = "",dir_name :Optional[str]= "") -> json:
+    """
+    This function executes all the great_expectation functions 
+
+    :quality_checks (json):
+    :datasource_type (str):
+    :hostname (str):
+    :password (str):
+    :port (str):
+    :database (str):
+    :table_name (str):
+    :schema_name (str):
+    :datasource_name (str):
+    :username (str):
+
+    :return: A JSON containing validation results
+    """
+    
+    create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
+                              username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name,
+                              dir_name=dir_name)
+    
+    expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
+    create_expectation_suite(expectation_suite_name=expectation_suite_name)
+
+    batch_request_json = create_batch_request(datasource_name=datasource_name,data_source_type=datasource_type, data_asset_name=datasource_name) # FIXME
+    # batch_list = context.get_batch_list(**batch_request_json)
+    # print(batch_list)
+    # print(len(batch_list))
+    validator = create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
+
+    add_expectations_to_validator(validator=validator,expectations=quality_checks)
+    checkpoint_results = create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, 
+                                                       batch_request=batch_request_json)
+    
+    validation_results = find_validation_result(data=checkpoint_results) # final validation results
+    return validation_results 

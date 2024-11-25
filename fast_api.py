@@ -21,7 +21,9 @@ from fastapi import FastAPI, Body, HTTPException
 from request_models import connection_enum_and_metadata, connection_model, job_model
 from utils import generate_connection_name, generate_connection_string, find_validation_result
 import db_constants
-from server_functions import get_mysql_db,handle_file_connection
+from server_functions import get_mysql_db, handle_file_connection, read_file_columns,connect_to_server_SSH
+from database import db_functions, sql_queries as query
+from ge import run_quality_checks
 
 app = FastAPI()
 
@@ -193,6 +195,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     #     raise HTTPException(status_code=400, detail={"error": "Missing data target"})
 
     connection_name = job.connection_name
+    quality_checks = job.quality_checks
 
     # check if the connection_name exists in the database
     # root user logging in user_credentials database
@@ -302,58 +305,31 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     print("Creating user connection")
     # create user connection
+    if data_source_type == connection_enum_and_metadata.ConnectionEnum.CSV:
+        user_conn = await connect_to_server_SSH(server=hostname,username=username,password=password,port=port)
+        print(f"User {username} successfully connected in server {hostname} on {port} \n Connection obj:{user_conn}")
+        dir_path = job.data_source.dir_path
+        file_name = job.data_source.file_name
+        file_path = f"{dir_path}/{file_name}"
+        columns = await read_file_columns(conn=user_conn,file_path=file_path)
+        datasource_name = f"test_datasource_for_csv"
+        validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password, 
+                                            username=username, quality_checks=quality_checks, datasource_type=data_source_type,
+                                            dir_name=dir_path)
+        return {"validation_results": validation_results}     
+    
+    elif data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+        datasource_name = f"test_datasource_for_sql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
+        table_name = "customers"
 
-    user_conn = get_mysql_db(
-        hostname=hostname,
-        username=username,
-        password=password,
-        port=port,
-        database=data_source
-    )
+        validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password, 
+                                                username=username, quality_checks=quality_checks, datasource_type=data_source_type,
+                                                table_name=table_name,database=data_source,schema_name=data_source)
 
-    print(f"User {username} successfully connected to {data_source} in server {hostname} on {port} \n Connection obj:{user_conn}")
-
-    """
-    TODO: Remove following temp vars
-    """
-    datasource_name = f"test_datasource_for_mysql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS else: f"{filename}_file"
-    table_name = "customers"
-
-    # creating new data source
-    from ge import create_new_datasource
-    # if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
-    create_new_datasource(datasource_type=data_source_type, port=port, host=hostname, password=password, database=data_source,
-                              username=username, datasource_name=datasource_name, table_name=table_name, schema_name=data_source) # add table name
-    # else: # if its a file
-    #     create_new_datasource(datasource_type=data_source_type, port=port, host=hostname, password=password, database=data_source)   
-  
-    from ge import create_expectation_suite
-    expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
-    create_expectation_suite(expectation_suite_name=expectation_suite_name)
-    print("Successfully created expectation suite")
-
-    from ge import create_batch_request
-    # if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
-    batch_request_json = create_batch_request(datasource_name=datasource_name, data_asset_name=table_name)
-    # else: # if file
-    #     batch_request_json = create_batch_request(datasource_name=datasource_name, data_asset_name=table_name) # add filename in data_asset_name
-    print(f"Successfully created batch request JSON:\n{batch_request_json}")
-
-    from ge import create_validator
-    validator = create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
-    print(f"Validator:{validator}")
-
-    quality_checks = job.quality_checks # list of all the validation checks
-    print(f"Quality_checks:\n{quality_checks}")
-
-    from ge import add_expectations_to_validator
-    add_expectations_to_validator(validator=validator,expectations=quality_checks)
-
-    from ge import run_checkpoint
-    checkpoint_results = run_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, batch_request=batch_request_json)
-
-    validation_results = find_validation_result(data=checkpoint_results) # final validation results
-    return {"Validation results": validation_results} 
+        return {"validation_results": validation_results} 
+    
+    else:
+        return {"validation_results": []} 
 
     # TODO: store these validation results in a database
 
@@ -361,16 +337,4 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     TODO: Use the user_cursor to get data from the filesystem, ignore the rest of code below
     """
 
-    # user_cursor = user_conn.cursor()
-  
-
-    # import run_customer_checkpoint as run
-    # result = run.run_checkpoint(run_name=run_name)
-    # result_dict = result.to_json_dict()
-
-    # validation_result = find_validation_result(result_dict['run_results'], PARTIAL_KEY)
-    # results = validation_result['results']
-    # for result in results:
-    #     metric_type = result['expectation_config'].get('expectation_type')
-    #     return metric_type
-    # # return result_dict
+    
