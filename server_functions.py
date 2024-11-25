@@ -105,7 +105,7 @@ def get_mysql_db(hostname: str, username: str, password: str, database: str, por
         raise HTTPException(status_code=500, detail=f"Error connecting to database: {str(e)}")
     
 
-async def handle_file_connection(connection, expected_extension):
+async def handle_file_connection(connection: connection_model.Connection, expected_extension):
     """
     Generalized function to handle file-based connections.
 
