@@ -68,6 +68,7 @@ def create_new_datasource(datasource_name: str, datasource_type: str, host: str,
             context.test_yaml_config(yaml_config=datasource_fileserver_yaml)
             sanitize_yaml_and_save_datasource(context, datasource_fileserver_yaml, 
                                               overwrite_existing=True)
+            print("DataSource creation successful")
         except Exception as e:
             raise Exception(f"Datasource could not be created\n{str(e)}")
         
@@ -249,8 +250,8 @@ def create_and_execute_checkpoint(expectation_suite_name: str, validator,
 
 
 def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str, 
-                       password: str, port: str, database: str, table_name: str, 
-                       schema_name: str, datasource_name: str, username: str) -> json:
+                       password: str, port: str, database: Optional[str], table_name: Optional[str], 
+                       schema_name: Optional[str], datasource_name: str, username: str, dir_name :Optional[str]) -> json:
     """
     This function executes all the great_expectation functions 
 
@@ -269,7 +270,8 @@ def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str
     """
     
     create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
-                              username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name)
+                              username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name,
+                              dir_name=dir_name)
     
     expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
     create_expectation_suite(expectation_suite_name=expectation_suite_name)
