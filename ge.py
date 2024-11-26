@@ -258,9 +258,9 @@ def __create_and_execute_checkpoint(expectation_suite_name: str, validator,
     return checkpoint_result
 
 
-def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str, 
-                       password: str, port: str, database: Optional[str], table_name: Optional[str], 
-                       schema_name: Optional[str], datasource_name: str, username: str, dir_name :Optional[str]) -> json:
+def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str, datasource_name: str, username: str, 
+                       password: str, port: str, database: Optional[str] = "", table_name: Optional[str] = "", 
+                       schema_name: Optional[str] = "", dir_name: Optional[str]= "") -> json:
     """
     This function executes all the great_expectation functions 
 

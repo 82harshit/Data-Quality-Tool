@@ -12,15 +12,15 @@ class UserCredentials(BaseModel):
         # Ensuring that the password field is excluded from serialization when calling .dict() or .json()
         fields = {
             'password': {'exclude': True},  # This will exclude password field in the response
-            'access_token' : {'exclude' : True}
+            'access_token' : {'exclude': True}
         } 
 
 
 class ConnectionCredentials(BaseModel):
     connection_type: str
     database: Optional[str] = Field("", description="Name of the database to connect to", min_length=1)
-    server: Optional[str] = Field("0.0.0.0", description="Name of the server to connect to")
-    port: Optional[int] = Field(5432, description="Port to connect to", gt=9, lt=10000)
+    server: str = Field("0.0.0.0", description="Name of the server to connect to")
+    port: int = Field(5432, description="Port to connect to", gt=9, lt=10000)
     file_name: Optional[str] = Field("", description="Name of the file to connect to", min_length=1)
     dir_path: Optional[str] = Field("", description="Path to the directory")
 
@@ -28,23 +28,21 @@ class ConnectionCredentials(BaseModel):
     def validate_connection_priority(cls, values):
         file_name = values.get("file_name")
         dir_path = values.get("dir_path")
-
-        # Handle None values explicitly
+        database = values.get("database")
 
         if dir_path:
             if not file_name:
-                raise ValueError(
-                    "If 'dir_path' is provided, 'file_name' must also be specified."
-                )
+                raise ValueError("If 'dir_path' is provided, 'file_name' must also be specified.")
+            if database:
+                raise ValueError("If 'dir_path' is provided, 'database' must not be specified.")
 
-        if file_name and not dir_path:
-            return values
-
-        if not file_name and not dir_path:
-            raise ValueError(
-                "Insufficient information provided. "
-                "You must provide either 'file_path', or 'dir_path' with 'file_name', or just 'file_name'."
-            )
+        if file_name:
+            if database:
+                raise ValueError("If 'file_name' is provided, 'database' must not be specified.")
+            
+        if database:
+            if file_name or dir_path:
+                raise ValueError("If 'database' is provided, 'file_name' and 'dir_path' must not be specified.")
 
         return values
     
