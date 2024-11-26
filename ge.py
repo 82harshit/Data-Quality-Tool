@@ -24,10 +24,10 @@ class GreatExpectations:
 context = gx.get_context()
 
 def __create_new_datasource(datasource_name: str, datasource_type: str, host: str, port: int, 
-                          username: str, password: str, database: Optional[str] = "test_db", 
-                          table_name: Optional[str] = "test_table", 
-                          schema_name: Optional[str] = "test_schema", 
-                          dir_name: Optional[str] = "test_dir") -> None:
+                          username: str, password: str, database: Optional[str] = "", 
+                          table_name: Optional[str] = "", 
+                          schema_name: Optional[str] = "", 
+                          dir_name: Optional[str] = "") -> None:
     """
     This function creates a new datasource for great_expectations library
 
@@ -135,7 +135,7 @@ def __create_new_datasource(datasource_name: str, datasource_type: str, host: st
         print("Invalid format for datasource type")
 
 
-def __create_batch_request(datasource_name: str, data_asset_name: Optional[str] = "test_data_asset", 
+def __create_batch_request(datasource_name: str, datasource_type: str, data_asset_name: Optional[str] = "test_data_asset", 
                          limit: Optional[int] = 0) -> json:
     """
     This function creates a new batch request json
@@ -148,16 +148,29 @@ def __create_batch_request(datasource_name: str, data_asset_name: Optional[str] 
     :return batch_request (json): A json created for a batch request executed in a great_expectations 
     checkpoint
     """
-    if limit == 0:
-        batch_request = {'datasource_name': datasource_name, 
-                         'data_connector_name': 'default_configured_data_connector_name', 
-                         'data_asset_name': data_asset_name}
-    else:
-        batch_request = {'datasource_name': datasource_name, 
-                        'data_connector_name': 'default_configured_data_connector_name', 
-                        'data_asset_name': data_asset_name, 
-                        'limit': limit}
+    batch_request = {}
 
+    if datasource_type == conn.ConnectionEnum.MYSQL:
+        if limit == 0:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_configured_data_connector_name', 
+                            'data_asset_name': data_asset_name}
+        else:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_configured_data_connector_name', 
+                            'data_asset_name': data_asset_name, 
+                            'limit': limit}
+    elif datasource_type == conn.ConnectionEnum.CSV:
+        if limit == 0:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_inferred_data_connector_name', 
+                            'data_asset_name': data_asset_name}
+        else:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_inferred_data_connector_name', 
+                            'data_asset_name': data_asset_name, 
+                            'limit': limit}
+            
     return batch_request
 
 
@@ -260,7 +273,7 @@ def __create_and_execute_checkpoint(expectation_suite_name: str, validator,
 
 def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str, datasource_name: str, username: str, 
                        password: str, port: str, database: Optional[str] = "", table_name: Optional[str] = "", 
-                       schema_name: Optional[str] = "", dir_name: Optional[str]= "") -> json:
+                       schema_name: Optional[str] = "", dir_name: Optional[str]= "", file_name: Optional[str] = "") -> json:
     """
     This function executes all the great_expectation functions 
 
@@ -278,13 +291,38 @@ def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str
     :return: A JSON containing validation results
     """
     
-    __create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
-                              username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name)
+    # __create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
+    #                           username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name)
     
-    expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
-    __create_expectation_suite(expectation_suite_name=expectation_suite_name)
+    # expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
+    # __create_expectation_suite(expectation_suite_name=expectation_suite_name)
 
-    batch_request_json = __create_batch_request(datasource_name=datasource_name, data_asset_name=table_name)
+    expectation_suite_name = ""
+    batch_request_json = {}
+
+    if datasource_type == conn.ConnectionEnum.MYSQL:
+        __create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
+                              username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name)
+        
+        expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
+        
+        __create_expectation_suite(expectation_suite_name=expectation_suite_name)
+        
+        batch_request_json = __create_batch_request(datasource_name=datasource_name, data_asset_name=table_name, 
+                                                    datasource_type=datasource_type)
+    elif datasource_type == conn.ConnectionEnum.CSV:
+        __create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, username=username, 
+                                datasource_name=datasource_name, dir_name=dir_name)
+        
+        expectation_suite_name = f"{datasource_name}_{username}_{dir_name}_{port}_{hostname}"
+        
+        __create_expectation_suite(expectation_suite_name=expectation_suite_name)
+
+        batch_request_json = __create_batch_request(datasource_name=datasource_name, data_asset_name=file_name, 
+                                                    datasource_type=datasource_type)
+        
+    print(f"Exp suite name:{expectation_suite_name}\n{batch_request_json}")
+
     validator = __create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
 
     __add_expectations_to_validator(validator=validator,expectations=quality_checks)

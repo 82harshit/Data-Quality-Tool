@@ -21,9 +21,10 @@ from fastapi import FastAPI, Body, HTTPException
 from request_models import connection_enum_and_metadata, connection_model, job_model
 from utils import generate_connection_name, generate_connection_string
 import db_constants
-from server_functions import get_mysql_db, handle_file_connection
+from server_functions import get_mysql_db, handle_file_connection, read_file_columns, connect_to_server_SSH
 from database import db_functions, sql_queries as query
 from ge import run_quality_checks
+import os
 
 app = FastAPI()
 
@@ -293,25 +294,36 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     print("Creating user connection")
     # create user connection to read file from SSH server
 
-    # user_conn = get_mysql_db(
-    #     hostname=hostname,
-    #     username=username,
-    #     password=password,
-    #     port=port,
-    #     database=data_source
-    # )
+    validation_results = {}
 
-    # print(f"User {username} successfully connected to {data_source} in server {hostname} on {port} \n Connection obj:{user_conn}")
+    if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+        """
+        TODO: Remove following temp vars
+        """
+        datasource_name = f"test_datasource_for_mysql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
+        table_name = "customers"
 
-    """
-    TODO: Remove following temp vars
-    """
-    datasource_name = f"test_datasource_for_mysql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
-    table_name = "customers"
+        validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
+                                                database=data_source, table_name=table_name, schema_name=data_source, 
+                                                username=username, quality_checks=quality_checks, datasource_type=data_source_type)
+    elif data_source_type == connection_enum_and_metadata.ConnectionEnum.CSV:
+        user_conn = await connect_to_server_SSH(username=username, password=password, server=hostname, port=port)
+        
+        dir_path = job.data_source.dir_path
+        dir_name = os.path.basename(dir_path)
+        file_name = job.data_source.file_name
 
-    validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
-                                            database=data_source, table_name=table_name, schema_name=data_source, 
-                                            username=username, quality_checks=quality_checks, datasource_type=data_source_type)
+        file_path = f"{dir_path}/{file_name}"
+
+        columns = await read_file_columns(conn=user_conn,file_path=file_path)
+        print(f"Column names: {columns}")
+
+        datasource_name = "test_datasource_for_csv" # TODO: Remove test param
+
+        validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
+                                                username=username, quality_checks=quality_checks, datasource_type=data_source_type,
+                                                dir_name=dir_name, file_name=file_name)
+
 
     return {"validation_results": validation_results} 
 
