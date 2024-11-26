@@ -12,6 +12,8 @@ from typing import Optional
 from utils import find_validation_result
 from request_models import connection_enum_and_metadata as conn
 
+from logging_config import ge_logger
+
 # TODO: Create this module
 class GreatExpectations:
     context = None
@@ -78,7 +80,9 @@ def __create_new_datasource(datasource_name: str, datasource_type: str, host: st
             sanitize_yaml_and_save_datasource(context, datasource_fileserver_yaml, 
                                               overwrite_existing=True)
             print("DataSource creation successful")
+            ge_logger.info("CSV datasource created successfully")
         except Exception as e:
+            ge_logger.error(f"Datasource could not be created\n{str(e)}")
             raise Exception(f"Datasource could not be created\n{str(e)}")
         
     elif datasource_type == conn.ConnectionEnum.MYSQL:
@@ -128,7 +132,9 @@ def __create_new_datasource(datasource_name: str, datasource_type: str, host: st
             context.test_yaml_config(yaml_config=datasource_mysql_yaml)
             sanitize_yaml_and_save_datasource(context, datasource_mysql_yaml, 
                                               overwrite_existing=True)
+            ge_logger.info("MySQL datasource created successfully")
         except Exception as e:
+            ge_logger.error(f"Datasource could not be created\n{str(e)}")
             raise Exception(f"Datasource could not be created\n{str(e)}")
     
     else:
@@ -158,6 +164,7 @@ def __create_batch_request(datasource_name: str, data_asset_name: Optional[str] 
                         'data_asset_name': data_asset_name, 
                         'limit': limit}
 
+    ge_logger.info("Batch request created successfully")
     return batch_request
 
 
@@ -171,11 +178,11 @@ def __create_expectation_suite(expectation_suite_name: str) -> None:
     """
     try:
         suite = context.get_expectation_suite(expectation_suite_name=expectation_suite_name)
-        print(f"""Loaded ExpectationSuite "{suite.expectation_suite_name}" 
+        ge_logger.info(f"""Loaded ExpectationSuite "{suite.expectation_suite_name}" 
               containing {len(suite.expectations)} expectations.""")
     except DataContextError:
         suite = context.add_expectation_suite(expectation_suite_name=expectation_suite_name)
-        print(f'Created ExpectationSuite "{suite.expectation_suite_name}".')
+        ge_logger.info(f'Created ExpectationSuite "{suite.expectation_suite_name}".')
 
 
 def __create_validator(expectation_suite_name: str, batch_request: json):
@@ -193,6 +200,7 @@ def __create_validator(expectation_suite_name: str, batch_request: json):
     )
 
     validator.save_expectation_suite(discard_failed_expectations=False)
+    ge_logger.info("Validator created and expectation suite added")
     print("Validator created and expectation suite added")
     return validator
 
@@ -220,6 +228,7 @@ def __add_expectations_to_validator(validator, expectations) -> None:
         
     # saving expectation suite
     validator.save_expectation_suite(discard_failed_expectations=False)
+    ge_logger.info("Successfully added expectations")
     print("Successfully added expectations")
 
 
@@ -254,6 +263,7 @@ def __create_and_execute_checkpoint(expectation_suite_name: str, validator,
         **checkpoint_config
     )
 
+    ge_logger.info("Executing checkpoint")
     checkpoint_result = checkpoint.run()
     return checkpoint_result
 

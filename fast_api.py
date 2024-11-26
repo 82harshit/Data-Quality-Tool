@@ -24,6 +24,9 @@ import db_constants
 from server_functions import get_mysql_db, handle_file_connection
 from database import db_functions, sql_queries as query
 from ge import run_quality_checks
+import logging
+from logging_config import ge_logger
+from io import StringIO
 
 app = FastAPI()
 
@@ -55,6 +58,10 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         }
     }
 )):
+    # TODO: Add stream handler in logging_config
+    log_stream = StringIO()
+    log_handler = logging.StreamHandler(log_stream)
+    ge_logger.addHandler(log_handler)
     
     if not connection.user_credentials:
         raise HTTPException(status_code=400, detail={"error": "Missing user credentials"})
@@ -97,8 +104,13 @@ async def create_connection(connection: connection_model.Connection = Body(...,
                         database
                     ))
     
-            print("Login credential insertion completed")
-            return {"status": "connected", "connection_name": unique_connection_name}
+            ge_logger.info("Login credential insertion completed")
+
+            log_handler.flush()
+            logs = log_stream.getvalue()
+            ge_logger.removeHandler(log_handler)
+
+            return {"status": "connected", "connection_name": unique_connection_name, "logs": logs}
         except Exception as e:
             raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
 
@@ -160,6 +172,10 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     This function posts the checks on the data
     """
 
+    log_stream = StringIO()
+    log_handler = logging.StreamHandler(log_stream)
+    ge_logger.addHandler(log_handler)
+
     if not job.connection_name:
         raise HTTPException(status_code=400, detail={"error": "Missing connection name"})
     
@@ -194,6 +210,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
                         database=db_constants.USER_CREDENTIALS_DATABASE
                         )
     
+    ge_logger.info("Created connection with app db")
     app_cursor = app_conn.cursor()
     
     READ_FOR_CONN_NAME_QUERY = f"""SELECT 1 FROM {db_constants.USER_LOGIN_TABLE} 
@@ -204,6 +221,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     if not exists:
         raise HTTPException(status_code=404, detail={"error": "User not found", "connection_name": connection_name})
     
+    ge_logger.info("User found, retrieving connection details")
     print("User found, retrieving connection details")
 
     # retrieve user connection credentials
@@ -219,6 +237,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     except ValueError as ve:
         raise Exception(f"Required string type value for username\n{str(ve)}")
 
+    ge_logger.info("Username successfully retrieved")
     print("Username successfully retrieved")
 
     GET_PASSWORD_QUERY = f"""SELECT {db_constants.PASSWORD} 
@@ -232,6 +251,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     except ValueError as ve:
         raise Exception(f"Required string type value for password\n{str(ve)}")
 
+    ge_logger.info("Password successfully retrieved")
     print("Password successfully retrieved")
 
     GET_HOSTNAME_QUERY = f"""SELECT {db_constants.HOSTNAME} 
@@ -245,6 +265,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     except ValueError as ve:
         raise Exception(f"Required string type value for hostname\n{str(ve)}")
 
+    ge_logger.info("Hostname successfully retrieved")
     print("Hostname successfully retrieved")
 
     GET_PORT_QUERY = f"""SELECT {db_constants.PORT} 
@@ -258,6 +279,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     except ValueError as ve:
         raise Exception(f"Required integer type value for port\n{str(ve)}")
 
+    ge_logger.info("Port successfully retrieved")
     print("Port successfully retrieved")
 
     GET_SOURCE_TYPE_QUERY = f"""SELECT {db_constants.SOURCE_TYPE} 
@@ -271,6 +293,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     except ValueError as ve:
         raise Exception(f"Required string type value for data source type\n{str(ve)}")
     
+    ge_logger.info("Data source type successfully retrieved")
     print("Data source type successfully retrieved")
 
     if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
@@ -285,6 +308,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         except ValueError as ve:
             raise Exception(f"Required string type value for data source\n{str(ve)}")
 
+        ge_logger.info("Data source successfully retrieved")
         print("Data source successfully retrieved")
 
     app_cursor.close()
@@ -309,11 +333,16 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     datasource_name = f"test_datasource_for_mysql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
     table_name = "customers"
 
+    ge_logger.info("Running validation checks")
     validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
                                             database=data_source, table_name=table_name, schema_name=data_source, 
                                             username=username, quality_checks=quality_checks, datasource_type=data_source_type)
 
-    return {"validation_results": validation_results} 
+    log_handler.flush()
+    logs = log_stream.getvalue()
+    ge_logger.removeHandler(log_handler)
+
+    return {"validation_results": validation_results, "logs": logs} 
 
     # TODO: store these validation results in a database
     
