@@ -64,11 +64,13 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     ge_logger.addHandler(log_handler)
     
     if not connection.user_credentials:
+        ge_logger.error("Incorrect request JSON provided, missing user credentials")
         raise HTTPException(status_code=400, detail={"error": "Missing user credentials"})
     
     if connection.connection_credentials:
         connection_type = connection.connection_credentials.connection_type
     else:
+        ge_logger.error("Incorrect request JSON provided, missing user credentials")
         raise HTTPException(status_code=400, detail={"error": "Missing connection credentials"})
 
     hostname = connection.connection_credentials.server
@@ -112,6 +114,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
 
             return {"status": "connected", "connection_name": unique_connection_name, "logs": logs}
         except Exception as e:
+            ge_logger.error(f"An error occurred: {str(e)}")
             raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
 
     elif connection_type in {connection_enum_and_metadata.ConnectionEnum.SAP, 
@@ -119,6 +122,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
                              connection_enum_and_metadata.ConnectionEnum.FILESERVER,
                              connection_enum_and_metadata.ConnectionEnum.REDSHIFT
                              }:
+        ge_logger.error(f"{connection_type} not implemented")
         raise HTTPException(status_code=501, detail={"error": f"{connection_type} not implemented", 
                                                      "request_json": connection.model_dump_json()})
     elif connection_type in {connection_enum_and_metadata.ConnectionEnum.ORC, 
@@ -129,6 +133,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
                              }:
         return await handle_file_connection(connection, expected_extension=f".{connection_type}")
     else:
+        ge_logger.error("Unidentified connection source")
         raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", 
                                                      "request_json": connection.model_dump_json()})
 
@@ -177,9 +182,11 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     ge_logger.addHandler(log_handler)
 
     if not job.connection_name:
+        ge_logger.error("Incorrect request JSON provided, missing connection name")
         raise HTTPException(status_code=400, detail={"error": "Missing connection name"})
     
     if not job.quality_checks:
+        ge_logger.error("Incorrect request JSON provided, missing quality checks")
         raise HTTPException(status_code=400, detail={"error": "Missing quality checks"})
 
     # if not job.data_target:
@@ -311,10 +318,11 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         ge_logger.info("Data source successfully retrieved")
         print("Data source successfully retrieved")
 
+    ge_logger.info("Closing app connection")
     app_cursor.close()
     app_conn.close()
 
-    print("Creating user connection")
+    # print("Creating user connection")
     # create user connection to read file from SSH server
 
     # user_conn = get_mysql_db(
@@ -337,6 +345,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
                                             database=data_source, table_name=table_name, schema_name=data_source, 
                                             username=username, quality_checks=quality_checks, datasource_type=data_source_type)
+
+    ge_logger.info("Validation checks successfully executed")
 
     log_handler.flush()
     logs = log_stream.getvalue()

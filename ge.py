@@ -138,6 +138,7 @@ def __create_new_datasource(datasource_name: str, datasource_type: str, host: st
             raise Exception(f"Datasource could not be created\n{str(e)}")
     
     else:
+        ge_logger.error("Invalid format for datasource type")
         print("Invalid format for datasource type")
 
 
@@ -216,6 +217,7 @@ def __add_expectations_to_validator(validator, expectations) -> None:
     """
     
     if len(expectations) == 0:
+        ge_logger.error("No expectations provided")
         raise Exception("No expectations provided")
     
     # adding expectations to the validator
