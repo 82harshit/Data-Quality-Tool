@@ -1,9 +1,9 @@
-from fastapi import HTTPException
+import configparser
 from request_models import connection_enum_and_metadata, connection_model
-import pymysql
 from datetime import datetime
 import random
 import re
+import json
 
 
 def remove_special_characters(input_string) -> str:
@@ -115,4 +115,76 @@ def find_validation_result(data):
     except Exception as e:
         print(f"Error extracting validation result: {e}")
         return None
+    
+    
+def get_cred_db_connection_config() -> json:
+    """
+    This function reads the contents under the 'Database' section of 
+    the configuration file: 'database_config.ini'
+
+    :return db_connection_details (json): A JSON containing the connection credentials to the MySQL 
+    database that contains user login credentials
+    """
+
+    config = configparser.ConfigParser()
+    try:
+        path_to_database_config = r'database\database_config.ini' # relative path to database_config.ini
+        config.read(path_to_database_config)
+    except FileNotFoundError as file_not_found:
+        raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
+
+    app_database = config.get('Database', 'app_database')
+    app_table = config.get('Database', 'app_table')
+    app_port = config.get('Database', 'app_port')
+    app_hostname = config.get('Database', 'app_hostname')
+    app_username = config.get('Database', 'app_username')
+    app_password = config.get('Database', 'app_password')
+
+    db_connection_details = {
+        'app_database': app_database,
+        'app_table': app_table,
+        'app_port': int(app_port), # port must be of type 'int'
+        'app_hostname': app_hostname,
+        'app_username': app_username,
+        'app_password': app_password
+    }
+
+    return db_connection_details
+
+
+def get_cred_db_table_config() -> json:
+    """
+    This function reads the contents under the 'Login Credentails Table' section of 
+    the configuration file: 'database_config.ini'
+
+    :return login_cred_columns (json): A JSON containing the name of columns as defined
+    in `login_credentials` table
+    """
+
+    config = configparser.ConfigParser()
+    try:
+        path_to_database_config = r'database\database_config.ini' # relative path to `database_config.ini`
+        config.read(path_to_database_config)
+    except FileNotFoundError as file_not_found:
+        raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
+
+    connection_name = config.get('Login Credentials Table', 'connection_name')
+    user_name = config.get('Login Credentials Table', 'user_name')
+    source_type = config.get('Login Credentials Table', 'source_type')
+    password = config.get('Login Credentials Table', 'password')
+    port = config.get('Login Credentails Table', 'port')
+    database_name = config.get('Login Credentials Table', 'database_name')
+    host_name =  config.get('Login Credentails Table', 'hostname')
+
+    login_cred_columns = {
+        'connection_name': connection_name,
+        'user_name': user_name,
+        'source_type': source_type,
+        'password': password,
+        'port': int(port), # port must be of type 'int'
+        'database_name': database_name,
+        'hostname': host_name
+    }
+
+    return login_cred_columns
 

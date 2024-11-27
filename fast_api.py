@@ -309,9 +309,13 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         user_conn = await connect_to_server_SSH(server=hostname,username=username,password=password,port=port)
         print(f"User {username} successfully connected in server {hostname} on {port} \n Connection obj:{user_conn}")
         dir_path = job.data_source.dir_path
+        print("Directory_path : ",dir_path)
         file_name = job.data_source.file_name
+        print("File_name : ",file_name)
         file_path = f"{dir_path}/{file_name}"
+        print("File path: ",file_path)
         columns = await read_file_columns(conn=user_conn,file_path=file_path)
+        print("Column names : ",columns)
         datasource_name = f"test_datasource_for_csv"
         validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password, 
                                             username=username, quality_checks=quality_checks, datasource_type=data_source_type,
