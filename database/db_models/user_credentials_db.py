@@ -3,6 +3,7 @@ import pymysql
 from utils import get_cred_db_connection_config, get_cred_db_table_config
 import sql_queries as query_template
 import sql_query
+import json
 
 class UserCredentialsDatabase:
     def __init__(self, hostname: str, username: str, password: str, port: int, database: None, connection_type: str):
@@ -56,7 +57,7 @@ class UserCredentialsDatabase:
             raise HTTPException(status_code=500, detail=f"Error connecting to database: {str(e)}")
         
     
-    def insert_creds_in_cred_db(self, unique_connection_name, connection_string):
+    def insert_creds_in_cred_db(self, unique_connection_name: str, connection_string: str) -> None:
         """
         Insert user connection credentials into user credentials database
         
@@ -109,8 +110,8 @@ class UserCredentialsDatabase:
         search_result = cred_db.execute_query()
         return search_result
 
-    # TODO: complete
-    def get_creds_for_file(self, unique_connection_name):
+    # TODO: test
+    def get_creds_for_file(self, unique_connection_name: str) -> json:
         db_details = get_cred_db_connection_config()
         table_details = get_cred_db_table_config()  
 
@@ -122,7 +123,6 @@ class UserCredentialsDatabase:
         col_source_type = table_details.get('source_type')
         col_password = table_details.get('password')
         col_port = table_details.get('port')
-        col_database_name = table_details.get('database_name')
         col_hostname = table_details.get('hostname')
 
         unique_connection_name = (unique_connection_name, ) # converting to tuple
@@ -139,11 +139,81 @@ class UserCredentialsDatabase:
                                                  query_params=unique_connection_name)
         source_type = source_type_cred_db.execute_query()
 
-        return {'username': user_name, 'password': "", 'port': "", 'database': "", 'hostname': "", 'source_type': source_type}
-    
+        password_query = query_template.GET_LOGIN_CRED_QUERY.format(col_password, app_table, col_connection_name)
+        password_cred_db = sql_query.SQLQuery(db_connection=self.connect_to_user_cred_db(),
+                                              query=password_query,
+                                              query_params=unique_connection_name)
+        password = password_cred_db.execute_query()
 
-    def get_creds_for_db():
+        port_query = query_template.GET_LOGIN_CRED_QUERY.format(col_port, app_table, col_connection_name)
+        port_cred_db = sql_query.SQLQuery(db_connection=self.connect_to_user_cred_db(),
+                                          query=port_query,
+                                          query_params=unique_connection_name)
+        port = port_cred_db.execute_query()
+
+        hostname_query = query_template.GET_LOGIN_CRED_QUERY.format(col_hostname, app_table, col_connection_name)
+        hostname_cred_db = sql_query.SQLQuery(db_connection=self.connect_to_user_cred_db(),
+                                              query=hostname_query,
+                                              query_params=unique_connection_name)
+        hostname = hostname_cred_db.execute_query()
+
+        return {'username': user_name, 'password': password, 'port': port, 'hostname': hostname, 'source_type': source_type}
+    
+    # TODO: test
+    def get_creds_for_db(self, unique_connection_name: str) -> json:
         db_details = get_cred_db_connection_config()
+        table_details = get_cred_db_table_config()  
         app_table = db_details.get('app_table')
 
-        pass
+        col_connection_name = table_details.get('connection_name')
+
+        col_database_name = table_details.get('database_name')        
+        col_user_name = table_details.get('user_name')
+        col_source_type = table_details.get('source_type')
+        col_password = table_details.get('password')
+        col_port = table_details.get('port')
+        col_hostname = table_details.get('hostname')
+
+
+        unique_connection_name = (unique_connection_name, ) # converting to tuple
+
+        database_name_query = query_template.GET_LOGIN_CRED_QUERY.format(col_database_name, app_table, col_connection_name)
+        database_cred_db = sql_query.SQLQuery(db_connection=self.connect_to_user_cred_db(),
+                                              query=database_name_query,
+                                              query_params=unique_connection_name)
+        
+        database_name = database_cred_db.execute_query()
+
+        user_name_query = query_template.GET_LOGIN_CRED_QUERY.format(col_user_name, app_table, col_connection_name)
+        user_name_cred_db = sql_query.SQLQuery(db_connection=self.connect_to_user_cred_db(),
+                           query=user_name_query,
+                           query_params=unique_connection_name)
+        user_name = user_name_cred_db.execute_query()
+
+        source_type_query = query_template.GET_LOGIN_CRED_QUERY.format(col_source_type, app_table, col_connection_name)
+        source_type_cred_db = sql_query.SQLQuery(db_connection=self.connect_to_user_cred_db(),
+                                                 query=source_type_query,
+                                                 query_params=unique_connection_name)
+        source_type = source_type_cred_db.execute_query()
+
+        password_query = query_template.GET_LOGIN_CRED_QUERY.format(col_password, app_table, col_connection_name)
+        password_cred_db = sql_query.SQLQuery(db_connection=self.connect_to_user_cred_db(),
+                                              query=password_query,
+                                              query_params=unique_connection_name)
+        password = password_cred_db.execute_query()
+
+        port_query = query_template.GET_LOGIN_CRED_QUERY.format(col_port, app_table, col_connection_name)
+        port_cred_db = sql_query.SQLQuery(db_connection=self.connect_to_user_cred_db(),
+                                          query=port_query,
+                                          query_params=unique_connection_name)
+        port = port_cred_db.execute_query()
+
+        hostname_query = query_template.GET_LOGIN_CRED_QUERY.format(col_hostname, app_table, col_connection_name)
+        hostname_cred_db = sql_query.SQLQuery(db_connection=self.connect_to_user_cred_db(),
+                                              query=hostname_query,
+                                              query_params=unique_connection_name)
+        hostname = hostname_cred_db.execute_query()
+
+        return {'database': database_name, 'username': user_name, 'source_type': source_type, 'port': port,
+                 'hostname': hostname, 'password': password}
+    
