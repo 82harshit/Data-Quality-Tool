@@ -195,7 +195,9 @@ def create_batch_request(datasource_name: str,data_source_type: str, data_asset_
                             'data_asset_name': data_asset_name, 
                             'limit': limit}
 
-    elif data_source_type == conn.ConnectionEnum.CSV:
+    elif (data_source_type == conn.ConnectionEnum.CSV,
+          data_source_type == conn.ConnectionEnum.JSON,
+          data_source_type == conn.ConnectionEnum.EXCEL):
         if limit == 0:
             batch_request = {'datasource_name': datasource_name, 
                             'data_connector_name': 'default_inferred_data_connector_name', 

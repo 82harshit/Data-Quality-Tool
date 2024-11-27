@@ -254,7 +254,7 @@ async def read_file_columns(conn, file_path: str):
             result = await conn.run(command, encoding=None)  # Retrieve binary data
             file_content = BytesIO(result.stdout)
             df = pd.read_excel(file_content)
-            return df.columns.tolist()
+            
 
         else:
             raise HTTPException(status_code=400, detail="Unsupported file format")
