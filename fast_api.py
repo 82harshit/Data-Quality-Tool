@@ -27,13 +27,26 @@ from ge import run_quality_checks
 import logging
 from logging_config import ge_logger
 from io import StringIO
+from contextlib import asynccontextmanager
 
-app = FastAPI()
+app_state = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app_state['submit_job_status'] = {"status": "No request recieved"}
+    yield
+    app_state.clear()
+
+app = FastAPI(lifespan=lifespan)
 
 @app.get("/", description='This is the root route')
 async def root():
     return {"message": "Welcome to Data Quality Tool"}
 
+@app.get("/submit-job-logs", description="This endpoint returns the application state for 'submit-job' endpoint")
+async def submit_job_logs():
+    current_state = app_state["submit_job_status"]
+    return current_state
 
 @app.post("/create-connection", description="This endpoint allows connection to the provided connection type")
 async def create_connection(connection: connection_model.Connection = Body(...,
@@ -63,6 +76,8 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     log_handler = logging.StreamHandler(log_stream)
     ge_logger.addHandler(log_handler)
     
+    app_state["submit_job_status"] = {"status": "Started", "message": "Recieved request"}
+
     if not connection.user_credentials:
         ge_logger.error("Incorrect request JSON provided, missing user credentials")
         raise HTTPException(status_code=400, detail={"error": "Missing user credentials"})
@@ -183,11 +198,13 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     if not job.connection_name:
         ge_logger.error("Incorrect request JSON provided, missing connection name")
-        raise HTTPException(status_code=400, detail={"error": "Missing connection name"})
+        app_state["submit_job_status"] = {"status":"Error", "message": "Incorrect request JSON provided, missing connection name"}
+        raise HTTPException(status_code=400, detail={"error": "Incorrect request JSON provided, missing connection name"})
     
     if not job.quality_checks:
         ge_logger.error("Incorrect request JSON provided, missing quality checks")
-        raise HTTPException(status_code=400, detail={"error": "Missing quality checks"})
+        app_state["submit_job_status"] = {"status":"Error", "message": "Incorrect request JSON provided, missing quality checks"}
+        raise HTTPException(status_code=400, detail={"error": "Incorrect request JSON provided, missing quality checks"})
 
     # if not job.data_target:
     #     raise HTTPException(status_code=400, detail={"error": "Missing data target"})
@@ -218,6 +235,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
                         )
     
     ge_logger.info("Created connection with app db")
+    app_state['submit_job_status'] = {"status": "In progress", "message": "Retrieving credentials"}
     app_cursor = app_conn.cursor()
     
     READ_FOR_CONN_NAME_QUERY = f"""SELECT 1 FROM {db_constants.USER_LOGIN_TABLE} 
@@ -226,6 +244,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     exists = app_cursor.fetchone() is not None
 
     if not exists:
+        app_state["submit_job_status"] = {"status": "Error", "message": "User not found"}
         raise HTTPException(status_code=404, detail={"error": "User not found", "connection_name": connection_name})
     
     ge_logger.info("User found, retrieving connection details")
@@ -318,6 +337,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         ge_logger.info("Data source successfully retrieved")
         print("Data source successfully retrieved")
 
+    app_state["submit_job_status"] = {"status": "In progress", "message": "Sucessfully retrieved credentials"}
     ge_logger.info("Closing app connection")
     app_cursor.close()
     app_conn.close()
@@ -342,11 +362,13 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     table_name = "customers"
 
     ge_logger.info("Running validation checks")
+    app_state["submit_job_status"] = {"status": "In progress", "message": "Running validation checks"}
     validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
                                             database=data_source, table_name=table_name, schema_name=data_source, 
                                             username=username, quality_checks=quality_checks, datasource_type=data_source_type)
 
     ge_logger.info("Validation checks successfully executed")
+    app_state["submit_job_status"] = {"status": "Completed", "message": "Validation checks successfully executed"}
 
     log_handler.flush()
     logs = log_stream.getvalue()
