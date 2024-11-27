@@ -248,6 +248,13 @@ async def read_file_columns(conn, file_path: str):
                     columns.append(str(field))  # Fallback to string representation if structure is different
 
             return columns
+        
+        elif file_path.endswith(".xlsx"):  # Excel handling
+            command = f"cat {file_path}"
+            result = await conn.run(command, encoding=None)  # Retrieve binary data
+            file_content = BytesIO(result.stdout)
+            df = pd.read_excel(file_content)
+            return df.columns.tolist()
 
         else:
             raise HTTPException(status_code=400, detail="Unsupported file format")

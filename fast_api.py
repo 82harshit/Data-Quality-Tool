@@ -142,6 +142,8 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.REDSHIFT} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.PARQUET:
         return await handle_file_connection(connection, expected_extension=".parquet")
+    if connection_type == connection_enum_and_metadata.ConnectionEnum.EXCEL:
+        return await handle_file_connection(connection, expected_extension=".xlsx")
     else:
         raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", "request_json": connection.model_dump_json()})
 
@@ -305,7 +307,9 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     print("Creating user connection")
     # create user connection
-    if data_source_type == connection_enum_and_metadata.ConnectionEnum.CSV:
+    if (data_source_type == connection_enum_and_metadata.ConnectionEnum.CSV,
+        data_source_type == connection_enum_and_metadata.ConnectionEnum.JSON,
+        data_source_type == connection_enum_and_metadata.ConnectionEnum.EXCEL):
         user_conn = await connect_to_server_SSH(server=hostname,username=username,password=password,port=port)
         print(f"User {username} successfully connected in server {hostname} on {port} \n Connection obj:{user_conn}")
         dir_path = job.data_source.dir_path
@@ -316,7 +320,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         print("File path: ",file_path)
         columns = await read_file_columns(conn=user_conn,file_path=file_path)
         print("Column names : ",columns)
-        datasource_name = f"test_datasource_for_csv"
+        datasource_name = f"test_datasource_for_file"
         validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password, 
                                             username=username, quality_checks=quality_checks, datasource_type=data_source_type,
                                             dir_name=dir_path)

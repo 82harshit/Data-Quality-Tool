@@ -32,7 +32,8 @@ def create_new_datasource(datasource_name: str, datasource_type: str, host: str,
 
     :return: None
     """
-    if datasource_type == conn.ConnectionEnum.FILESERVER or datasource_type == conn.ConnectionEnum.CSV:
+    if (datasource_type == conn.ConnectionEnum.FILESERVER or datasource_type == conn.ConnectionEnum.CSV or
+       datasource_type == conn.ConnectionEnum.EXCEL or datasource_type == conn.ConnectionEnum.JSON):
         # datasource_fileserver = f"""
         # name: {datasource_name}
         # class_name: Datasource
