@@ -1,14 +1,17 @@
 from typing import List, Optional
 import yaml
 import json
+
+import great_expectations as gx
 from great_expectations.cli.datasource import sanitize_yaml_and_save_datasource
 from great_expectations.core.batch import BatchRequest
 from great_expectations.checkpoint import SimpleCheckpoint
 from great_expectations.exceptions import DataContextError
 
+
 class GreatExpectationsModel:
-    def __init__(self, quality_checks: List[dict], ge_context):
-        self.ge_context = ge_context
+    def __init__(self, quality_checks: List[dict]):
+        self.ge_context = gx.get_context()
         self.quality_checks = quality_checks
 
 

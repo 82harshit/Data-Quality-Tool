@@ -17,7 +17,7 @@ class SQLQuery:
         finally:
             # closing connections
             connection_cursor.close()
-            self.db_connection.close()
+        #     self.db_connection.close()
 
     # def get_insert_query(dest_table: str, values: tuple):
     #     insert_query = f"INSERT INTO {dest_table} VALUES {values};"
