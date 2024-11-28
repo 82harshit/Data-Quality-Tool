@@ -307,9 +307,11 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     print("Creating user connection")
     # create user connection
-    if (data_source_type == connection_enum_and_metadata.ConnectionEnum.CSV,
-        data_source_type == connection_enum_and_metadata.ConnectionEnum.JSON,
-        data_source_type == connection_enum_and_metadata.ConnectionEnum.EXCEL):
+    if data_source_type in [
+    connection_enum_and_metadata.ConnectionEnum.CSV,
+    connection_enum_and_metadata.ConnectionEnum.JSON,
+    connection_enum_and_metadata.ConnectionEnum.EXCEL
+    ]:
         user_conn = await connect_to_server_SSH(server=hostname,username=username,password=password,port=port)
         print(f"User {username} successfully connected in server {hostname} on {port} \n Connection obj:{user_conn}")
         dir_path = job.data_source.dir_path

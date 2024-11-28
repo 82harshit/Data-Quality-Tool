@@ -326,18 +326,31 @@ def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str
 
     :return: A JSON containing validation results
     """
+    if (datasource_type == conn.ConnectionEnum.CSV or datasource_type == conn.ConnectionEnum.JSON or
+        datasource_type == conn.ConnectionEnum.EXCEL):
     
-    create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
+        create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
                               username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name,
                               dir_name=dir_name)
     
-    expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
-    create_expectation_suite(expectation_suite_name=expectation_suite_name)
+        expectation_suite_name = f"{datasource_name}_{username}_{dir_name}_{port}_{hostname}" # expectation suite name format
+        create_expectation_suite(expectation_suite_name=expectation_suite_name)
 
-    batch_request_json = create_batch_request(datasource_name=datasource_name,data_source_type=datasource_type, data_asset_name=file_name)
-    # batch_list = context.get_batch_list(**batch_request_json)
-    # print(batch_list)
-    # print(len(batch_list))
+        batch_request_json = create_batch_request(datasource_name=datasource_name,data_source_type=datasource_type, data_asset_name=file_name)
+        # batch_list = context.get_batch_list(**batch_request_json)
+        # print(batch_list)
+        # print(len(batch_list))
+
+    elif (datasource_type == conn.ConnectionEnum.MYSQL):
+        create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
+                              username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name,
+                              dir_name=dir_name)
+        expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
+        create_expectation_suite(expectation_suite_name=expectation_suite_name)
+
+        batch_request_json = create_batch_request(datasource_name=datasource_name,data_source_type=datasource_type, data_asset_name=table_name)
+        
+    print(f"Exp suite name:{expectation_suite_name}\n{batch_request_json}")
     validator = create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
 
     add_expectations_to_validator(validator=validator,expectations=quality_checks)
