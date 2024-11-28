@@ -4,6 +4,10 @@ from request_models import connection_enum_and_metadata
 from utils import get_cred_db_connection_config, get_job_run_status_table_config
 import json
 from database import sql_queries as query
+from typing import Optional
+import logging
+from logging_config import ge_logger
+
 
 class DBFunctions:
     # TODO: Test with non static
@@ -28,9 +32,10 @@ class DBFunctions:
                     database=database,  
                     port=port
                 )
-            print("Successfully connected")
+            ge_logger.info("Successfully connected")
             return conn
         except pymysql.MySQLError as e:
+            ge_logger.error(f"Error connecting to database: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Error connecting to database: {str(e)}")
         
 
@@ -100,12 +105,13 @@ class DBFunctions:
             
             return query_result
         except Exception as sql_error:
+            ge_logger.error(f"Failed to exceute SQL query:\n{sql_query}\nError: {sql_error}")
             raise Exception(f"Failed to exceute SQL query:\n{sql_query}\nError: {sql_error}")
         finally: 
             # closing connections
-            db_connection.close()
+            # db_connection.close()
             cursor.close()
-            print('Database connection closed')
+            ge_logger.info('Cursor connection closed')
 
 
     def check_and_get_user_creds(self, connection_name: str) -> json:
@@ -131,7 +137,6 @@ class DBFunctions:
         """
         pass
 
-    
     def insert_job_id(self, job_id: str, job_status: str) -> None:
         db_conn_details = get_cred_db_connection_config() 
         app_status_table = db_conn_details.get('app_status_table')
@@ -144,23 +149,29 @@ class DBFunctions:
                                params=(job_id, job_status, None))
 
 
-    def update_status_of_job_id(self, job_id: str, job_status: str, status_message: None) -> None:
+    def update_status_of_job_id(self, job_id: str, job_status: str, status_message: Optional[str] = "") -> None:
         db_conn_details = get_cred_db_connection_config() 
         app_status_table = db_conn_details.get('app_status_table')
+
+        job_run_status_details = get_job_run_status_table_config()
+
+        col_job_id = job_run_status_details.get('job_id')
+        col_job_status = job_run_status_details.get('job_status')
+        col_status_message = job_run_status_details.get('status_message')
         
         cred_db_conn = self.connect_to_credentials_db(connection_type=None)
         cred_db_conn = cred_db_conn['app_connection']
 
         data_to_update = {
-            'job_status': job_status,
-            'status_message': status_message
+            col_job_status: job_status,
+            col_status_message: status_message
         }
 
         set_clause = ", ".join([f"{key} = %s" for key in data_to_update.keys()])
 
         self.execute_sql_query(db_connection=cred_db_conn, 
-                               sql_query=query.UPDATE_JOB_STATUS_QUERY.format(app_status_table, set_clause, job_id),
-                               params=(job_id))
+                               sql_query=query.UPDATE_JOB_STATUS_QUERY.format(app_status_table, set_clause, col_job_id),
+                               params=(job_status, status_message, job_id))
         
     
     def get_status_of_job_id(self, job_id: str) -> str:
