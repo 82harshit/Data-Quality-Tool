@@ -12,15 +12,11 @@ from utils import find_validation_result
 from request_models import connection_enum_and_metadata as conn
 
 from logging_config import ge_logger
+from database import db_functions
+from state_singelton import JobIDSingleton
 
-# TODO: Create this module
-class GreatExpectations:
-    context = None
-
-    def __init__(self):
-        self.context = gx.get_context()
-
-    
+db = db_functions.DBFunctions()
+job_id = JobIDSingleton.get_job_id()
 
 context = gx.get_context()
 
@@ -47,27 +43,6 @@ def __create_new_datasource(datasource_name: str, datasource_type: str, host: st
     """
     if (datasource_type == conn.ConnectionEnum.FILESERVER or datasource_type == conn.ConnectionEnum.CSV or
        datasource_type == conn.ConnectionEnum.EXCEL or datasource_type == conn.ConnectionEnum.JSON):
-        # datasource_fileserver = f"""
-        # name: {datasource_name}
-        # class_name: Datasource
-        # execution_engine:
-        #   class_name: PandasExecutionEngine
-        # data_connectors:
-        #   default_inferred_data_connector_name:
-        #     class_name: InferredAssetFilesystemDataConnector
-        #     base_directory: {dir_name}
-        #     default_regex:
-        #       group_names:
-        #         - data_asset_name
-        #       pattern: (.*)
-        #   default_runtime_data_connector_name:
-        #     class_name: RuntimeDataConnector
-        #     assets:
-        #       my_runtime_asset_name:
-        #         batch_identifiers:
-        #           - runtime_batch_identifier_name
-        # """
-
         datasource_fileserver_json = {
             "name": datasource_name,
             "class_name": "Datasource",
@@ -100,10 +75,10 @@ def __create_new_datasource(datasource_name: str, datasource_type: str, host: st
             context.test_yaml_config(yaml_config=datasource_fileserver_yaml)
             sanitize_yaml_and_save_datasource(context, datasource_fileserver_yaml, 
                                               overwrite_existing=True)
-            print("DataSource creation successful")
             ge_logger.info("CSV datasource created successfully")
         except Exception as e:
             ge_logger.error(f"Datasource could not be created\n{str(e)}")
+            db.update_status_of_job_id(job_id=job_id,job_status="error",status_message=f"Datasource could not be created\n{str(e)}")
             raise Exception(f"Datasource could not be created\n{str(e)}")
         
     elif datasource_type == conn.ConnectionEnum.MYSQL:
@@ -156,11 +131,12 @@ def __create_new_datasource(datasource_name: str, datasource_type: str, host: st
             ge_logger.info("MySQL datasource created successfully")
         except Exception as e:
             ge_logger.error(f"Datasource could not be created\n{str(e)}")
+            db.update_status_of_job_id(job_id=job_id,job_status="error",status_message=f"Datasource could not be created\n{str(e)}")
             raise Exception(f"Datasource could not be created\n{str(e)}")
     
     else:
         ge_logger.error("Invalid format for datasource type")
-        print("Invalid format for datasource type")
+        db.update_status_of_job_id(job_id=job_id,job_status="error",status_message="Invalid format for datasource type")
 
 
 def __create_batch_request(datasource_name: str,data_source_type: str, data_asset_name: Optional[str] = "test_data_asset", 
@@ -235,10 +211,14 @@ def __create_validator(expectation_suite_name: str, batch_request: json):
         expectation_suite_name=expectation_suite_name
     )
 
-    validator.save_expectation_suite(discard_failed_expectations=False)
-    ge_logger.info("Validator created and expectation suite added")
-    print("Validator created and expectation suite added")
-    return validator
+    try:
+        validator.save_expectation_suite(discard_failed_expectations=False)
+        ge_logger.info("Validator created and expectation suite added")
+        return validator
+    except Exception as e:
+        db.update_status_of_job_id(job_id=job_id,job_status="error",status_message=f"Failed to save expectations suite\n{str(e)}")
+        ge_logger.error(f"Failed to save expectations suite\n{str(e)}")
+        raise Exception(f"Failed to save expectations suite\n{str(e)}")
 
 
 def __add_expectations_to_validator(validator, expectations) -> None:
@@ -253,6 +233,7 @@ def __add_expectations_to_validator(validator, expectations) -> None:
     
     if len(expectations) == 0:
         ge_logger.error("No expectations provided")
+        db.update_status_of_job_id(job_id=job_id,job_status="error",status_message="An error occured while adding expectations to validator. No expectations provided.")
         raise Exception("No expectations provided")
     
     # adding expectations to the validator
@@ -263,10 +244,15 @@ def __add_expectations_to_validator(validator, expectations) -> None:
         expectation_func = getattr(validator, expectation_type)
         expectation_func(**kwargs)
         
-    # saving expectation suite
-    validator.save_expectation_suite(discard_failed_expectations=False)
-    ge_logger.info("Successfully added expectations")
-    print("Successfully added expectations")
+    try:
+        # saving expectation suite
+        validator.save_expectation_suite(discard_failed_expectations=False)
+        ge_logger.info("Successfully added expectations")
+        print("Successfully added expectations")
+    except Exception as e:
+        db.update_status_of_job_id(job_id=job_id,job_status="error",status_message=f"Failed to save expectations suite\n{str(e)}")
+        ge_logger.error(f"Failed to save expectations suite\n{str(e)}")
+        raise Exception(f"Failed to save expectations suite\n{str(e)}")
 
 
 def __create_and_execute_checkpoint(expectation_suite_name: str, validator, 
@@ -300,10 +286,14 @@ def __create_and_execute_checkpoint(expectation_suite_name: str, validator,
         **checkpoint_config
     )
 
-    ge_logger.info("Executing checkpoint")
-    checkpoint_result = checkpoint.run()
-    return checkpoint_result
-
+    try:
+        ge_logger.info("Executing checkpoint")
+        checkpoint_result = checkpoint.run()
+        return checkpoint_result
+    except Exception as e:
+        db.update_status_of_job_id(job_id=job_id,job_status="error",status_message=f"Failed to execute checkpoint\n{str(e)}")
+        ge_logger.error(f"Failed to execute checkpoint\n{str(e)}")
+        raise Exception(f"Failed to execute checkpoint\n{str(e)}")
 
 def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str, datasource_name: str, username: str, 
                        password: str, port: str, database: Optional[str] = "", table_name: Optional[str] = "", 

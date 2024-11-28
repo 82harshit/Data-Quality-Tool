@@ -207,3 +207,10 @@ def get_job_run_status_table_config() -> json:
 
     job_status_columns = {'job_id': job_id, 'job_status': job_status, 'status_message': status_message}
     return job_status_columns
+
+
+def generate_job_id() -> str:
+    rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    new_job_id =  f"Job_{rand_int}{timestamp}"
+    return new_job_id

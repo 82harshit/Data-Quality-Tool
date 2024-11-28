@@ -131,8 +131,8 @@ class DBFunctions:
         """
         pass
 
-
-    def update_status_of_job_id(self, job_id: str, job_status: str, status_message: None) -> None:
+    
+    def insert_job_id(self, job_id: str, job_status: str) -> None:
         db_conn_details = get_cred_db_connection_config() 
         app_status_table = db_conn_details.get('app_status_table')
         
@@ -141,7 +141,26 @@ class DBFunctions:
 
         self.execute_sql_query(db_connection=cred_db_conn, 
                                sql_query=query.INSERT_JOB_STATUS_QUERY.format(app_status_table),
-                               params=(job_id, job_status, status_message))
+                               params=(job_id, job_status, None))
+
+
+    def update_status_of_job_id(self, job_id: str, job_status: str, status_message: None) -> None:
+        db_conn_details = get_cred_db_connection_config() 
+        app_status_table = db_conn_details.get('app_status_table')
+        
+        cred_db_conn = self.connect_to_credentials_db(connection_type=None)
+        cred_db_conn = cred_db_conn['app_connection']
+
+        data_to_update = {
+            'job_status': job_status,
+            'status_message': status_message
+        }
+
+        set_clause = ", ".join([f"{key} = %s" for key in data_to_update.keys()])
+
+        self.execute_sql_query(db_connection=cred_db_conn, 
+                               sql_query=query.UPDATE_JOB_STATUS_QUERY.format(app_status_table, set_clause, job_id),
+                               params=(job_id))
         
     
     def get_status_of_job_id(self, job_id: str) -> str:
