@@ -252,7 +252,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     retrieved_username = app_cursor.fetchall()
     try:
         username = retrieved_username[0][0] # extracting data from tuple, tuple format: (('user'),)
-        print(f"Username:{username}")
+        ge_logger.debug(f"Username:{username}")
     except ValueError as ve:
         raise Exception(f"Required string type value for username\n{str(ve)}")
 
@@ -265,7 +265,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     retrieved_password = app_cursor.fetchall()
     try:
         password = retrieved_password[0][0]
-        print(f"Password:{password}")
+        ge_logger.debug(f"Password:{password}")
     except ValueError as ve:
         raise Exception(f"Required string type value for password\n{str(ve)}")
 
@@ -278,7 +278,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     retrieved_hostname = app_cursor.fetchall()
     try:
         hostname = retrieved_hostname[0][0]
-        print(f"Hostname:{hostname}")
+        ge_logger.debug(f"Hostname:{hostname}")
     except ValueError as ve:
         raise Exception(f"Required string type value for hostname\n{str(ve)}")
 
@@ -291,7 +291,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     retrieved_port = app_cursor.fetchall() 
     try:
         port = retrieved_port[0][0] # extracting data from tuple, tuple format: ((4000),)
-        print(f"Port:{port}")
+        ge_logger.debug(f"Port:{port}")
     except ValueError as ve:
         raise Exception(f"Required integer type value for port\n{str(ve)}")
 
@@ -304,7 +304,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     retrieved_data_source_type = app_cursor.fetchall()
     try:
         data_source_type = retrieved_data_source_type[0][0]
-        print(f"Data source type:{data_source_type}")
+        ge_logger.debug(f"Data source type:{data_source_type}")
     except ValueError as ve:
         raise Exception(f"Required string type value for data source type\n{str(ve)}")
     
@@ -318,7 +318,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         retrieved_data_source = app_cursor.fetchall()
         try:
             data_source = retrieved_data_source[0][0]
-            print(f"Data source:{data_source}")
+            ge_logger.debug(f"Data source:{data_source}")
         except ValueError as ve:
             raise Exception(f"Required string type value for data source\n{str(ve)}")
 

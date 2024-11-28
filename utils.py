@@ -4,7 +4,7 @@ from datetime import datetime
 import random
 import re
 import json
-
+from logging_config import ge_logger
 
 def remove_special_characters(input_string) -> str:
     """
@@ -115,7 +115,7 @@ def find_validation_result(data):
                 return result_value['validation_result']
         return None  # Return None if no validation_result is found
     except Exception as e:
-        print(f"Error extracting validation result: {e}")
+        ge_logger.error(f"Error extracting validation result: {e}")
         return None
     
     
@@ -133,6 +133,7 @@ def get_cred_db_connection_config() -> json:
         path_to_database_config = r'database\database_config.ini' # relative path to database_config.ini
         config.read(path_to_database_config)
     except FileNotFoundError as file_not_found:
+        ge_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
         raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
 
     app_database = config.get('Database', 'app_database')
@@ -170,6 +171,7 @@ def get_cred_db_table_config() -> json:
         path_to_database_config = r'database\database_config.ini' # relative path to `database_config.ini`
         config.read(path_to_database_config)
     except FileNotFoundError as file_not_found:
+        ge_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
         raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
 
     connection_name = config.get('Login Credentials Table', 'connection_name')
@@ -200,6 +202,7 @@ def get_job_run_status_table_config() -> json:
         path_to_database_config = r'database\database_config.ini' # relative path to `database_config.ini`
         config.read(path_to_database_config)
     except FileNotFoundError as file_not_found:
+        ge_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
         raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
 
     job_id = config.get('Job Run Status Table','job_id')

@@ -7,6 +7,7 @@ import pyorc
 import db_constants
 from request_models import connection_model
 import pymysql
+from logging_config import ge_logger
 
 from utils import generate_connection_name, generate_connection_string
 
@@ -19,7 +20,7 @@ async def connect_to_server_SSH(server,username,password,port):
             port=port,
             known_hosts=None
         )
-        print("SSH connection established...")
+        ge_logger.info("SSH connection established...")
         return connection
     except Exception as e:
         raise e
@@ -33,7 +34,7 @@ async def search_file_on_server(connection: connection_model.Connection):
             port=connection.connection_credentials.port,
             known_hosts=None
         ) as conn:
-            print("SSH connection established...")
+            ge_logger.info("SSH connection established...")
 
             # Extract connection details
             file_name = connection.connection_credentials.file_name
@@ -88,11 +89,14 @@ async def search_file_on_server(connection: connection_model.Connection):
 
             # Case 3: Invalid configuration (fallback from `ConnectionCredentials` validation)
             else:
+                ge_logger.error("Invalid connection configuration. Please provide either 'dir_path' with 'file_name', or just 'file_name'.")
                 raise ValueError("Invalid connection configuration. Please provide either 'dir_path' with 'file_name', or just 'file_name'.")
 
     except asyncssh.PermissionDenied:
+        ge_logger.error("SSH permission denied. Check your credentials.")
         raise HTTPException(status_code=403, detail="SSH permission denied. Check your credentials.")
     except Exception as e:
+        ge_logger.error(f"An error occurred: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
@@ -116,9 +120,10 @@ def get_mysql_db(hostname: str, username: str, password: str, database: str, por
                 database=database,  
                 port=port
             )
-        print("Successfully connected")
+        ge_logger.info("Successfully connected")
         return conn
     except pymysql.MySQLError as e:
+        ge_logger.error(f"Error connecting to database: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error connecting to database: {str(e)}")
     
 
@@ -152,8 +157,8 @@ async def handle_file_connection(connection: connection_model.Connection, expect
         unique_connection_name = generate_connection_name(connection=connection)
         connection_string = generate_connection_string(connection=connection)
 
-        print(f"Unique connection name: {unique_connection_name}")
-        print(f"Connection string: {connection_string}")
+        ge_logger.debug(f"Unique connection name: {unique_connection_name}")
+        ge_logger.debug(f"Connection string: {connection_string}")
 
         # Store connection details in the database
         conn = get_mysql_db(
@@ -177,7 +182,7 @@ async def handle_file_connection(connection: connection_model.Connection, expect
             None
         ))
         conn.commit()
-        print(f"{expected_extension.upper()} connection details insertion completed.")
+        ge_logger.debug(f"{expected_extension.upper()} connection details insertion completed.")
 
         # Close the database connection
         cursor.close()
@@ -189,6 +194,7 @@ async def handle_file_connection(connection: connection_model.Connection, expect
         }
 
     except Exception as e:
+        ge_logger.error(f"Error processing {expected_extension.upper()} connection: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing {expected_extension.upper()} connection: {str(e)}")
          
 
@@ -202,7 +208,6 @@ async def read_file_columns(conn, file_path: str):
             result = await conn.run(command)
             file_content = result.stdout
             df = pd.read_csv(StringIO(file_content))
-            print(type(df))
 
         elif file_path.endswith(".json"):
             # For JSON files
@@ -257,10 +262,12 @@ async def read_file_columns(conn, file_path: str):
             
 
         else:
+            ge_logger.error("Unsupported file format")
             raise HTTPException(status_code=400, detail="Unsupported file format")
 
         # Return the column names
         return df.columns.tolist()
 
     except Exception as e:
+        ge_logger.error(f"Error processing file: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")

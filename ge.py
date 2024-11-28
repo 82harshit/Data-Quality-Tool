@@ -248,7 +248,6 @@ def __add_expectations_to_validator(validator, expectations) -> None:
         # saving expectation suite
         validator.save_expectation_suite(discard_failed_expectations=False)
         ge_logger.info("Successfully added expectations")
-        print("Successfully added expectations")
     except Exception as e:
         db.update_status_of_job_id(job_id=job_id,job_status="error",status_message=f"Failed to save expectations suite\n{str(e)}")
         ge_logger.error(f"Failed to save expectations suite\n{str(e)}")
@@ -321,7 +320,7 @@ def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str
                                 username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name, 
                                 dir_name=dir_name)
         
-        expectation_suite_name = f"{datasource_name}_{username}_{dir_name}_{port}_{hostname}" # expectation suite name format
+        expectation_suite_name = f"{datasource_name}_{username}_{datasource_name}_{port}_{hostname}" # expectation suite name format
         __create_expectation_suite(expectation_suite_name=expectation_suite_name)
 
         batch_request_json = __create_batch_request(datasource_name=datasource_name,data_source_type=datasource_type, data_asset_name=file_name)
@@ -335,7 +334,7 @@ def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str
 
         batch_request_json = __create_batch_request(datasource_name=datasource_name,data_source_type=datasource_type, data_asset_name=table_name)
         
-        
+
     ge_logger.debug(f"Exp suite name:{expectation_suite_name}\n{batch_request_json}")
     validator = __create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
 
