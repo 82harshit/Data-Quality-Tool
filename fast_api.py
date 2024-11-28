@@ -142,7 +142,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         raise HTTPException(status_code=501, detail={"error": f"{connection_enum_and_metadata.ConnectionEnum.REDSHIFT} not implemented", "request_json": connection.model_dump_json()})
     elif connection_type == connection_enum_and_metadata.ConnectionEnum.PARQUET:
         return await handle_file_connection(connection, expected_extension=".parquet")
-    if connection_type == connection_enum_and_metadata.ConnectionEnum.EXCEL:
+    elif connection_type == connection_enum_and_metadata.ConnectionEnum.EXCEL:
         return await handle_file_connection(connection, expected_extension=".xlsx")
     else:
         raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", "request_json": connection.model_dump_json()})
