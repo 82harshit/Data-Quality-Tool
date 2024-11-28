@@ -35,7 +35,7 @@ db = db_functions.DBFunctions()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     job_id = generate_job_id()
-    ge_logger.info(f"Job_ID:{job_id}")
+    ge_logger.info(f"Job_ID: {job_id}")
     db.insert_job_id(job_id=job_id, job_status="Created")
     JobIDSingleton.set_job_id(job_id=job_id)
     yield
@@ -329,7 +329,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     app_cursor.close()
     app_conn.close()
 
-    print("Creating user connection")
+    ge_logger.info("Creating user connection")
     # create user connection
     if data_source_type in [
     connection_enum_and_metadata.ConnectionEnum.CSV,
