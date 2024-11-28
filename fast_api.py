@@ -35,6 +35,7 @@ db = db_functions.DBFunctions()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     job_id = generate_job_id()
+    ge_logger.info(f"Job_ID:{job_id}")
     db.insert_job_id(job_id=job_id, job_status="Created")
     JobIDSingleton.set_job_id(job_id=job_id)
     yield
