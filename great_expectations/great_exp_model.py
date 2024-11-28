@@ -340,21 +340,22 @@ class GreatExpectationsModel:
     @staticmethod
     def run_quality_check_for_file(datasource_type: str, datasource_name: str, dir_name: str, quality_checks: List[dict], 
                                 file_name: str, batch_limit: Optional[int] = 0):
-        expecatation_suite_name_file = f"{datasource_name}_{dir_name}_{datasource_type}_{file_name}"
+        
+        expectation_suite_name_file = f"{datasource_name}_{dir_name}_{datasource_type}_{file_name}"
         
         ge = GreatExpectationsModel(quality_checks=quality_checks)
         ge_file = ge.GE_File_Datasource(datasource_name=datasource_name, datasource_type=datasource_type, dir_name=dir_name)
         
         file_config_yaml = ge_file.get_file_config()
         ge.__create_file_datasource(file_config_yaml=file_config_yaml)
-        ge.__create_or_load_expectation_suite(expectation_suite_name=expecatation_suite_name_file)
+        ge.__create_or_load_expectation_suite(expectation_suite_name=expectation_suite_name_file)
         batch_request_json = ge.__create_batch_request_json_for_file(datasource_name=datasource_name, 
                                                                     data_asset_name=file_name,
                                                                     limit=batch_limit)
-        file_validator = ge.__create_validator(expectation_suite_name=expecatation_suite_name_file)
+        file_validator = ge.__create_validator(expectation_suite_name=expectation_suite_name_file)
         ge.__add_expectations_to_validator(validator=file_validator,
                                         expectations=quality_checks)
-        checkpoint_results = ge.__create_and_execute_checkpoint(expectation_suite_name=expecatation_suite_name_file,
+        checkpoint_results = ge.__create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name_file,
                                                                 batch_request=batch_request_json,
                                                                 validator=file_validator)
         return checkpoint_results # TODO: add utils.find_validation_result()
