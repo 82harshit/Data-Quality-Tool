@@ -44,6 +44,7 @@ def generate_connection_name(connection: connection_model.Connection) -> str:
         connection_enum_and_metadata.ConnectionEnum.ORC,
         connection_enum_and_metadata.ConnectionEnum.PARQUET,
         connection_enum_and_metadata.ConnectionEnum.AVRO,
+        connection_enum_and_metadata.ConnectionEnum.EXCEL,
     }:
         target = connection.connection_credentials.connection_type
     else:
@@ -187,5 +188,4 @@ def get_cred_db_table_config() -> json:
     }
 
     return login_cred_columns
-
 

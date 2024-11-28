@@ -19,6 +19,7 @@ class ConnectionEnum(str, Enum):
     PARQUET = "parquet"
     ORC = "orc"
     AVRO = "avro"
+    EXCEL = "xlsx"
 
 class Metadata(BaseModel):
     requested_by: str = Field(

@@ -1,11 +1,28 @@
+from io import BytesIO, StringIO
+import pandas as pd
 import asyncssh
 from fastapi import HTTPException
+import fastavro
+import pyorc
 import db_constants
 from request_models import connection_model
 import pymysql
 
 from utils import generate_connection_name, generate_connection_string
 
+async def connect_to_server_SSH(server,username,password,port):
+    try:
+        connection = await asyncssh.connect(
+            host = server,
+            username=username,
+            password=password,
+            port=port,
+            known_hosts=None
+        )
+        print("SSH connection established...")
+        return connection
+    except Exception as e:
+        raise e
 async def search_file_on_server(connection: connection_model.Connection):
     try:
         # Establish SSH connection using asyncssh
@@ -120,26 +137,16 @@ async def handle_file_connection(connection: connection_model.Connection, expect
 
         # Search for the file on the server
         result = await search_file_on_server(connection)
-
         if not result["file_found"]:
             raise HTTPException(status_code=404, detail=f"{expected_extension.upper()} file not found on server.")
 
         # Extract connection details
         file_name = connection.connection_credentials.file_name
-        file_paths = result.get("file_paths", [])  # This can be a list of paths
+        file_path = result["file_path"]
         hostname = connection.connection_credentials.server
         username = connection.user_credentials.username
         password = connection.user_credentials.password
         port = connection.connection_credentials.port
-
-        # Handle the case where there are multiple file paths or a single file path
-        if file_paths:
-            if len(file_paths) == 1:
-                file_path = file_paths[0]  # Single file found
-            else:
-                file_path = file_paths  # Multiple files found
-        else:
-            raise HTTPException(status_code=404, detail=f"No valid file found for {expected_extension.upper()}.")
 
         # Generate unique connection name and string
         unique_connection_name = generate_connection_name(connection=connection)
@@ -167,7 +174,7 @@ async def handle_file_connection(connection: connection_model.Connection, expect
             password,
             hostname,
             port,
-            file_name
+            None
         ))
         conn.commit()
         print(f"{expected_extension.upper()} connection details insertion completed.")
@@ -176,78 +183,84 @@ async def handle_file_connection(connection: connection_model.Connection, expect
         cursor.close()
         conn.close()
 
-        # Return the response with connection details
         return {
             "status": "connected",
-            "connection_name": unique_connection_name,
-            "file_paths": file_path  # This will either be a list or a single file path
+            "connection_name": unique_connection_name
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing {expected_extension.upper()} connection: {str(e)}")
+         
+
+#Function to read the file and return columns
+async def read_file_columns(conn, file_path: str):
+    try:
+        # Read the file based on its extension
+        if file_path.endswith(".csv"):
+            # For CSV files
+            command = f"cat {file_path}"
+            result = await conn.run(command)
+            file_content = result.stdout
+            df = pd.read_csv(StringIO(file_content))
+            print(type(df))
+
+        elif file_path.endswith(".json"):
+            # For JSON files
+            command = f"cat {file_path}"
+            result = await conn.run(command)
+            file_content = result.stdout
+            df = pd.read_json(StringIO(file_content))
+
+        elif file_path.endswith(".parquet"):
+            # For Parquet files, stream binary data
+            command = f"cat {file_path}"
+            result = await conn.run(command, encoding=None)  # Get binary output
+            file_content = BytesIO(result.stdout)  # Convert to BytesIO for pandas
+            df = pd.read_parquet(file_content)
+
+        elif file_path.endswith(".avro"):
+            # For Avro files
+            command = f"cat {file_path}"
+            result = await conn.run(command, encoding=None)  # Get binary output
+            file_content = BytesIO(result.stdout)  # Convert to BytesIO for fastavro
+            reader = fastavro.reader(file_content)
+            # Extract field names from the Avro schema
+            columns = [field['name'] for field in reader.schema['fields']]
+            return columns
+
+        elif file_path.endswith(".orc"):
+            # For ORC files using the 'pyorc' library
+            command = f"cat {file_path}"
+            result = await conn.run(command, encoding=None)  # Get binary output
+            file_content = BytesIO(result.stdout)  # Convert to BytesIO for pyorc
+            reader = pyorc.Reader(file_content)
+            
+            # Inspect the schema to check the structure of the fields
+            fields = reader.schema.fields
+            
+            # Extract column names properly from the schema
+            columns = []
+            for field in fields:
+                # Check if the field has a 'name' attribute (this might be structured differently)
+                if isinstance(field, dict):
+                    columns.append(field.get('name', 'Unknown'))
+                else:
+                    columns.append(str(field))  # Fallback to string representation if structure is different
+
+            return columns
         
-
-# Function to read the file and return columns
-# async def read_file_columns(conn, file_path: str):
-#     try:
-#         # Read the file based on its extension
-#         if file_path.endswith(".csv"):
-#             # For CSV files
-#             command = f"cat {file_path}"
-#             result = await conn.run(command)
-#             file_content = result.stdout
-#             df = pd.read_csv(StringIO(file_content))
-
-#         elif file_path.endswith(".json"):
-#             # For JSON files
-#             command = f"cat {file_path}"
-#             result = await conn.run(command)
-#             file_content = result.stdout
-#             df = pd.read_json(StringIO(file_content))
-
-#         elif file_path.endswith(".parquet"):
-#             # For Parquet files, stream binary data
-#             command = f"cat {file_path}"
-#             result = await conn.run(command, encoding=None)  # Get binary output
-#             file_content = BytesIO(result.stdout)  # Convert to BytesIO for pandas
-#             df = pd.read_parquet(file_content)
-
-#         elif file_path.endswith(".avro"):
-#             # For Avro files
-#             command = f"cat {file_path}"
-#             result = await conn.run(command, encoding=None)  # Get binary output
-#             file_content = BytesIO(result.stdout)  # Convert to BytesIO for fastavro
-#             reader = fastavro.reader(file_content)
-#             # Extract field names from the Avro schema
-#             columns = [field['name'] for field in reader.schema['fields']]
-#             return columns
-
-#         elif file_path.endswith(".orc"):
-#             # For ORC files using the 'pyorc' library
-#             command = f"cat {file_path}"
-#             result = await conn.run(command, encoding=None)  # Get binary output
-#             file_content = BytesIO(result.stdout)  # Convert to BytesIO for pyorc
-#             reader = pyorc.Reader(file_content)
+        elif file_path.endswith(".xlsx"):  # Excel handling
+            command = f"cat {file_path}"
+            result = await conn.run(command, encoding=None)  # Retrieve binary data
+            file_content = BytesIO(result.stdout)
+            df = pd.read_excel(file_content)
             
-#             # Inspect the schema to check the structure of the fields
-#             fields = reader.schema.fields
-            
-#             # Extract column names properly from the schema
-#             columns = []
-#             for field in fields:
-#                 # Check if the field has a 'name' attribute (this might be structured differently)
-#                 if isinstance(field, dict):
-#                     columns.append(field.get('name', 'Unknown'))
-#                 else:
-#                     columns.append(str(field))  # Fallback to string representation if structure is different
 
-#             return columns
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file format")
 
-#         else:
-#             raise HTTPException(status_code=400, detail="Unsupported file format")
+        # Return the column names
+        return df.columns.tolist()
 
-#         # Return the column names
-#         return df.columns.tolist()
-
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")

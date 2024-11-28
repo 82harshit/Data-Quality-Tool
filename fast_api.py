@@ -21,7 +21,9 @@ from fastapi import FastAPI, Body, HTTPException
 from request_models import connection_enum_and_metadata, connection_model, job_model
 from utils import generate_connection_name, generate_connection_string
 import db_constants
-from server_functions import get_mysql_db, handle_file_connection
+from server_functions import get_mysql_db,  handle_file_connection, read_file_columns,connect_to_server_SSH
+from database import db_functions, sql_queries as query
+from ge import run_quality_checks
 from database import db_functions, sql_queries as query
 from ge import run_quality_checks
 import logging
@@ -342,24 +344,30 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     app_cursor.close()
     app_conn.close()
 
-    # print("Creating user connection")
-    # create user connection to read file from SSH server
-
-    # user_conn = get_mysql_db(
-    #     hostname=hostname,
-    #     username=username,
-    #     password=password,
-    #     port=port,
-    #     database=data_source
-    # )
-
-    # print(f"User {username} successfully connected to {data_source} in server {hostname} on {port} \n Connection obj:{user_conn}")
-
-    """
-    TODO: Remove following temp vars
-    """
-    datasource_name = f"test_datasource_for_mysql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
-    table_name = "customers"
+    print("Creating user connection")
+    # create user connection
+    if (data_source_type == connection_enum_and_metadata.ConnectionEnum.CSV,
+        data_source_type == connection_enum_and_metadata.ConnectionEnum.JSON,
+        data_source_type == connection_enum_and_metadata.ConnectionEnum.EXCEL):
+        user_conn = await connect_to_server_SSH(server=hostname,username=username,password=password,port=port)
+        print(f"User {username} successfully connected in server {hostname} on {port} \n Connection obj:{user_conn}")
+        dir_path = job.data_source.dir_path
+        print("Directory_path : ",dir_path)
+        file_name = job.data_source.file_name
+        print("File_name : ",file_name)
+        file_path = f"{dir_path}/{file_name}"
+        print("File path: ",file_path)
+        columns = await read_file_columns(conn=user_conn,file_path=file_path)
+        print("Column names : ",columns)
+        datasource_name = f"test_datasource_for_file"
+        validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password, 
+                                            username=username, quality_checks=quality_checks, datasource_type=data_source_type,
+                                            dir_name=dir_path)
+        return {"validation_results": validation_results}     
+    
+    elif data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+        datasource_name = f"test_datasource_for_sql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
+        table_name = "customers"
 
     ge_logger.info("Running validation checks")
     app_state["submit_job_status"] = {"status": "In progress", "message": "Running validation checks"}

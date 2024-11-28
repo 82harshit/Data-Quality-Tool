@@ -8,7 +8,6 @@ from great_expectations.checkpoint import SimpleCheckpoint
 from great_expectations.exceptions import DataContextError
 
 from typing import Optional
-
 from utils import find_validation_result
 from request_models import connection_enum_and_metadata as conn
 
@@ -46,7 +45,29 @@ def __create_new_datasource(datasource_name: str, datasource_type: str, host: st
 
     :return: None
     """
-    if datasource_type in {conn.ConnectionEnum.FILESERVER, conn.ConnectionEnum.CSV}:
+    if (datasource_type == conn.ConnectionEnum.FILESERVER or datasource_type == conn.ConnectionEnum.CSV or
+       datasource_type == conn.ConnectionEnum.EXCEL or datasource_type == conn.ConnectionEnum.JSON):
+        # datasource_fileserver = f"""
+        # name: {datasource_name}
+        # class_name: Datasource
+        # execution_engine:
+        #   class_name: PandasExecutionEngine
+        # data_connectors:
+        #   default_inferred_data_connector_name:
+        #     class_name: InferredAssetFilesystemDataConnector
+        #     base_directory: {dir_name}
+        #     default_regex:
+        #       group_names:
+        #         - data_asset_name
+        #       pattern: (.*)
+        #   default_runtime_data_connector_name:
+        #     class_name: RuntimeDataConnector
+        #     assets:
+        #       my_runtime_asset_name:
+        #         batch_identifiers:
+        #           - runtime_batch_identifier_name
+        # """
+
         datasource_fileserver_json = {
             "name": datasource_name,
             "class_name": "Datasource",
@@ -142,7 +163,7 @@ def __create_new_datasource(datasource_name: str, datasource_type: str, host: st
         print("Invalid format for datasource type")
 
 
-def __create_batch_request(datasource_name: str, data_asset_name: Optional[str] = "test_data_asset", 
+def __create_batch_request(datasource_name: str,data_source_type: str, data_asset_name: Optional[str] = "test_data_asset", 
                          limit: Optional[int] = 0) -> json:
     """
     This function creates a new batch request json
@@ -155,19 +176,33 @@ def __create_batch_request(datasource_name: str, data_asset_name: Optional[str] 
     :return batch_request (json): A json created for a batch request executed in a great_expectations 
     checkpoint
     """
-    if limit == 0:
-        batch_request = {'datasource_name': datasource_name, 
-                         'data_connector_name': 'default_configured_data_connector_name', 
-                         'data_asset_name': data_asset_name}
-    else:
-        batch_request = {'datasource_name': datasource_name, 
-                        'data_connector_name': 'default_configured_data_connector_name', 
-                        'data_asset_name': data_asset_name, 
-                        'limit': limit}
+    if data_source_type == conn.ConnectionEnum.MYSQL:
+        if limit == 0:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_configured_data_connector_name', 
+                            'data_asset_name': data_asset_name}
+        else:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_configured_data_connector_name', 
+                            'data_asset_name': data_asset_name, 
+                            'limit': limit}
 
-    ge_logger.info("Batch request created successfully")
+    elif (data_source_type == conn.ConnectionEnum.CSV,
+          data_source_type == conn.ConnectionEnum.JSON,
+          data_source_type == conn.ConnectionEnum.EXCEL):
+        if limit == 0:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_inferred_data_connector_name', 
+                            # 'data_connector_name' : 'default_runtime_data_connector_name',
+                            'data_asset_name': data_asset_name}
+        else:
+            batch_request = {'datasource_name': datasource_name, 
+                            'data_connector_name': 'default_inferred_data_connector_name', 
+                            # 'data_connector_name' : 'default_runtime_data_connector_name',
+                            'data_asset_name': data_asset_name, 
+                            'limit': limit}
     return batch_request
-
+    
 
 def __create_expectation_suite(expectation_suite_name: str) -> None:
     """
