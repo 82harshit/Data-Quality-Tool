@@ -84,6 +84,7 @@ def generate_connection_string(connection: connection_model.Connection) -> str:
         connection_enum_and_metadata.ConnectionEnum.ORC,
         connection_enum_and_metadata.ConnectionEnum.PARQUET,
         connection_enum_and_metadata.ConnectionEnum.AVRO,
+        connection_enum_and_metadata.ConnectionEnum.EXCEL,
     }:
         target = connection.connection_credentials.file_name  # Use file name for file-based connections
     else:
