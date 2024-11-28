@@ -5,6 +5,7 @@ import random
 import re
 import json
 from logging_config import ge_logger
+import os
 
 def remove_special_characters(input_string) -> str:
     """
@@ -130,7 +131,8 @@ def get_cred_db_connection_config() -> json:
 
     config = configparser.ConfigParser()
     try:
-        path_to_database_config = r'database\database_config.ini' # relative path to database_config.ini
+        path_to_database_config = os.path.join('database', 'database_config.ini')
+        # path_to_database_config = r'database\database_config.ini' # relative path to database_config.ini
         config.read(path_to_database_config)
     except FileNotFoundError as file_not_found:
         ge_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
@@ -168,7 +170,8 @@ def get_cred_db_table_config() -> json:
 
     config = configparser.ConfigParser()
     try:
-        path_to_database_config = r'database\database_config.ini' # relative path to `database_config.ini`
+        path_to_database_config = os.path.join('database', 'database_config.ini')
+        # path_to_database_config = r'database\database_config.ini' # relative path to `database_config.ini`
         config.read(path_to_database_config)
     except FileNotFoundError as file_not_found:
         ge_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
@@ -199,7 +202,8 @@ def get_job_run_status_table_config() -> json:
     
     config = configparser.ConfigParser()
     try:
-        path_to_database_config = r'database\database_config.ini' # relative path to `database_config.ini`
+        path_to_database_config = os.path.join('database', 'database_config.ini')
+        # path_to_database_config = r'database\database_config.ini' # relative path to `database_config.ini`
         config.read(path_to_database_config)
     except FileNotFoundError as file_not_found:
         ge_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
