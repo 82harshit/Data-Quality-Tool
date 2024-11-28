@@ -1,8 +1,9 @@
 from fastapi import HTTPException
 import pymysql
 from request_models import connection_enum_and_metadata
-from utils import get_cred_db_connection_config
+from utils import get_cred_db_connection_config, get_job_run_status_table_config
 import json
+from database import sql_queries as query
 
 class DBFunctions:
     # TODO: Test with non static
@@ -73,6 +74,8 @@ class DBFunctions:
                              connection_enum_and_metadata.ConnectionEnum.JSON
                              }:
             return {"app_connection": app_conn}
+        else:
+            return {'app_connection': app_conn}
         
     
     def execute_sql_query(self, db_connection, sql_query: str, params: None):
@@ -127,3 +130,36 @@ class DBFunctions:
         :return: None
         """
         pass
+
+
+    def update_status_of_job_id(self, job_id: str, job_status: str, status_message: None) -> None:
+        db_conn_details = get_cred_db_connection_config() 
+        app_status_table = db_conn_details.get('app_status_table')
+        
+        cred_db_conn = self.connect_to_credentials_db(connection_type=None)
+        cred_db_conn = cred_db_conn['app_connection']
+
+        self.execute_sql_query(db_connection=cred_db_conn, 
+                               sql_query=query.INSERT_JOB_STATUS_QUERY.format(app_status_table),
+                               params=(job_id, job_status, status_message))
+        
+    
+    def get_status_of_job_id(self, job_id: str) -> str:
+        db_conn_details = get_cred_db_connection_config() 
+        job_run_status_details = get_job_run_status_table_config()
+        
+        app_status_table = db_conn_details.get('app_status_table')
+        
+        # job_id_col = job_run_status_details.get('job_id')
+        job_status_col = job_run_status_details.get('job_status')
+        # status_message_col = job_run_status_details.get('status_message')
+        
+        cred_db_conn = self.connect_to_credentials_db(connection_type=None)
+        cred_db_conn = cred_db_conn['app_connection']
+
+        job_status = self.execute_sql_query(db_connection=cred_db_conn,
+                               sql_query=query.GET_JOB_STATUS_DETAIL_QUERY.format(app_status_table, job_status_col),
+                               params=(job_id))
+        
+        return job_status
+    

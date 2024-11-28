@@ -32,6 +32,7 @@ from io import StringIO
 from contextlib import asynccontextmanager
 
 app_state = {}
+db = db_functions.DBFunctions()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,10 +46,11 @@ app = FastAPI(lifespan=lifespan)
 async def root():
     return {"message": "Welcome to Data Quality Tool"}
 
-@app.get("/submit-job-logs", description="This endpoint returns the application state for 'submit-job' endpoint")
-async def submit_job_logs():
-    current_state = app_state["submit_job_status"]
-    return current_state
+@app.get("/submit-job-status", description="This endpoint returns the application state for 'submit-job' endpoint")
+async def submit_job_status(job_id: str):
+    current_job_state = db.get_status_of_job_id(job_id=job_id)
+    # current_state = app_state["submit_job_status"]
+    return current_job_state
 
 @app.post("/create-connection", description="This endpoint allows connection to the provided connection type")
 async def create_connection(connection: connection_model.Connection = Body(...,

@@ -140,6 +140,7 @@ def get_cred_db_connection_config() -> json:
     app_hostname = config.get('Database', 'app_hostname')
     app_username = config.get('Database', 'app_username')
     app_password = config.get('Database', 'app_password')
+    app_status_table = config.get('Database', 'app_status_table')
 
     db_connection_details = {
         'app_database': app_database,
@@ -147,7 +148,8 @@ def get_cred_db_connection_config() -> json:
         'app_port': int(app_port), # port must be of type 'int'
         'app_hostname': app_hostname,
         'app_username': app_username,
-        'app_password': app_password
+        'app_password': app_password,
+        'app_status_table': app_status_table
     }
 
     return db_connection_details
@@ -189,3 +191,19 @@ def get_cred_db_table_config() -> json:
 
     return login_cred_columns
 
+
+def get_job_run_status_table_config() -> json:
+    
+    config = configparser.ConfigParser()
+    try:
+        path_to_database_config = r'database\database_config.ini' # relative path to `database_config.ini`
+        config.read(path_to_database_config)
+    except FileNotFoundError as file_not_found:
+        raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
+
+    job_id = config.get('Job Run Status Table','job_id')
+    job_status = config.get('Job Run Status Table','job_status')
+    status_message = config.get('Job Run Status Table','status_message')
+
+    job_status_columns = {'job_id': job_id, 'job_status': job_status, 'status_message': status_message}
+    return job_status_columns
