@@ -25,6 +25,7 @@ from server_functions import get_mysql_db, handle_file_connection, read_file_col
 from database import db_functions, sql_queries as query
 from ge import run_quality_checks
 import os
+from logging_config import dqt_logger
 
 app = FastAPI()
 
@@ -58,13 +59,18 @@ async def create_connection(connection: connection_model.Connection = Body(...,
 )):
     
     if not connection.user_credentials:
-        raise HTTPException(status_code=400, detail={"error": "Missing user credentials"})
+        error_msg = "Incorrect JSON request, missing user credentials"
+        dqt_logger.error(error_msg)
+        raise HTTPException(status_code=400, detail={"error": error_msg})
     
     if connection.connection_credentials:
         connection_type = connection.connection_credentials.connection_type
     else:
-        raise HTTPException(status_code=400, detail={"error": "Missing connection credentials"})
+        error_msg = "Incorrect JSON request, missing connection credentials"
+        dqt_logger.error(error_msg)
+        raise HTTPException(status_code=400, detail={"error": error_msg})
 
+    # extracting user credentials from JSON
     hostname = connection.connection_credentials.server
     username = connection.user_credentials.username
     password = connection.user_credentials.password
@@ -122,8 +128,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
                                                      "request_json": connection.model_dump_json()})
 
 
-@app.post("/submit-job", description="This endpoint allows to submit job requests") 
-        #   response_model=data_quality_metric.DataQualityMetric)
+@app.post("/submit-job", description="This endpoint allows to submit job requests")
 async def submit_job(job: job_model.SubmitJob = Body(...,example={
   "connection_name": "20241120162230_test_1272990_4002_testdb_2314",
   "data_source": {
@@ -162,29 +167,22 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     """
 
     if not job.connection_name:
-        raise HTTPException(status_code=400, detail={"error": "Missing connection name"})
+        error_msg = "Incorrect JSON provided, missing connection name"
+        dqt_logger.error(error_msg)
+        raise HTTPException(status_code=400, detail={"error": error_msg})
     
     if not job.quality_checks:
-        raise HTTPException(status_code=400, detail={"error": "Missing quality checks"})
+        error_msg = "Incorrect JSON provided, missing quality checks"
+        dqt_logger.error(error_msg)
+        raise HTTPException(status_code=400, detail={"error": error_msg})
 
-    # if not job.data_target:
-    #     raise HTTPException(status_code=400, detail={"error": "Missing data target"})
+    if not job.data_target:
+        error_msg = "Incorrect JSON provided, missing data target"
+        dqt_logger.error(error_msg)
+        raise HTTPException(status_code=400, detail={"error": error_msg})
 
     connection_name = job.connection_name
     quality_checks = job.quality_checks
-
-    # db = db_functions.DBFunctions() # database object
-
-    # # TODO: write a utils function to get connection_type given the data source
-    """
-    Logic: Check if table_name is None, null or "" and dir_path, file_name is not None
-    """
-
-    # app_connection_response = db.connect_to_credentials_db(connection_type)
-
-    # app_connection = app_connection_response.get('app_connection')
-    # app_table = app_connection_response.get('app_table')
-
 
     # check if the connection_name exists in the database
     # root user logging in user_credentials database
