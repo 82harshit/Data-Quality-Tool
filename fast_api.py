@@ -29,6 +29,9 @@ from logging_config import ge_logger
 from io import StringIO
 # from contextlib import asynccontextmanager
 from state_singelton import JobIDSingleton
+from validation_results import DataQuality
+import json
+
 
 db = db_functions.DBFunctions()
 
@@ -379,6 +382,9 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     logs = log_stream.getvalue()
     ge_logger.removeHandler(log_handler)
 
+    json_validation_results = json.loads(str(validation_results))
+    DataQuality().fetch_and_process_data(json_validation_results)
+    
     return {"validation_results": validation_results, "logs": logs} 
 
     # TODO: store these validation results in a database
