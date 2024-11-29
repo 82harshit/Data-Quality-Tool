@@ -61,8 +61,8 @@ async def root():
     return {"message": "Welcome to Data Quality Tool"}
 
 @app.get("/submit-job-status", description="This endpoint returns the application state for 'submit-job' endpoint")
-async def submit_job_status():
-    job_id = JobIDSingleton.get_job_id()
+async def submit_job_status(job_id: str):
+    # job_id = JobIDSingleton.get_job_id()
     current_job_state = db.get_status_of_job_id(job_id=job_id)
     return current_job_state
 
@@ -209,9 +209,9 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     This function posts the checks on the data
     """
 
-    log_stream = StringIO()
-    log_handler = logging.StreamHandler(log_stream)
-    ge_logger.addHandler(log_handler) 
+    # log_stream = StringIO()
+    # log_handler = logging.StreamHandler(log_stream)
+    # ge_logger.addHandler(log_handler) 
 
     job_id = create_job_id()
 
@@ -378,14 +378,11 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     ge_logger.info("Validation checks successfully executed")
     db.update_status_of_job_id(job_id=job_id, job_status="Completed")
 
-    log_handler.flush()
-    logs = log_stream.getvalue()
-    ge_logger.removeHandler(log_handler)
+    # log_handler.flush()
+    # logs = log_stream.getvalue()
+    # ge_logger.removeHandler(log_handler)
 
-    json_validation_results = json.loads(str(validation_results))
-    DataQuality().fetch_and_process_data(json_validation_results)
+    json_validation_results = json.loads(str(validation_results)) # converting the validation results to a json
+    DataQuality().fetch_and_process_data(json_validation_results) # storing validation results in database
     
-    return {"validation_results": validation_results, "logs": logs} 
-
-    # TODO: store these validation results in a database
-    
+    return {'job_id': job_id} 
