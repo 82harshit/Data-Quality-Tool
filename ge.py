@@ -78,7 +78,7 @@ def __create_new_datasource(datasource_name: str, datasource_type: str, host: st
             ge_logger.info("CSV datasource created successfully")
         except Exception as e:
             ge_logger.error(f"Datasource could not be created\n{str(e)}")
-            db.update_status_of_job_id(job_id=job_id,job_status="error",status_message=f"Datasource could not be created\n{str(e)}")
+            db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message=f"Datasource could not be created\n{str(e)}")
             raise Exception(f"Datasource could not be created\n{str(e)}")
         
     elif datasource_type == conn.ConnectionEnum.MYSQL:
@@ -136,7 +136,7 @@ def __create_new_datasource(datasource_name: str, datasource_type: str, host: st
     
     else:
         ge_logger.error("Invalid format for datasource type")
-        db.update_status_of_job_id(job_id=job_id,job_status="error",status_message="Invalid format for datasource type")
+        db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message="Invalid format for datasource type")
 
 
 def __create_batch_request(datasource_name: str,data_source_type: str, data_asset_name: Optional[str] = "test_data_asset", 
@@ -216,7 +216,7 @@ def __create_validator(expectation_suite_name: str, batch_request: json):
         ge_logger.info("Validator created and expectation suite added")
         return validator
     except Exception as e:
-        db.update_status_of_job_id(job_id=job_id,job_status="error",status_message=f"Failed to save expectations suite\n{str(e)}")
+        db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message=f"Failed to save expectations suite\n{str(e)}")
         ge_logger.error(f"Failed to save expectations suite\n{str(e)}")
         raise Exception(f"Failed to save expectations suite\n{str(e)}")
 
@@ -232,9 +232,9 @@ def __add_expectations_to_validator(validator, expectations) -> None:
     """
     
     if len(expectations) == 0:
-        ge_logger.error("No expectations provided")
-        db.update_status_of_job_id(job_id=job_id,job_status="error",status_message="An error occured while adding expectations to validator. No expectations provided.")
-        raise Exception("No expectations provided")
+        ge_logger.error("An error occured while adding expectations to validator. No expectations provided")
+        db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message="An error occured while adding expectations to validator. No expectations provided.")
+        raise Exception("An error occured while adding expectations to validator. No expectations provided")
     
     # adding expectations to the validator
     for expectation in expectations:
@@ -249,7 +249,7 @@ def __add_expectations_to_validator(validator, expectations) -> None:
         validator.save_expectation_suite(discard_failed_expectations=False)
         ge_logger.info("Successfully added expectations")
     except Exception as e:
-        db.update_status_of_job_id(job_id=job_id,job_status="error",status_message=f"Failed to save expectations suite\n{str(e)}")
+        db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message=f"Failed to save expectations suite\n{str(e)}")
         ge_logger.error(f"Failed to save expectations suite\n{str(e)}")
         raise Exception(f"Failed to save expectations suite\n{str(e)}")
 
@@ -290,7 +290,7 @@ def __create_and_execute_checkpoint(expectation_suite_name: str, validator,
         checkpoint_result = checkpoint.run()
         return checkpoint_result
     except Exception as e:
-        db.update_status_of_job_id(job_id=job_id,job_status="error",status_message=f"Failed to execute checkpoint\n{str(e)}")
+        db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message=f"Failed to execute checkpoint\n{str(e)}")
         ge_logger.error(f"Failed to execute checkpoint\n{str(e)}")
         raise Exception(f"Failed to execute checkpoint\n{str(e)}")
 

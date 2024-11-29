@@ -42,7 +42,7 @@ logging_config = {
             'handlers': ['consoleHandler', 'fileHandler'],
             'propagate': False,
         },
-        'ge_logger': {
+        'dqt_logger': {
             'level': 'INFO',
             'handlers': ['consoleHandler', 'fileHandler'],
             'propagate': False,
@@ -57,4 +57,4 @@ logging_config = {
 
 logging.config.dictConfig(logging_config)
 
-ge_logger = logging.getLogger('ge_logger')
+ge_logger = logging.getLogger('dqt_logger')

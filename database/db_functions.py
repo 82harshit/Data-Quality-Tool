@@ -174,22 +174,23 @@ class DBFunctions:
                                params=(job_status, status_message, job_id))
         
     
-    def get_status_of_job_id(self, job_id: str) -> str:
+    def get_status_of_job_id(self, job_id: str) -> json:
         db_conn_details = get_cred_db_connection_config() 
         job_run_status_details = get_job_run_status_table_config()
         
         app_status_table = db_conn_details.get('app_status_table')
         
-        # job_id_col = job_run_status_details.get('job_id')
+        job_id_col = job_run_status_details.get('job_id')
         job_status_col = job_run_status_details.get('job_status')
-        # status_message_col = job_run_status_details.get('status_message')
+        status_message_col = job_run_status_details.get('status_message')
         
         cred_db_conn = self.connect_to_credentials_db(connection_type=None)
         cred_db_conn = cred_db_conn['app_connection']
 
-        job_status = self.execute_sql_query(db_connection=cred_db_conn,
-                               sql_query=query.GET_JOB_STATUS_DETAIL_QUERY.format(app_status_table, job_status_col),
+        job_status, status_message = self.execute_sql_query(db_connection=cred_db_conn,
+                               sql_query=query.GET_JOB_STATUS_DETAIL_QUERY.format(job_status_col, status_message_col, 
+                                                                                  app_status_table, job_id_col),
                                params=(job_id))
         
-        return job_status
+        return {job_status_col:job_status, status_message_col: status_message}
     

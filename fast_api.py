@@ -27,20 +27,31 @@ from ge import run_quality_checks
 import logging
 from logging_config import ge_logger
 from io import StringIO
-from contextlib import asynccontextmanager
+# from contextlib import asynccontextmanager
 from state_singelton import JobIDSingleton
 
 db = db_functions.DBFunctions()
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    job_id = generate_job_id()
-    ge_logger.info(f"Job_ID: {job_id}")
-    db.insert_job_id(job_id=job_id, job_status="Created")
-    JobIDSingleton.set_job_id(job_id=job_id)
-    yield
+def create_job_id() -> str:
+    """
+    Creates a new job id and sets it up in the singleton object
+    :return job_id(str): Generated job_id
+    """
+    job_id = generate_job_id() # creates a new job id
+    ge_logger.info(f"Job_ID: {job_id}") # logs the job id
+    db.insert_job_id(job_id=job_id, job_status="Started") # inserts the job id in job_run_status table
+    JobIDSingleton.set_job_id(job_id=job_id) # sets the job_id in singleton object
+    return job_id
 
-app = FastAPI(lifespan=lifespan)
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     job_id = generate_job_id()
+#     ge_logger.info(f"Job_ID: {job_id}")
+#     db.insert_job_id(job_id=job_id, job_status="Created")
+#     JobIDSingleton.set_job_id(job_id=job_id)
+#     yield
+
+app = FastAPI()
 
 @app.get("/", description='This is the root route')
 async def root():
@@ -199,23 +210,22 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     log_handler = logging.StreamHandler(log_stream)
     ge_logger.addHandler(log_handler) 
 
-    job_id = JobIDSingleton.get_job_id()
-    db.update_status_of_job_id(job_id=job_id, job_status="Started")
+    job_id = create_job_id()
 
     if not job.connection_name:
         ge_logger.error("Incorrect request JSON provided, missing connection name")
         db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="Incorrect request JSON provided, missing connection name")
-        # app_state["submit_job_status"] = {"status":"Error", "message": "Incorrect request JSON provided, missing connection name"}
         raise HTTPException(status_code=400, detail={"error": "Incorrect request JSON provided, missing connection name"})
     
     if not job.quality_checks:
         ge_logger.error("Incorrect request JSON provided, missing quality checks")
         db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="Incorrect request JSON provided, missing quality checks")
-        # app_state["submit_job_status"] = {"status":"Error", "message": "Incorrect request JSON provided, missing quality checks"}
         raise HTTPException(status_code=400, detail={"error": "Incorrect request JSON provided, missing quality checks"})
 
     # if not job.data_target:
-    #     raise HTTPException(status_code=400, detail={"error": "Missing data target"})
+    #     ge_logger.error("Incorrect request JSON provided, missing data target")
+    #     db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message="Incorrect request JSON provided, missing data target")
+    #     raise HTTPException(status_code=400, detail={"error": "Incorrect request JSON provided, missing data target"})
 
     connection_name = job.connection_name
     quality_checks = job.quality_checks
@@ -230,7 +240,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
                         )
     
     ge_logger.info("Created connection with app db")
-    db.update_status_of_job_id(job_id=job_id, job_status="In progress")
+    db.update_status_of_job_id(job_id=job_id, job_status="In progress", status_message="Created connection with app db")
     app_cursor = app_conn.cursor()
     
     READ_FOR_CONN_NAME_QUERY = f"""SELECT 1 FROM {db_constants.USER_LOGIN_TABLE} 
@@ -357,6 +367,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         table_name = "customers"
 
     ge_logger.info("Running validation checks")
+    db.update_status_of_job_id(job_id=job_id,job_status="In Progress",status_message="Running validation checks")
     validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
                                             database=data_source, table_name=table_name, schema_name=data_source, 
                                             username=username, quality_checks=quality_checks, datasource_type=data_source_type)
