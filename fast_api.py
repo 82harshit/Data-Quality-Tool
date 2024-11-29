@@ -362,8 +362,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         datasource_name = f"test_datasource_for_file"
         validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password, 
                                             username=username, quality_checks=quality_checks, datasource_type=data_source_type,
-                                            dir_name=dir_path,file_name=file_name)
-        return {"validation_results": validation_results}     
+                                            dir_name=dir_path,file_name=file_name)    
     
     elif data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
         datasource_name = f"test_datasource_for_sql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
