@@ -8,6 +8,7 @@ from great_expectations.core.batch import BatchRequest
 from great_expectations.checkpoint import SimpleCheckpoint
 from great_expectations.exceptions import DataContextError
 
+from request_models import connection_enum_and_metadata as conn_enum
 
 class GreatExpectationsModel:
     def __init__(self, quality_checks: List[dict]):
@@ -30,21 +31,21 @@ class GreatExpectationsModel:
             self.port = port
 
         def get_database_config(self) -> yaml:
-            if self.datasource_type == "mysql":
+            if self.datasource_type == conn_enum.ConnectionEnum.MYSQL:
                 return self.__get_mysql_datasource_config()
-            elif self.datasource_type == "postgres":
+            elif self.datasource_type == conn_enum.ConnectionEnum.POSTGRES:
                 return self.__get_postgres_datasource_config()
-            elif self.datasource_type == "redshift":
+            elif self.datasource_type == conn_enum.ConnectionEnum.REDSHIFT:
                 return self.__get_redshift_datasource_config()
-            elif self.datasource_type == "snowflake":
+            elif self.datasource_type == conn_enum.ConnectionEnum.SNOWFLAKE:
                 return self.__get_snowflake_datasource_config()
-            elif self.datasource_type == "bigquery":
+            elif self.datasource_type == conn_enum.ConnectionEnum.BIGQUERY:
                 return self.__get_bigquery_datasource_config()
-            elif self.datasource_type == "trino":
+            elif self.datasource_type == conn_enum.ConnectionEnum.TRINO:
                 return self.__get_trino_database_config()
-            elif self.datasource_type == "athena":
+            elif self.datasource_type == conn_enum.ConnectionEnum.ATHENA:
                 return self.__get_athena_database_config()
-            elif self.datasource_type == "clickhouse":
+            elif self.datasource_type == conn_enum.ConnectionEnum.CLICKHOUSE:
                 return self.__get_clickhouse_database_config()
             else:
                 return self.__get_other_database_config()
@@ -165,20 +166,13 @@ class GreatExpectationsModel:
             pass
 
 
-    def __create_file_datasource(self, file_config_yaml: yaml) -> None:
+    def __create_datasource(self, config_yaml: yaml) -> None:
         try:
-            self.ge_context.test_yaml_config(yaml_config=file_config_yaml)
-            sanitize_yaml_and_save_datasource(self.ge_context, file_config_yaml, overwrite_existing=True)
+            self.ge_context.test_yaml_config(yaml_config=config_yaml)
+            sanitize_yaml_and_save_datasource(self.ge_context, config_yaml, overwrite_existing=True)
         except Exception as e:
-            raise Exception(f"Datasource for file could not be created\n{str(e)}")
-
-    def __create_sql_datasource(self, database_config_yaml: yaml) -> None:
-        try:
-            self.ge_context.test_yaml_config(yaml_config=database_config_yaml)
-            sanitize_yaml_and_save_datasource(self.ge_context, database_config_yaml, overwrite_existing=True)
-        except Exception as e:
-            raise Exception(f"Datasource for database could not be created\n{str(e)}")
-
+            raise Exception(f"Datasource could not be created\n{str(e)}")
+        
 
     def __create_batch_request_json_for_db(datasource_name: str, data_asset_name: str, 
                                            limit: Optional[int] = 0) -> dict:
@@ -322,7 +316,7 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
                                     datasource_name=datasource_name, port=port, table_name=table_name)
     
     database_config_yaml = ge_sql.get_database_config()
-    ge.__create_sql_datasource(database_config_yaml=database_config_yaml)
+    ge.__create_datasource(config_yaml=database_config_yaml)
     ge.__create_or_load_expectation_suite(expectation_suite_name=expectation_suite_name_db)
     batch_request_json = ge.__create_batch_request_json_for_db(datasource_name=datasource_name,
                                             data_asset_name=table_name,
@@ -345,7 +339,7 @@ def run_quality_check_for_file(datasource_type: str, datasource_name: str, dir_n
     ge_file = ge.GE_File_Datasource(datasource_name=datasource_name, datasource_type=datasource_type, dir_name=dir_name)
     
     file_config_yaml = ge_file.get_file_config()
-    ge.__create_file_datasource(file_config_yaml=file_config_yaml)
+    ge.__create_datasource(config_yaml=file_config_yaml)
     ge.__create_or_load_expectation_suite(expectation_suite_name=expectation_suite_name_file)
     batch_request_json = ge.__create_batch_request_json_for_file(datasource_name=datasource_name, 
                                                                 data_asset_name=file_name,

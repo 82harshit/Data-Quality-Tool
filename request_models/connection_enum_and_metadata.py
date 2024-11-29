@@ -19,6 +19,13 @@ class ConnectionEnum(str, Enum):
     PARQUET = "parquet"
     ORC = "orc"
     AVRO = "avro"
+    SNOWFLAKE = "snowflake"
+    BIGQUERY = "bigquery"
+    ATHENA = "athena"
+    TRINO = "trino"
+    CLICKHOUSE = "clickhouse"
+    EXCEL = "xlsx"
+
 
 class Metadata(BaseModel):
     requested_by: str = Field(
