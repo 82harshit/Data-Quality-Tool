@@ -16,7 +16,7 @@ from database import db_functions
 from state_singelton import JobIDSingleton
 
 db = db_functions.DBFunctions()
-job_id = JobIDSingleton.get_job_id()
+job_id = JobIDSingleton().get_job_id()
 
 context = gx.get_context()
 

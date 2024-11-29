@@ -43,7 +43,7 @@ def create_job_id() -> str:
     job_id = generate_job_id() # creates a new job id
     ge_logger.info(f"Job_ID: {job_id}") # logs the job id
     db.insert_job_id(job_id=job_id, job_status="Started") # inserts the job id in job_run_status table
-    JobIDSingleton.set_job_id(job_id=job_id) # sets the job_id in singleton object
+    JobIDSingleton().set_job_id(job_id=job_id) # sets the job_id in singleton object
     return job_id
 
 # @asynccontextmanager
@@ -359,20 +359,38 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         ge_logger.debug("File path: ",file_path)
         columns = await read_file_columns(conn=user_conn,file_path=file_path)
         ge_logger.debug("Column names : ",columns)
+
         datasource_name = f"test_datasource_for_file"
-        validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password, 
+        
+        db.update_status_of_job_id(job_id=job_id,job_status="In Progress",status_message="Running validation checks")
+
+        try:
+            validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password, 
                                             username=username, quality_checks=quality_checks, datasource_type=data_source_type,
                                             dir_name=dir_path,file_name=file_name)    
+        except Exception as ge_exception:
+            error_msg = f"An error occured while validating data\n{str(ge_exception)}"
+            ge_logger.error(error_msg)
+            db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message=error_msg)
+            return {'job_id': job_id}
     
     elif data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
         datasource_name = f"test_datasource_for_sql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
         table_name = "customers"
 
         ge_logger.info("Running validation checks")
+
         db.update_status_of_job_id(job_id=job_id,job_status="In Progress",status_message="Running validation checks")
-        validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
+        
+        try:
+            validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
                                                 database=data_source, table_name=table_name, schema_name=data_source, 
                                                 username=username, quality_checks=quality_checks, datasource_type=data_source_type)
+        except Exception as ge_exception:
+            error_msg = f"An error occured while validating data\n{str(ge_exception)}"
+            ge_logger.error(error_msg)
+            db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message=error_msg)
+            return {'job_id': job_id}
 
     ge_logger.info("Validation checks successfully executed")
     db.update_status_of_job_id(job_id=job_id, job_status="Completed")
@@ -381,6 +399,9 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     # logs = log_stream.getvalue()
     # ge_logger.removeHandler(log_handler)
 
+    ge_logger.info("Saving validation results in database")
+    db.update_status_of_job_id(job_id=job_id,job_status="Saving validation results in database")
+    
     json_validation_results = json.loads(str(validation_results)) # converting the validation results to a json
     DataQuality().fetch_and_process_data(json_validation_results) # storing validation results in database
     
