@@ -343,7 +343,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     app_conn.close()
 
     ge_logger.info("Creating user connection")
-    # create user connection
+   
     if data_source_type in [
     connection_enum_and_metadata.ConnectionEnum.CSV,
     connection_enum_and_metadata.ConnectionEnum.JSON,
@@ -368,11 +368,11 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         datasource_name = f"test_datasource_for_sql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
         table_name = "customers"
 
-    ge_logger.info("Running validation checks")
-    db.update_status_of_job_id(job_id=job_id,job_status="In Progress",status_message="Running validation checks")
-    validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
-                                            database=data_source, table_name=table_name, schema_name=data_source, 
-                                            username=username, quality_checks=quality_checks, datasource_type=data_source_type)
+        ge_logger.info("Running validation checks")
+        db.update_status_of_job_id(job_id=job_id,job_status="In Progress",status_message="Running validation checks")
+        validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
+                                                database=data_source, table_name=table_name, schema_name=data_source, 
+                                                username=username, quality_checks=quality_checks, datasource_type=data_source_type)
 
     ge_logger.info("Validation checks successfully executed")
     db.update_status_of_job_id(job_id=job_id, job_status="Completed")
