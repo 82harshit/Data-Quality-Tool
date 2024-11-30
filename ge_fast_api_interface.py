@@ -10,11 +10,11 @@ from logging_config import dqt_logger
 
 
 class GE_Fast_API_Interface: 
-
-    def __init__(self, connection_type: str):
-        self.connection_type = connection_type
+    def __init__(self):
+        self.connection_type = None
         self.db_instance = None
-        
+        self.unique_connection_name = None
+
     # for /create-connection endpoint
     def create_connection_based_on_type(self, connection: connection_model.Connection) -> None:
         """
@@ -28,6 +28,8 @@ class GE_Fast_API_Interface:
         username = connection.user_credentials.username
         password = connection.user_credentials.password
         port = connection.connection_credentials.port
+        # initializing instance variable self.connection_type
+        self.connection_type = connection.connection_credentials.connection_type
 
         if self.connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
             database = connection.connection_credentials.database
@@ -100,7 +102,7 @@ class GE_Fast_API_Interface:
         return unique_connection_name
     
     
-    def __get_user_conn_creds(self, unique_connection_name: str) -> json:
+    def __get_user_conn_creds(self) -> json:
         """
         Searches for existence of user based on the provided connection name, if found
         retrieves the its credentials for establishing a remote connection
@@ -109,17 +111,17 @@ class GE_Fast_API_Interface:
 
         :return json: A json containing user credentials
         """
-        user_exists = self.db_instance.search_in_db(unique_connection_name=unique_connection_name) # search for user in login_credentials database
+        user_exists = self.db_instance.search_in_db(unique_connection_name=self.unique_connection_name) # search for user in login_credentials database
         
         if not user_exists:
-            error_msg = {"error": "User not found", "connection_name": unique_connection_name}
+            error_msg = {"error": "User not found", "connection_name": self.unique_connection_name}
             dqt_logger.error(error_msg)
             raise HTTPException(status_code=404, detail=error_msg)
         else:
             if self.connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
-                user_conn_creds = self.db_instance.get_creds_for_db(unique_connection_name=unique_connection_name)
+                user_conn_creds = self.db_instance.get_creds_for_db(unique_connection_name=self.unique_connection_name)
             elif self.connection_type in conn_enum.File_Datasource_Enum.__members__.values():
-                user_conn_creds = self.db_instance.get_creds_for_file(unique_connection_name=unique_connection_name)
+                user_conn_creds = self.db_instance.get_creds_for_file(unique_connection_name=self.unique_connection_name)
             elif self.connection_type in conn_enum.Other_Datasources_Enum.__members__.values():
                 """
                 FUTURE: implement a function 'get_creds_for_other_sources()' in class UserCredentialsDatabase
@@ -129,6 +131,7 @@ class GE_Fast_API_Interface:
                 pass
 
         return user_conn_creds            
+
 
     # for /submit-job endpoint
     async def validation_check_request(self, job: job_model.SubmitJob) -> json:
@@ -140,11 +143,15 @@ class GE_Fast_API_Interface:
 
         :return validation_results (json): A JSON containing the validation response from the great_expectations library
         """
+        # TODO: connect to connect to db using an object of user_cred_db, add dummy values; TODO: test required
+        self.db_instance = table_db.TableDatabase(hostname="",username="",password="",port=0,connection_type="",database="")
+
         # extracting connection_name and quality_checks from submit job object
-        unique_connection_name = job.connection_name
+        self.unique_connection_name = job.connection_name # initializing self.unique_connection_name instance variable
         quality_checks = job.quality_checks
 
-        user_conn_creds = self.__get_user_conn_creds(unique_connection_name=unique_connection_name)
+        # retrieving user credentials from login_credentials table
+        user_conn_creds = self.__get_user_conn_creds()
 
         # common user credentials
         port = user_conn_creds.get('port')

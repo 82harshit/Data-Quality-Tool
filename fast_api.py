@@ -18,13 +18,11 @@ and generates a unique `connection name` for the user
 """
 
 from fastapi import FastAPI, Body, HTTPException
+
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
-import db_constants
-from server_functions import get_mysql_db, read_file_columns, connect_to_server_SSH
-from ge import run_quality_checks
-import os
 from logging_config import dqt_logger
 from ge_fast_api_interface import GE_Fast_API_Interface
+from save_validation_results import DataQuality
 
 app = FastAPI()
 
@@ -55,8 +53,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             "description": "This is a test description"
         }
     }
-)):
-    
+)): 
     if not connection.user_credentials:
         error_msg = "Incorrect JSON request, missing user credentials"
         dqt_logger.error(error_msg)
@@ -69,11 +66,10 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         dqt_logger.error(error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
     
+    ge_fast_interface = GE_Fast_API_Interface() # interface object
+    ge_fast_interface.create_connection_based_on_type(connection=connection) # create connection to the user_credentials db
 
-    ge_fast_interface = GE_Fast_API_Interface(connection_type=connection_type)
-
-    ge_fast_interface.create_connection_based_on_type(connection=connection)
-    
+    # insert credentials based on connection_type
     if connection_type in conn_enum.File_Datasource_Enum.__members__.values():
         unique_connection_name = await ge_fast_interface.insert_user_credentials(connection=connection, 
                                                                                  expected_extension=connection_type)
@@ -83,64 +79,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
     if unique_connection_name:
         return {"status": "connected", "connection_name": unique_connection_name}
     else:
-        return {"status": "could not connect, an error occurred", "connection_name": ""}
-
-    # # extracting user credentials from JSON
-    # hostname = connection.connection_credentials.server
-    # username = connection.user_credentials.username
-    # password = connection.user_credentials.password
-    # port = connection.connection_credentials.port
-    # database = connection.connection_credentials.database
-
-    # db = db_functions.DBFunctions() # database object
-
-    # if connection_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
-    #     try:
-    #         app_connection_response = db.connect_to_credentials_db(connection_type)
-
-    #         app_connection = app_connection_response.get('app_connection')
-    #         app_table = app_connection_response.get('app_table')
-
-    #         # create unique connection name
-    #         unique_connection_name = generate_connection_name(connection=connection)
-    #         # create connection string
-    #         connection_string = generate_connection_string(connection=connection)
-
-    #         db.execute_sql_query(db_connection=app_connection, 
-    #                 sql_query=query.INSERT_CONN_DETAILS_QUERY.format(app_table), # insert in app table
-    #                 params=(
-    #                     unique_connection_name,
-    #                     connection_string,
-    #                     username,
-    #                     connection_type,
-    #                     password,
-    #                     hostname,
-    #                     port,
-    #                     database
-    #                 ))
-    
-    #         print("Login credential insertion completed")
-    #         return {"status": "connected", "connection_name": unique_connection_name}
-    #     except Exception as e:
-    #         raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
-
-    # elif connection_type in {connection_enum_and_metadata.ConnectionEnum.SAP, 
-    #                          connection_enum_and_metadata.ConnectionEnum.STREAMING,
-    #                          connection_enum_and_metadata.ConnectionEnum.FILESERVER,
-    #                          connection_enum_and_metadata.ConnectionEnum.REDSHIFT
-    #                          }:
-    #     raise HTTPException(status_code=501, detail={"error": f"{connection_type} not implemented", 
-    #                                                  "request_json": connection.model_dump_json()})
-    # elif connection_type in {connection_enum_and_metadata.ConnectionEnum.ORC, 
-    #                          connection_enum_and_metadata.ConnectionEnum.AVRO,
-    #                          connection_enum_and_metadata.ConnectionEnum.CSV,
-    #                          connection_enum_and_metadata.ConnectionEnum.PARQUET,
-    #                          connection_enum_and_metadata.ConnectionEnum.JSON
-    #                          }:
-    #     return await handle_file_connection(connection, expected_extension=f".{connection_type}")
-    # else:
-    #     raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", 
-    #                                                 "request_json": connection.model_dump_json()})
+        return {"status": "could not connect, an error occurred", "connection_name": None}
 
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests")
@@ -171,160 +110,181 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     "description": "This is a test description"
   }
 })):
-
     if not job.connection_name:
         error_msg = "Incorrect JSON provided, missing connection name"
         dqt_logger.error(error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
     
+    if not job.data_source:
+        error_msg = "Incorrect JSON provided, missing data source"
+        dqt_logger.error(error_msg)
+        raise HTTPException(status_code=400, detail={"error": error_msg})
+
     if not job.quality_checks:
         error_msg = "Incorrect JSON provided, missing quality checks"
         dqt_logger.error(error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
-    connection_name = job.connection_name
-    quality_checks = job.quality_checks
-
-    # check if the connection_name exists in the database
-    # root user logging in user_credentials database
-    app_conn = get_mysql_db(hostname=db_constants.APP_HOSTNAME, 
-                        username=db_constants.APP_USERNAME, 
-                        password=db_constants.APP_PASSWORD, 
-                        port=db_constants.APP_PORT, 
-                        database=db_constants.USER_CREDENTIALS_DATABASE
-                        )
+    ge_fast_interface = GE_Fast_API_Interface() # interface object
     
-    app_cursor = app_conn.cursor()
-    
-    READ_FOR_CONN_NAME_QUERY = f"""SELECT 1 FROM {db_constants.USER_LOGIN_TABLE} 
-    WHERE {db_constants.CONNECTION_NAME} = %s;"""
-    app_cursor.execute(READ_FOR_CONN_NAME_QUERY,(connection_name,))
-    exists = app_cursor.fetchone() is not None
+    validation_results = await ge_fast_interface.validation_check_request(job=job)
+    dqt_logger.info(validation_results)
 
-    if not exists:
-        raise HTTPException(status_code=404, detail={"error": "User not found", "connection_name": connection_name})
-    
-    print("User found, retrieving connection details")
-
-    # retrieve user connection credentials
-
-    GET_USERNAME_QUERY = f"""SELECT {db_constants.USERNAME} 
-    FROM {db_constants.USER_LOGIN_TABLE} 
-    WHERE {db_constants.CONNECTION_NAME} = %s;"""
-    app_cursor.execute(GET_USERNAME_QUERY,(connection_name,))
-    retrieved_username = app_cursor.fetchall()
-    try:
-        username = retrieved_username[0][0] # extracting data from tuple, tuple format: (('user'),)
-        print(f"Username:{username}")
-    except ValueError as ve:
-        raise Exception(f"Required string type value for username\n{str(ve)}")
-
-    print("Username successfully retrieved")
-
-    GET_PASSWORD_QUERY = f"""SELECT {db_constants.PASSWORD} 
-    FROM {db_constants.USER_LOGIN_TABLE} 
-    WHERE {db_constants.CONNECTION_NAME} = %s;"""
-    app_cursor.execute(GET_PASSWORD_QUERY,(connection_name,))
-    retrieved_password = app_cursor.fetchall()
-    try:
-        password = retrieved_password[0][0]
-        print(f"Password:{password}")
-    except ValueError as ve:
-        raise Exception(f"Required string type value for password\n{str(ve)}")
-
-    print("Password successfully retrieved")
-
-    GET_HOSTNAME_QUERY = f"""SELECT {db_constants.HOSTNAME} 
-    FROM {db_constants.USER_LOGIN_TABLE} 
-    WHERE {db_constants.CONNECTION_NAME} = %s;"""
-    app_cursor.execute(GET_HOSTNAME_QUERY,(connection_name,))
-    retrieved_hostname = app_cursor.fetchall()
-    try:
-        hostname = retrieved_hostname[0][0]
-        print(f"Hostname:{hostname}")
-    except ValueError as ve:
-        raise Exception(f"Required string type value for hostname\n{str(ve)}")
-
-    print("Hostname successfully retrieved")
-
-    GET_PORT_QUERY = f"""SELECT {db_constants.PORT} 
-    FROM {db_constants.USER_LOGIN_TABLE} 
-    WHERE {db_constants.CONNECTION_NAME} = %s;"""
-    app_cursor.execute(GET_PORT_QUERY,(connection_name,))
-    retrieved_port = app_cursor.fetchall() 
-    try:
-        port = retrieved_port[0][0] # extracting data from tuple, tuple format: ((4000),)
-        print(f"Port:{port}")
-    except ValueError as ve:
-        raise Exception(f"Required integer type value for port\n{str(ve)}")
-
-    print("Port successfully retrieved")
-
-    GET_SOURCE_TYPE_QUERY = f"""SELECT {db_constants.SOURCE_TYPE} 
-    FROM {db_constants.USER_LOGIN_TABLE} 
-    WHERE {db_constants.CONNECTION_NAME} = %s;"""
-    app_cursor.execute(GET_SOURCE_TYPE_QUERY,(connection_name,))
-    retrieved_data_source_type = app_cursor.fetchall()
-    try:
-        data_source_type = retrieved_data_source_type[0][0]
-        print(f"Data source type:{data_source_type}")
-    except ValueError as ve:
-        raise Exception(f"Required string type value for data source type\n{str(ve)}")
-    
-    print("Data source type successfully retrieved")
-
-    if data_source_type == conn_enum.ConnectionEnum.MYSQL:
-        GET_SOURCE_QUERY = f"""SELECT {db_constants.DATABASE} 
-        FROM {db_constants.USER_LOGIN_TABLE} 
-        WHERE {db_constants.CONNECTION_NAME} = %s;"""
-        app_cursor.execute(GET_SOURCE_QUERY,(connection_name,))
-        retrieved_data_source = app_cursor.fetchall()
+    if validation_results: 
         try:
-            data_source = retrieved_data_source[0][0]
-            print(f"Data source:{data_source}")
-        except ValueError as ve:
-            raise Exception(f"Required string type value for data source\n{str(ve)}")
+            dqt_logger.info("Saving validation results in database")
+            DataQuality().fetch_and_process_data(validation_results) # FIXME: error: argument of type 'coroutine' is not iterable
+            # return job_id
+        except Exception as saving_validation_error:
+            error_msg = f"An error occurred, failed to save validation results in database\n{str(saving_validation_error)}"
+            dqt_logger.error(error_msg)
+            # return job_id
+    else:
+        error_msg = f"Missing validation results."
+        dqt_logger.error(error_msg)
+        # return job_id
+    
+    # connection_name = job.connection_name
+    # quality_checks = job.quality_checks
 
-        print("Data source successfully retrieved")
+    # # check if the connection_name exists in the database
+    # # root user logging in user_credentials database
+    # app_conn = get_mysql_db(hostname=db_constants.APP_HOSTNAME, 
+    #                     username=db_constants.APP_USERNAME, 
+    #                     password=db_constants.APP_PASSWORD, 
+    #                     port=db_constants.APP_PORT, 
+    #                     database=db_constants.USER_CREDENTIALS_DATABASE
+    #                     )
+    
+    # app_cursor = app_conn.cursor()
+    
+    # READ_FOR_CONN_NAME_QUERY = f"""SELECT 1 FROM {db_constants.USER_LOGIN_TABLE} 
+    # WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    # app_cursor.execute(READ_FOR_CONN_NAME_QUERY,(connection_name,))
+    # exists = app_cursor.fetchone() is not None
 
-    app_cursor.close()
-    app_conn.close()
+    # if not exists:
+    #     raise HTTPException(status_code=404, detail={"error": "User not found", "connection_name": connection_name})
+    
+    # print("User found, retrieving connection details")
 
-    print("Creating user connection")
-    # create user connection to read file from SSH server
+    # # retrieve user connection credentials
 
-    validation_results = {}
+    # GET_USERNAME_QUERY = f"""SELECT {db_constants.USERNAME} 
+    # FROM {db_constants.USER_LOGIN_TABLE} 
+    # WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    # app_cursor.execute(GET_USERNAME_QUERY,(connection_name,))
+    # retrieved_username = app_cursor.fetchall()
+    # try:
+    #     username = retrieved_username[0][0] # extracting data from tuple, tuple format: (('user'),)
+    #     print(f"Username:{username}")
+    # except ValueError as ve:
+    #     raise Exception(f"Required string type value for username\n{str(ve)}")
 
-    if data_source_type == conn_enum.ConnectionEnum.MYSQL:
-        """
-        TODO: Remove following temp vars
-        """
-        datasource_name = f"test_datasource_for_mysql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
-        table_name = "customers"
+    # print("Username successfully retrieved")
 
-        validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
-                                                database=data_source, table_name=table_name, schema_name=data_source, 
-                                                username=username, quality_checks=quality_checks, datasource_type=data_source_type)
-    elif data_source_type == conn_enum.ConnectionEnum.CSV:
-        user_conn = await connect_to_server_SSH(username=username, password=password, server=hostname, port=port)
+    # GET_PASSWORD_QUERY = f"""SELECT {db_constants.PASSWORD} 
+    # FROM {db_constants.USER_LOGIN_TABLE} 
+    # WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    # app_cursor.execute(GET_PASSWORD_QUERY,(connection_name,))
+    # retrieved_password = app_cursor.fetchall()
+    # try:
+    #     password = retrieved_password[0][0]
+    #     print(f"Password:{password}")
+    # except ValueError as ve:
+    #     raise Exception(f"Required string type value for password\n{str(ve)}")
+
+    # print("Password successfully retrieved")
+
+    # GET_HOSTNAME_QUERY = f"""SELECT {db_constants.HOSTNAME} 
+    # FROM {db_constants.USER_LOGIN_TABLE} 
+    # WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    # app_cursor.execute(GET_HOSTNAME_QUERY,(connection_name,))
+    # retrieved_hostname = app_cursor.fetchall()
+    # try:
+    #     hostname = retrieved_hostname[0][0]
+    #     print(f"Hostname:{hostname}")
+    # except ValueError as ve:
+    #     raise Exception(f"Required string type value for hostname\n{str(ve)}")
+
+    # print("Hostname successfully retrieved")
+
+    # GET_PORT_QUERY = f"""SELECT {db_constants.PORT} 
+    # FROM {db_constants.USER_LOGIN_TABLE} 
+    # WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    # app_cursor.execute(GET_PORT_QUERY,(connection_name,))
+    # retrieved_port = app_cursor.fetchall() 
+    # try:
+    #     port = retrieved_port[0][0] # extracting data from tuple, tuple format: ((4000),)
+    #     print(f"Port:{port}")
+    # except ValueError as ve:
+    #     raise Exception(f"Required integer type value for port\n{str(ve)}")
+
+    # print("Port successfully retrieved")
+
+    # GET_SOURCE_TYPE_QUERY = f"""SELECT {db_constants.SOURCE_TYPE} 
+    # FROM {db_constants.USER_LOGIN_TABLE} 
+    # WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    # app_cursor.execute(GET_SOURCE_TYPE_QUERY,(connection_name,))
+    # retrieved_data_source_type = app_cursor.fetchall()
+    # try:
+    #     data_source_type = retrieved_data_source_type[0][0]
+    #     print(f"Data source type:{data_source_type}")
+    # except ValueError as ve:
+    #     raise Exception(f"Required string type value for data source type\n{str(ve)}")
+    
+    # print("Data source type successfully retrieved")
+
+    # if data_source_type == conn_enum.ConnectionEnum.MYSQL:
+    #     GET_SOURCE_QUERY = f"""SELECT {db_constants.DATABASE} 
+    #     FROM {db_constants.USER_LOGIN_TABLE} 
+    #     WHERE {db_constants.CONNECTION_NAME} = %s;"""
+    #     app_cursor.execute(GET_SOURCE_QUERY,(connection_name,))
+    #     retrieved_data_source = app_cursor.fetchall()
+    #     try:
+    #         data_source = retrieved_data_source[0][0]
+    #         print(f"Data source:{data_source}")
+    #     except ValueError as ve:
+    #         raise Exception(f"Required string type value for data source\n{str(ve)}")
+
+    #     print("Data source successfully retrieved")
+
+    # app_cursor.close()
+    # app_conn.close()
+
+    # print("Creating user connection")
+    # # create user connection to read file from SSH server
+
+    # validation_results = {}
+
+    # if data_source_type == conn_enum.ConnectionEnum.MYSQL:
+    #     """
+    #     TODO: Remove following temp vars
+    #     """
+    #     datasource_name = f"test_datasource_for_mysql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
+    #     table_name = "customers"
+
+    #     validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
+    #                                             database=data_source, table_name=table_name, schema_name=data_source, 
+    #                                             username=username, quality_checks=quality_checks, datasource_type=data_source_type)
+    # elif data_source_type == conn_enum.ConnectionEnum.CSV:
+    #     user_conn = await connect_to_server_SSH(username=username, password=password, server=hostname, port=port)
         
-        dir_path = job.data_source.dir_path
-        dir_name = os.path.basename(dir_path)
-        file_name = job.data_source.file_name
+    #     dir_path = job.data_source.dir_path
+    #     dir_name = os.path.basename(dir_path)
+    #     file_name = job.data_source.file_name
 
-        file_path = f"{dir_path}/{file_name}"
+    #     file_path = f"{dir_path}/{file_name}"
 
-        columns = await read_file_columns(conn=user_conn,file_path=file_path)
-        print(f"Column names: {columns}")
+    #     columns = await read_file_columns(conn=user_conn,file_path=file_path)
+    #     print(f"Column names: {columns}")
 
-        datasource_name = "test_datasource_for_csv" # TODO: Remove test param
+    #     datasource_name = "test_datasource_for_csv" # TODO: Remove test param
 
-        validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
-                                                username=username, quality_checks=quality_checks, datasource_type=data_source_type,
-                                                dir_name=dir_name, file_name=file_name)
+    #     validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
+    #                                             username=username, quality_checks=quality_checks, datasource_type=data_source_type,
+    #                                             dir_name=dir_name, file_name=file_name)
 
 
-    return {"validation_results": validation_results} 
-
-    # TODO: store these validation results in a database
+    # return {"validation_results": validation_results} 
     

@@ -27,6 +27,11 @@ class ConnectionCredentials(BaseModel):
 
     @model_validator(mode='before')
     def validate_connection_priority(cls, values):
+        if values is None:
+            error_msg = "conneection_credentials cannot be null or missing."
+            dqt_logger.error(error_msg)
+            raise ValueError(error_msg)
+
         file_name = values.get("file_name")
         dir_path = values.get("dir_path")
         database = values.get("database")
