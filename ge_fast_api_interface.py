@@ -1,5 +1,6 @@
 from typing import Optional
 from fast_api import HTTPException
+import json
 
 from database.db_models import table_db, file_db 
 from great_exp.great_exp_model import run_quality_check_for_file, run_quality_checks_for_db
@@ -8,20 +9,7 @@ from utils import generate_connection_name, generate_connection_string
 from logging_config import dqt_logger
 
 
-class GE_Fast_API_Interface:
-
-    database_sources = [conn_enum.ConnectionEnum.MYSQL, conn_enum.ConnectionEnum.POSTGRES, 
-                     conn_enum.ConnectionEnum.REDSHIFT, conn_enum.ConnectionEnum.ATHENA, 
-                     conn_enum.ConnectionEnum.CLICKHOUSE, conn_enum.ConnectionEnum.BIGQUERY,
-                     conn_enum.ConnectionEnum.SNOWFLAKE, conn_enum.ConnectionEnum.TRINO]
-
-    file_sources = [conn_enum.ConnectionEnum.CSV, conn_enum.ConnectionEnum.EXCEL, 
-                 conn_enum.ConnectionEnum.FILESERVER, conn_enum.ConnectionEnum.JSON,
-                 conn_enum.ConnectionEnum.ORC, conn_enum.ConnectionEnum.AVRO,
-                 conn_enum.ConnectionEnum.PARQUET]
-
-    other_sources = [conn_enum.ConnectionEnum.SAP, conn_enum.ConnectionEnum.STREAMING]
-
+class GE_Fast_API_Interface: 
 
     def __init__(self, connection_type: str):
         self.connection_type = connection_type
@@ -35,27 +23,27 @@ class GE_Fast_API_Interface:
         :param connection (object): Object of Connection class containing connection credentials
         :return: None
         """
-        
         # extracting user credentials from connection model
         hostname = connection.connection_credentials.server
         username = connection.user_credentials.username
         password = connection.user_credentials.password
         port = connection.connection_credentials.port
 
-        if self.connection_type in self.database_sources:
+        if self.connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
             database = connection.connection_credentials.database
-            
+
             table_db_obj = table_db.TableDatabase(hostname=hostname, username=username, password=password, port=port, 
-                                                  database=database)
+                                                 database=database, connection_type=self.connection_type)
             self.db_instance = table_db_obj
-        elif self.connection_type in self.file_sources:
+        elif self.connection_type in conn_enum.File_Datasource_Enum.__members__.values():
             file_name = connection.connection_credentials.file_name
             dir_path = connection.connection_credentials.dir_path
 
             file_db_obj = file_db.FileDatabase(hostname=hostname, username=username, password=password, port=port, 
-                                               dir_path=dir_path, file_name=file_name)
+                                               dir_path=dir_path, file_name=file_name, database=None,
+                                               connection_type=self.connection_type)
             self.db_instance = file_db_obj
-        elif self.connection_type in self.other_sources:
+        elif self.connection_type in conn_enum.Other_Datasources_Enum.__members__.values():
             """
             FUTURE: implement a sub-class 'OtherDatabase' that inherits 'UserCredentialsDatabase' as parent class
             Use as:
@@ -64,8 +52,12 @@ class GE_Fast_API_Interface:
             self.db_instance = other_db_obj
             """
             pass
-    
+        else:
+            error_msg = {"error": "Unidentified connection source", "request_json": connection.model_dump_json()}
+            dqt_logger.error(error_msg)
+            raise HTTPException(status_code=500, detail=error_msg)
 
+    # for /create-connection endpoint
     async def insert_user_credentials(self, connection: connection_model.Connection, expected_extension: Optional[str] = None) -> str:
         """
         Insert user credentials from connection model to the user_credentials database
@@ -75,7 +67,6 @@ class GE_Fast_API_Interface:
         :return json: Response json containing the connection status and unique connection name
         """
 
-        # db_conn_obj = self.__create_connection_based_on_type(connection=connection)
         self.db_instance.connect_to_db() # create connection the credentials database
         unique_connection_name = generate_connection_name(connection=connection) # create unique connection name
         connection_string = generate_connection_string(connection=connection) # create connection string
@@ -105,13 +96,19 @@ class GE_Fast_API_Interface:
                 dqt_logger.error(error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
             
-        else: # for database
-            self.db_instance.insert_in_db(unique_connection_name=unique_connection_name,connection_string=connection_string)
-        
+        self.db_instance.insert_in_db(unique_connection_name=unique_connection_name,connection_string=connection_string)
         return unique_connection_name
     
     
-    def __get_user_conn_creds(self, unique_connection_name: str) -> dict:
+    def __get_user_conn_creds(self, unique_connection_name: str) -> json:
+        """
+        Searches for existence of user based on the provided connection name, if found
+        retrieves the its credentials for establishing a remote connection
+
+        :param unique_connection_name (str): Connection name passed in the JSON request
+
+        :return json: A json containing user credentials
+        """
         user_exists = self.db_instance.search_in_db(unique_connection_name=unique_connection_name) # search for user in login_credentials database
         
         if not user_exists:
@@ -119,13 +116,13 @@ class GE_Fast_API_Interface:
             dqt_logger.error(error_msg)
             raise HTTPException(status_code=404, detail=error_msg)
         else:
-            if self.connection_type in self.database_sources:
+            if self.connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
                 user_conn_creds = self.db_instance.get_creds_for_db(unique_connection_name=unique_connection_name)
-            elif self.connection_type in self.file_sources:
+            elif self.connection_type in conn_enum.File_Datasource_Enum.__members__.values():
                 user_conn_creds = self.db_instance.get_creds_for_file(unique_connection_name=unique_connection_name)
-            elif self.connection_type in self.other_sources:
+            elif self.connection_type in conn_enum.Other_Datasources_Enum.__members__.values():
                 """
-                FUTURE: implement a function 'get_creds_for_other_sources()' in UserCredentialsDatabase
+                FUTURE: implement a function 'get_creds_for_other_sources()' in class UserCredentialsDatabase
                 Use as:
                 user_conn_creds = self.db_instance.get_creds_for_other_sources(unique_connection_name=unique_connection_name)
                 """
@@ -133,7 +130,16 @@ class GE_Fast_API_Interface:
 
         return user_conn_creds            
 
-    async def validation_check_request(self, job: job_model.SubmitJob):
+    # for /submit-job endpoint
+    async def validation_check_request(self, job: job_model.SubmitJob) -> json:
+        """
+        Retrieves user connection credentials, establishes a connection (in case of file source) 
+        and executes the list of provided expectation checks on the data
+
+        :param job (object): An object of class SubmitJob containing the validation checks and other details
+
+        :return validation_results (json): A JSON containing the validation response from the great_expectations library
+        """
         # extracting connection_name and quality_checks from submit job object
         unique_connection_name = job.connection_name
         quality_checks = job.quality_checks
@@ -147,7 +153,7 @@ class GE_Fast_API_Interface:
         hostname = user_conn_creds.get('hostname')
         datasource_type = user_conn_creds.get('source_type')
 
-        if datasource_type in self.database_sources:
+        if datasource_type in conn_enum.Database_Datasource_Enum.__members__.values():
             table_name = job.data_source.table_name
             database = user_conn_creds.get('database')
 
@@ -160,12 +166,13 @@ class GE_Fast_API_Interface:
                                                             username=username,table_name=table_name,
                                                             datasource_name=datasource_name,
                                                             datasource_type=datasource_type)
+                validation_results = json.loads(str(validation_results)) # converting the result in JSON format
                 return validation_results
             except Exception as ge_exception:
                 error_msg = f"An error occured while validating data\n{str(ge_exception)}"
                 dqt_logger.error(error_msg)
             
-        elif datasource_type in self.file_sources:
+        elif datasource_type in conn_enum.File_Datasource_Enum.__members__.values():
             # user_ssh_conn = await self.db_instance.connect_to_server_SSH(username=username, password=password, server=hostname, port=port)
         
             dir_path = job.data_source.dir_path
@@ -182,12 +189,13 @@ class GE_Fast_API_Interface:
                                                                 datasource_name=datasource_name, 
                                                                 file_name=file_name, dir_path=dir_path,
                                                                 quality_checks=quality_checks)
+                validation_results = json.loads(str(validation_results)) # converting the result in JSON format
                 return validation_results
             except Exception as ge_exception:
                 error_msg = f"An error occured while validating data\n{str(ge_exception)}"
                 dqt_logger.error(error_msg)
 
-        elif datasource_type in self.other_sources:
+        elif datasource_type in conn_enum.Other_Datasources_Enum.__members__.values():
             try:
                 #FUTURE: implement a function 'run_quality_check_for_other_sources()' in great_exp_model.py
                 pass

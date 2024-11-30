@@ -1,10 +1,12 @@
 import configparser
-from request_models import connection_enum_and_metadata, connection_model
 from datetime import datetime
 import random
 import re
 import json
+import os
 
+from request_models import connection_enum_and_metadata as conn_enum, connection_model
+from logging_config import dqt_logger
 
 def remove_special_characters(input_string) -> str:
     """
@@ -22,7 +24,7 @@ def generate_connection_name(connection: connection_model.Connection) -> str:
     Generates a unique connection name using timestamp, connection credentials, and a random integer.
     Supports both database and file-based connections:
     - Database example: `20241120162230_test_3233347_3006_testdb_3694`
-    - File-based example: `20241120162230_test_3233347_3006_data.json_3694`
+    - File-based example: `20241120162230_test_3233347_3006_datajson_3694`
 
     :param connection: Connection object
 
@@ -38,14 +40,8 @@ def generate_connection_name(connection: connection_model.Connection) -> str:
     connection_type = connection.connection_credentials.connection_type
 
     # Determine whether to use database or file_name
-    if connection_type in {
-        connection_enum_and_metadata.ConnectionEnum.JSON,
-        connection_enum_and_metadata.ConnectionEnum.CSV,
-        connection_enum_and_metadata.ConnectionEnum.ORC,
-        connection_enum_and_metadata.ConnectionEnum.PARQUET,
-        connection_enum_and_metadata.ConnectionEnum.AVRO,
-    }:
-        target = connection.connection_credentials.connection_type
+    if connection_type in conn_enum.File_Datasource_Enum.__members__.values():
+        target = connection.connection_credentials.file_name
     else:
         target = connection.connection_credentials.database
 
@@ -77,13 +73,7 @@ def generate_connection_string(connection: connection_model.Connection) -> str:
     connection_type = connection.connection_credentials.connection_type
 
     # Determine whether to use database or file_name for connection string
-    if connection_type in {
-        connection_enum_and_metadata.ConnectionEnum.JSON,
-        connection_enum_and_metadata.ConnectionEnum.CSV,
-        connection_enum_and_metadata.ConnectionEnum.ORC,
-        connection_enum_and_metadata.ConnectionEnum.PARQUET,
-        connection_enum_and_metadata.ConnectionEnum.AVRO,
-    }:
+    if connection_type in conn_enum.File_Datasource_Enum.__members__.values():
         target = connection.connection_credentials.file_name  # Use file name for file-based connections
     else:
         target = connection.connection_credentials.database  # Use database for database connections
@@ -128,9 +118,10 @@ def get_cred_db_connection_config() -> json:
 
     config = configparser.ConfigParser()
     try:
-        path_to_database_config = r'database\database_config.ini' # relative path to database_config.ini
+        path_to_database_config = os.path.join('database', 'database_config.ini') # relative path to database_config.ini
         config.read(path_to_database_config)
     except FileNotFoundError as file_not_found:
+        dqt_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
         raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
 
     app_database = config.get('Database', 'app_database')
@@ -163,9 +154,10 @@ def get_cred_db_table_config() -> json:
 
     config = configparser.ConfigParser()
     try:
-        path_to_database_config = r'database\database_config.ini' # relative path to `database_config.ini`
+        path_to_database_config = os.path.join('database', 'database_config.ini') # relative path to `database_config.ini`
         config.read(path_to_database_config)
     except FileNotFoundError as file_not_found:
+        dqt_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
         raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
 
     connection_name = config.get('Login Credentials Table', 'connection_name')
@@ -189,3 +181,54 @@ def get_cred_db_table_config() -> json:
     return login_cred_columns
 
 
+def get_job_run_status_table_config() -> json:
+    """
+    """
+    
+    config = configparser.ConfigParser()
+    try:
+        path_to_database_config = os.path.join('database', 'database_config.ini')
+        config.read(path_to_database_config)
+    except FileNotFoundError as file_not_found:
+        dqt_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
+        raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
+
+    job_id = config.get('Job Run Status Table','job_id')
+    job_status = config.get('Job Run Status Table','job_status')
+    status_message = config.get('Job Run Status Table','status_message')
+
+    job_status_columns = {'job_id': job_id, 'job_status': job_status, 'status_message': status_message}
+    return job_status_columns
+
+
+def generate_job_id() -> str:
+    """
+    Generates a random job run id using 8 digit randomly generated integer and timestamp
+    :return (str): Random generated job id
+    """
+    rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    new_job_id =  f"Job_{rand_int}{timestamp}"
+    return new_job_id
+
+
+# def validate_connection_credentails_in_request_json(config):
+#     """
+#     This function validates the datasource in connection credentials part of request json
+#     """
+#     # Check if 'database' key is present and validate its value
+#     if hasattr(config, 'database') and config.database:
+#         if config.database not in conn_enum.Database_Datasource_Enum._value2member_map_:
+#             error_msg = f"Invalid database value: '{config['database']}'. Must be one of {list(conn_enum.Database_Datasource_Enum)}"
+#             dqt_logger.error(error_msg)
+#             raise ValueError(error_msg)
+    
+#     # Check if 'dir_path' and 'file_name' keys are present and validate the file extension
+#     if hasattr(config, 'dir_path') and hasattr(config, 'file_name'):
+#         file_extension = config.file_name.split('.')[-1].lower()  # Extract file extension
+#         if file_extension not in [ft.value for ft in conn_enum.File_Datasource_Enum]:
+#             error_msg = f"""Invalid file type based on 'file_name' extension: '{file_extension}'. 
+#             Must be one of {list(conn_enum.File_Datasource_Enum)}"""
+#             dqt_logger.error(error_msg)
+#             raise ValueError(error_msg)
+        

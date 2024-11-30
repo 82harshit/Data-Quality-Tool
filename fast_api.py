@@ -18,14 +18,13 @@ and generates a unique `connection name` for the user
 """
 
 from fastapi import FastAPI, Body, HTTPException
-from request_models import connection_enum_and_metadata, connection_model, job_model
-from utils import generate_connection_name, generate_connection_string
+from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
 import db_constants
-from server_functions import get_mysql_db, handle_file_connection, read_file_columns, connect_to_server_SSH
-from database import db_functions, sql_queries as query
+from server_functions import get_mysql_db, read_file_columns, connect_to_server_SSH
 from ge import run_quality_checks
 import os
 from logging_config import dqt_logger
+from ge_fast_api_interface import GE_Fast_API_Interface
 
 app = FastAPI()
 
@@ -47,8 +46,8 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             "port": 3000,
             "server": "server_IP",
             "database": "test_DB",
-            "file_name" : "customers-100.csv",
-            "dir_path" : "/home/merit/Desktop"
+            "file_name" : "test-file.csv",
+            "dir_path" : "/home/user/Desktop"
         },
         "metadata": {
             "requested_by": "user@example.com",
@@ -69,63 +68,79 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         error_msg = "Incorrect JSON request, missing connection credentials"
         dqt_logger.error(error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
-
-    # extracting user credentials from JSON
-    hostname = connection.connection_credentials.server
-    username = connection.user_credentials.username
-    password = connection.user_credentials.password
-    port = connection.connection_credentials.port
-    database = connection.connection_credentials.database
-
-    db = db_functions.DBFunctions() # database object
-
-    if connection_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
-        try:
-            app_connection_response = db.connect_to_credentials_db(connection_type)
-
-            app_connection = app_connection_response.get('app_connection')
-            app_table = app_connection_response.get('app_table')
-
-            # create unique connection name
-            unique_connection_name = generate_connection_name(connection=connection)
-            # create connection string
-            connection_string = generate_connection_string(connection=connection)
-
-            db.execute_sql_query(db_connection=app_connection, 
-                    sql_query=query.INSERT_CONN_DETAILS_QUERY.format(app_table), # insert in app table
-                    params=(
-                        unique_connection_name,
-                        connection_string,
-                        username,
-                        connection_type,
-                        password,
-                        hostname,
-                        port,
-                        database
-                    ))
     
-            print("Login credential insertion completed")
-            return {"status": "connected", "connection_name": unique_connection_name}
-        except Exception as e:
-            raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
 
-    elif connection_type in {connection_enum_and_metadata.ConnectionEnum.SAP, 
-                             connection_enum_and_metadata.ConnectionEnum.STREAMING,
-                             connection_enum_and_metadata.ConnectionEnum.FILESERVER,
-                             connection_enum_and_metadata.ConnectionEnum.REDSHIFT
-                             }:
-        raise HTTPException(status_code=501, detail={"error": f"{connection_type} not implemented", 
-                                                     "request_json": connection.model_dump_json()})
-    elif connection_type in {connection_enum_and_metadata.ConnectionEnum.ORC, 
-                             connection_enum_and_metadata.ConnectionEnum.AVRO,
-                             connection_enum_and_metadata.ConnectionEnum.CSV,
-                             connection_enum_and_metadata.ConnectionEnum.PARQUET,
-                             connection_enum_and_metadata.ConnectionEnum.JSON
-                             }:
-        return await handle_file_connection(connection, expected_extension=f".{connection_type}")
+    ge_fast_interface = GE_Fast_API_Interface(connection_type=connection_type)
+
+    ge_fast_interface.create_connection_based_on_type(connection=connection)
+    
+    if connection_type in conn_enum.File_Datasource_Enum.__members__.values():
+        unique_connection_name = await ge_fast_interface.insert_user_credentials(connection=connection, 
+                                                                                 expected_extension=connection_type)
+    elif connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
+        unique_connection_name = await ge_fast_interface.insert_user_credentials(connection=connection)
+
+    if unique_connection_name:
+        return {"status": "connected", "connection_name": unique_connection_name}
     else:
-        raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", 
-                                                     "request_json": connection.model_dump_json()})
+        return {"status": "could not connect, an error occurred", "connection_name": ""}
+
+    # # extracting user credentials from JSON
+    # hostname = connection.connection_credentials.server
+    # username = connection.user_credentials.username
+    # password = connection.user_credentials.password
+    # port = connection.connection_credentials.port
+    # database = connection.connection_credentials.database
+
+    # db = db_functions.DBFunctions() # database object
+
+    # if connection_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+    #     try:
+    #         app_connection_response = db.connect_to_credentials_db(connection_type)
+
+    #         app_connection = app_connection_response.get('app_connection')
+    #         app_table = app_connection_response.get('app_table')
+
+    #         # create unique connection name
+    #         unique_connection_name = generate_connection_name(connection=connection)
+    #         # create connection string
+    #         connection_string = generate_connection_string(connection=connection)
+
+    #         db.execute_sql_query(db_connection=app_connection, 
+    #                 sql_query=query.INSERT_CONN_DETAILS_QUERY.format(app_table), # insert in app table
+    #                 params=(
+    #                     unique_connection_name,
+    #                     connection_string,
+    #                     username,
+    #                     connection_type,
+    #                     password,
+    #                     hostname,
+    #                     port,
+    #                     database
+    #                 ))
+    
+    #         print("Login credential insertion completed")
+    #         return {"status": "connected", "connection_name": unique_connection_name}
+    #     except Exception as e:
+    #         raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
+
+    # elif connection_type in {connection_enum_and_metadata.ConnectionEnum.SAP, 
+    #                          connection_enum_and_metadata.ConnectionEnum.STREAMING,
+    #                          connection_enum_and_metadata.ConnectionEnum.FILESERVER,
+    #                          connection_enum_and_metadata.ConnectionEnum.REDSHIFT
+    #                          }:
+    #     raise HTTPException(status_code=501, detail={"error": f"{connection_type} not implemented", 
+    #                                                  "request_json": connection.model_dump_json()})
+    # elif connection_type in {connection_enum_and_metadata.ConnectionEnum.ORC, 
+    #                          connection_enum_and_metadata.ConnectionEnum.AVRO,
+    #                          connection_enum_and_metadata.ConnectionEnum.CSV,
+    #                          connection_enum_and_metadata.ConnectionEnum.PARQUET,
+    #                          connection_enum_and_metadata.ConnectionEnum.JSON
+    #                          }:
+    #     return await handle_file_connection(connection, expected_extension=f".{connection_type}")
+    # else:
+    #     raise HTTPException(status_code=500, detail={"error": "Unidentified connection source", 
+    #                                                 "request_json": connection.model_dump_json()})
 
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests")
@@ -136,12 +151,6 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
       "file_name": "sample_file",
       "table_name": "test_table"
   },
-#   "data_target": {
-#     "target_data_type": "csv",
-#     "target_path": "C:/user/sink_dataset",
-#     "target_data_format": "string"
-#     # "target_schema": "string"
-#   },
   "quality_checks": [
       {
         "expectation_type": "expect_column_values_to_not_be_null",
@@ -162,9 +171,6 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     "description": "This is a test description"
   }
 })):
-    """
-    This function posts the checks on the data
-    """
 
     if not job.connection_name:
         error_msg = "Incorrect JSON provided, missing connection name"
@@ -175,11 +181,6 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         error_msg = "Incorrect JSON provided, missing quality checks"
         dqt_logger.error(error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
-
-    # if not job.data_target:
-    #     error_msg = "Incorrect JSON provided, missing data target"
-    #     dqt_logger.error(error_msg)
-    #     raise HTTPException(status_code=400, detail={"error": error_msg})
 
     connection_name = job.connection_name
     quality_checks = job.quality_checks
@@ -272,7 +273,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     
     print("Data source type successfully retrieved")
 
-    if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+    if data_source_type == conn_enum.ConnectionEnum.MYSQL:
         GET_SOURCE_QUERY = f"""SELECT {db_constants.DATABASE} 
         FROM {db_constants.USER_LOGIN_TABLE} 
         WHERE {db_constants.CONNECTION_NAME} = %s;"""
@@ -294,7 +295,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     validation_results = {}
 
-    if data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
+    if data_source_type == conn_enum.ConnectionEnum.MYSQL:
         """
         TODO: Remove following temp vars
         """
@@ -304,7 +305,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         validation_results = run_quality_checks(datasource_name=datasource_name, port=port, hostname=hostname, password=password,
                                                 database=data_source, table_name=table_name, schema_name=data_source, 
                                                 username=username, quality_checks=quality_checks, datasource_type=data_source_type)
-    elif data_source_type == connection_enum_and_metadata.ConnectionEnum.CSV:
+    elif data_source_type == conn_enum.ConnectionEnum.CSV:
         user_conn = await connect_to_server_SSH(username=username, password=password, server=hostname, port=port)
         
         dir_path = job.data_source.dir_path

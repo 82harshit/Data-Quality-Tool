@@ -1,10 +1,11 @@
-import user_credentials_db
 import asyncssh
 from fastapi import HTTPException
 from io import BytesIO, StringIO
 import pandas as pd
 import fastavro
 import pyorc
+
+from database.db_models import user_credentials_db
 from logging_config import dqt_logger
 
 

@@ -1,16 +1,17 @@
 from fastapi import HTTPException
 import pymysql
 import json
+from typing import Optional
 
 from utils import get_cred_db_connection_config, get_cred_db_table_config
-import sql_queries as query_template
-import sql_query
+from database import sql_queries as query_template
+from database.db_models import sql_query
 from interfaces import database_interface
 from logging_config import dqt_logger
 
 
 class UserCredentialsDatabase(database_interface.DatabaseInterface):
-    def __init__(self, hostname: str, username: str, password: str, port: int, database: None, connection_type: str):
+    def __init__(self, hostname: str, username: str, password: str, port: int, connection_type: str, database: Optional[str] = None):
         """
         Initializes the UserCredentialsDatabase with the given parameters.
         These parameters are the user login credentials

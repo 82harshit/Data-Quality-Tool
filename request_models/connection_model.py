@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, model_validator
 from typing import Optional
-from request_models import connection_enum_and_metadata as conn
+from request_models import connection_enum_and_metadata as conn_enum
+from logging_config import dqt_logger
 
 
 class UserCredentials(BaseModel):
@@ -18,31 +19,62 @@ class UserCredentials(BaseModel):
 
 class ConnectionCredentials(BaseModel):
     connection_type: str
-    database: Optional[str] = Field("", description="Name of the database to connect to", min_length=1)
+    database: Optional[str] = Field(None, description="Name of the database to connect to", min_length=1)
     server: str = Field("0.0.0.0", description="Name of the server to connect to")
     port: int = Field(5432, description="Port to connect to", gt=9, lt=10000)
-    file_name: Optional[str] = Field("", description="Name of the file to connect to", min_length=1)
-    dir_path: Optional[str] = Field("", description="Path to the directory")
+    file_name: Optional[str] = Field(None, description="Name of the file to connect to", min_length=1)
+    dir_path: Optional[str] = Field(None, description="Path to the directory")
 
     @model_validator(mode='before')
     def validate_connection_priority(cls, values):
         file_name = values.get("file_name")
         dir_path = values.get("dir_path")
         database = values.get("database")
+        connection_type = values.get("connection_type")
 
-        if dir_path:
-            if not file_name:
-                raise ValueError("If 'dir_path' is provided, 'file_name' must also be specified.")
+        if connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
             if database:
-                raise ValueError("If 'dir_path' is provided, 'database' must not be specified.")
+                if file_name or dir_path:
+                    error_msg = "If 'database' is provided, 'file_name' and 'dir_path' must not be specified."
+                    dqt_logger.error(error_msg)
+                    raise ValueError(error_msg)
+            else:
+                error_msg = f"Invalid request JSON, 'database' key and value must be provided"
+                dqt_logger.error(error_msg)
+                raise ValueError(error_msg)
 
-        if file_name:
-            if database:
-                raise ValueError("If 'file_name' is provided, 'database' must not be specified.")
-            
-        if database:
-            if file_name or dir_path:
-                raise ValueError("If 'database' is provided, 'file_name' and 'dir_path' must not be specified.")
+        elif connection_type in conn_enum.File_Datasource_Enum.__members__.values():
+            if dir_path:
+                if not file_name:
+                    error_msg = "If 'dir_path' is provided, 'file_name' must also be specified."
+                    dqt_logger.error(error_msg)
+                    raise ValueError(error_msg)
+                if database:
+                    error_msg = "If 'dir_path' is provided, 'database' must not be specified."
+                    dqt_logger.error(error_msg)
+                    raise ValueError(error_msg)
+                if file_name:
+                    # Check if file_name extension is valid
+                    file_extension = file_name.split('.')[-1].lower()
+                    if file_extension not in [ft.value for ft in conn_enum.File_Datasource_Enum]:
+                        error_msg = f"""Invalid file type based on 'file_name' extension: '{file_extension}'. 
+                        Must be one of {list(conn_enum.File_Datasource_Enum)}"""
+                        dqt_logger.error(error_msg)
+                        raise ValueError(error_msg)
+
+            if file_name:
+                if database:
+                    error_msg = "If 'file_name' is provided, 'database' must not be specified."
+                    dqt_logger.error(error_msg)
+                    raise ValueError(error_msg)
+                else:
+                    # Check if file_name extension is valid
+                    file_extension = file_name.split('.')[-1].lower()
+                    if file_extension != connection_type:
+                        error_msg = f"""Invalid value for 'connection_type' provided based on 'file_name' extension: '{file_extension}'. 
+                        Must be one of {list(conn_enum.File_Datasource_Enum.__members__.values())}"""
+                        dqt_logger.error(error_msg)
+                        raise ValueError(error_msg)
 
         return values
     
@@ -53,4 +85,4 @@ class Connection(BaseModel):
     """
     user_credentials: UserCredentials
     connection_credentials: ConnectionCredentials
-    metadata: conn.Metadata
+    metadata: conn_enum.Metadata

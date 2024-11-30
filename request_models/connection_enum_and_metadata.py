@@ -4,27 +4,40 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
-class ConnectionEnum(str, Enum):
+class File_Datasource_Enum(str, Enum):
     """
-    This enum contains all the data sources
+    This enum contains all the data sources of file type
     """
-    MYSQL = "mysql"
-    POSTGRES = "postgres"
+    
     CSV = "csv"
-    JSON = "json"
-    SAP = "sap"
-    STREAMING = "streaming"
-    REDSHIFT = "redshift"
+    JSON = "json"   
     FILESERVER = "fileserver"
     PARQUET = "parquet"
     ORC = "orc"
     AVRO = "avro"
+    EXCEL = "xlsx"
+
+
+class Database_Datasource_Enum(str, Enum):
+    """
+    This enum contains all the data sources of database type
+    """
+    MYSQL = "mysql"
+    POSTGRES = "postgres"
+    REDSHIFT = "redshift"
     SNOWFLAKE = "snowflake"
     BIGQUERY = "bigquery"
     ATHENA = "athena"
     TRINO = "trino"
     CLICKHOUSE = "clickhouse"
-    EXCEL = "xlsx"
+
+
+class Other_Datasources_Enum(str, Enum):
+    """
+    This enum contains all the other data sources
+    """
+    SAP = "sap"
+    STREAMING = "streaming"
 
 
 class Metadata(BaseModel):
