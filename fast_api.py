@@ -136,12 +136,12 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
       "file_name": "sample_file",
       "table_name": "test_table"
   },
-  "data_target": {
-    "target_data_type": "csv",
-    "target_path": "C:/user/sink_dataset",
-    "target_data_format": "string"
-    # "target_schema": "string"
-  },
+#   "data_target": {
+#     "target_data_type": "csv",
+#     "target_path": "C:/user/sink_dataset",
+#     "target_data_format": "string"
+#     # "target_schema": "string"
+#   },
   "quality_checks": [
       {
         "expectation_type": "expect_column_values_to_not_be_null",
@@ -176,10 +176,10 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         dqt_logger.error(error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
-    if not job.data_target:
-        error_msg = "Incorrect JSON provided, missing data target"
-        dqt_logger.error(error_msg)
-        raise HTTPException(status_code=400, detail={"error": error_msg})
+    # if not job.data_target:
+    #     error_msg = "Incorrect JSON provided, missing data target"
+    #     dqt_logger.error(error_msg)
+    #     raise HTTPException(status_code=400, detail={"error": error_msg})
 
     connection_name = job.connection_name
     quality_checks = job.quality_checks

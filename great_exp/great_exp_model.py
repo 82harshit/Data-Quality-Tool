@@ -10,6 +10,7 @@ from great_expectations.checkpoint import SimpleCheckpoint
 from great_expectations.exceptions import DataContextError
 
 from request_models import connection_enum_and_metadata as conn_enum
+from utils import find_validation_result
 from logging_config import dqt_logger
 
 class GreatExpectationsModel:
@@ -389,7 +390,7 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
     :param username (str): The name of the user who wants to connect to the host server
     :param port (int): The port number to be connected on
     :param database (str): The name of the database that needs to be accessed
-    :param table (str): The name of the table whose data needs to be accessed
+    :param table_name (str): The name of the table whose data needs to be accessed
     
     :return checkpoint_results (json): The generated validation results
     """
@@ -412,7 +413,8 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
     checkpoint_results = ge.__create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name_db,
                                                             batch_request=batch_request_json,
                                                             validator=db_validator)
-    return checkpoint_results # TODO: add utils.find_validation_result()
+    validation_results = find_validation_result(data=checkpoint_results)
+    return validation_results
 
 
 def run_quality_check_for_file(datasource_type: str, datasource_name: str, dir_path: str, quality_checks: List[dict], 
@@ -448,4 +450,5 @@ def run_quality_check_for_file(datasource_type: str, datasource_name: str, dir_p
     checkpoint_results = ge.__create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name_file,
                                                             batch_request=batch_request_json,
                                                             validator=file_validator)
-    return checkpoint_results # TODO: add utils.find_validation_result()
+    validation_results = find_validation_result(data=checkpoint_results)
+    return validation_results

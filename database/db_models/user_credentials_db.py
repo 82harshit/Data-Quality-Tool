@@ -32,7 +32,7 @@ class UserCredentialsDatabase(database_interface.DatabaseInterface):
         self.db_connection = None
 
 
-    def connect_to_db(self):
+    def connect_to_db(self) -> None:
         """
         Connects to MySQL database using the login credentials from 'database_config.ini'
 
