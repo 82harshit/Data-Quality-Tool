@@ -211,24 +211,4 @@ def generate_job_id() -> str:
     new_job_id =  f"Job_{rand_int}{timestamp}"
     return new_job_id
 
-
-# def validate_connection_credentails_in_request_json(config):
-#     """
-#     This function validates the datasource in connection credentials part of request json
-#     """
-#     # Check if 'database' key is present and validate its value
-#     if hasattr(config, 'database') and config.database:
-#         if config.database not in conn_enum.Database_Datasource_Enum._value2member_map_:
-#             error_msg = f"Invalid database value: '{config['database']}'. Must be one of {list(conn_enum.Database_Datasource_Enum)}"
-#             dqt_logger.error(error_msg)
-#             raise ValueError(error_msg)
-    
-#     # Check if 'dir_path' and 'file_name' keys are present and validate the file extension
-#     if hasattr(config, 'dir_path') and hasattr(config, 'file_name'):
-#         file_extension = config.file_name.split('.')[-1].lower()  # Extract file extension
-#         if file_extension not in [ft.value for ft in conn_enum.File_Datasource_Enum]:
-#             error_msg = f"""Invalid file type based on 'file_name' extension: '{file_extension}'. 
-#             Must be one of {list(conn_enum.File_Datasource_Enum)}"""
-#             dqt_logger.error(error_msg)
-#             raise ValueError(error_msg)
         
