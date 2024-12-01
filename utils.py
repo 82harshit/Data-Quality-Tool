@@ -164,16 +164,16 @@ def get_cred_db_table_config() -> json:
     user_name = config.get('Login Credentials Table', 'user_name')
     source_type = config.get('Login Credentials Table', 'source_type')
     password = config.get('Login Credentials Table', 'password')
-    port = config.get('Login Credentails Table', 'port')
+    port = config.get('Login Credentials Table', 'port')
     database_name = config.get('Login Credentials Table', 'database_name')
-    host_name =  config.get('Login Credentails Table', 'hostname')
+    host_name =  config.get('Login Credentials Table', 'hostname')
 
     login_cred_columns = {
         'connection_name': connection_name,
         'user_name': user_name,
         'source_type': source_type,
         'password': password,
-        'port': int(port), # port must be of type 'int'
+        'port': port,
         'database_name': database_name,
         'hostname': host_name
     }

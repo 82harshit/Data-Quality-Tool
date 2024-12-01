@@ -2,14 +2,15 @@ from typing import Optional
 from fast_api import HTTPException
 import json
 
-from database.db_models import table_db, file_db 
+from database.db_models import table_db, file_db
 from great_exp.great_exp_model import run_quality_check_for_file, run_quality_checks_for_db
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
 from utils import generate_connection_name, generate_connection_string
+from interfaces import ge_api_interface
 from logging_config import dqt_logger
 
 
-class GE_Fast_API_Interface: 
+class GE_Fast_API(ge_api_interface.GE_API_Interface): 
     def __init__(self):
         self.connection_type = None
         self.db_instance = None
@@ -99,6 +100,7 @@ class GE_Fast_API_Interface:
                 raise HTTPException(status_code=500, detail=error_msg)
             
         self.db_instance.insert_in_db(unique_connection_name=unique_connection_name,connection_string=connection_string)
+        self.db_instance.close_db_connection()
         return unique_connection_name
     
     
@@ -111,27 +113,25 @@ class GE_Fast_API_Interface:
 
         :return json: A json containing user credentials
         """
+        
+        self.db_instance = table_db.TableDatabase(hostname="",username="",password="",port=0,connection_type="",database="")
+        self.db_instance.connect_to_db()
         user_exists = self.db_instance.search_in_db(unique_connection_name=self.unique_connection_name) # search for user in login_credentials database
         
-        if not user_exists:
+        if user_exists:
+            try:
+                user_conn_creds = self.db_instance.get_user_credentials(unique_connection_name=self.unique_connection_name)
+                dqt_logger.debug(f"retrieved user connection credentials: {user_conn_creds}")
+                return user_conn_creds            
+            except Exception as conn_cred_retrieval_error:
+                error_msg = f"An error occurred, could not retrieve user connection credentials\n{str(conn_cred_retrieval_error)}"
+                dqt_logger.error(error_msg)
+                raise HTTPException(status_code=500, detail=error_msg)
+        else:
             error_msg = {"error": "User not found", "connection_name": self.unique_connection_name}
             dqt_logger.error(error_msg)
             raise HTTPException(status_code=404, detail=error_msg)
-        else:
-            if self.connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
-                user_conn_creds = self.db_instance.get_creds_for_db(unique_connection_name=self.unique_connection_name)
-            elif self.connection_type in conn_enum.File_Datasource_Enum.__members__.values():
-                user_conn_creds = self.db_instance.get_creds_for_file(unique_connection_name=self.unique_connection_name)
-            elif self.connection_type in conn_enum.Other_Datasources_Enum.__members__.values():
-                """
-                FUTURE: implement a function 'get_creds_for_other_sources()' in class UserCredentialsDatabase
-                Use as:
-                user_conn_creds = self.db_instance.get_creds_for_other_sources(unique_connection_name=unique_connection_name)
-                """
-                pass
-
-        return user_conn_creds            
-
+            
 
     # for /submit-job endpoint
     async def validation_check_request(self, job: job_model.SubmitJob) -> json:
@@ -143,8 +143,6 @@ class GE_Fast_API_Interface:
 
         :return validation_results (json): A JSON containing the validation response from the great_expectations library
         """
-        # TODO: connect to connect to db using an object of user_cred_db, add dummy values; TODO: test required
-        self.db_instance = table_db.TableDatabase(hostname="",username="",password="",port=0,connection_type="",database="")
 
         # extracting connection_name and quality_checks from submit job object
         self.unique_connection_name = job.connection_name # initializing self.unique_connection_name instance variable
@@ -172,11 +170,12 @@ class GE_Fast_API_Interface:
                                                             quality_checks=quality_checks,
                                                             username=username,table_name=table_name,
                                                             datasource_name=datasource_name,
-                                                            datasource_type=datasource_type)
+                                                            datasource_type=datasource_type,
+                                                            schema_name=table_name)
                 validation_results = json.loads(str(validation_results)) # converting the result in JSON format
                 return validation_results
             except Exception as ge_exception:
-                error_msg = f"An error occured while validating data\n{str(ge_exception)}"
+                error_msg = f"An error occured while validating data:\n{str(ge_exception)}"
                 dqt_logger.error(error_msg)
             
         elif datasource_type in conn_enum.File_Datasource_Enum.__members__.values():

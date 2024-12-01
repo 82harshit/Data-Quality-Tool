@@ -21,13 +21,13 @@ from fastapi import FastAPI, Body, HTTPException
 
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
 from logging_config import dqt_logger
-from ge_fast_api_interface import GE_Fast_API_Interface
+from ge_fast_api_class import GE_Fast_API
 from save_validation_results import DataQuality
 from utils import generate_job_id
 from job_state_singleton import JobIDSingleton
 
 
-def get_and_initialize_job_id_singelton() -> str: # TODO: Complete
+def get_and_initialize_job_id_singleton() -> str: # TODO: Complete
     """
     Creates a new job id and sets it up in the singleton object
     :return job_id(str): Generated job_id
@@ -86,7 +86,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         dqt_logger.error(error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
     
-    ge_fast_interface = GE_Fast_API_Interface() # interface object
+    ge_fast_interface = GE_Fast_API() # interface object
     ge_fast_interface.create_connection_based_on_type(connection=connection) # create connection to the user_credentials db
 
     # insert credentials based on connection_type
@@ -145,22 +145,23 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         dqt_logger.error(error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
-    ge_fast_interface = GE_Fast_API_Interface() # interface object
+    # job_id = get_and_initialize_job_id_singleton()
+    ge_fast_interface = GE_Fast_API() # interface object
     
     validation_results = await ge_fast_interface.validation_check_request(job=job)
-    dqt_logger.info(validation_results)
+    dqt_logger.debug(f"Validation results:\n{validation_results}")
 
     if validation_results: 
         try:
             dqt_logger.info("Saving validation results in database")
             DataQuality().fetch_and_process_data(validation_results) # FIXME: error: argument of type 'coroutine' is not iterable
-            # return job_id
+            # return {'job_id': job_id}
         except Exception as saving_validation_error:
             error_msg = f"An error occurred, failed to save validation results in database\n{str(saving_validation_error)}"
             dqt_logger.error(error_msg)
-            # return job_id
+            # return {'job_id': job_id}
     else:
         error_msg = f"Missing validation results."
         dqt_logger.error(error_msg)
-        # return job_id
+        # return {'job_id': job_id}
     

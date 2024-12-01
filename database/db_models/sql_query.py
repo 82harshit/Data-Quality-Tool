@@ -8,11 +8,17 @@ class SQLQuery:
         self.query_params = query_params
 
     def execute_query(self) -> any:
+        """
+        Executes the given query using connection object of database, 
+        query and query parameters
+    
+        :return query_result (any): The query result
+        """
         # creating a connection cursor using database connection object
         connection_cursor = self.db_connection.cursor()
         try:
             connection_cursor.execute(self.query, self.query_params)
-            query_result = connection_cursor.fetchone()
+            query_result = connection_cursor.fetchall()
             self.db_connection.commit()
             dqt_logger.info("Successfully executed query")
             return query_result
