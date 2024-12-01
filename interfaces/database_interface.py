@@ -14,5 +14,13 @@ class DatabaseInterface(ABC):
         pass
 
     @abstractmethod
+    def update_in_db(self):
+        pass
+
+    @abstractmethod
+    def get_from_db(self):
+        pass
+
+    @abstractmethod
     def close_db_connection(self):
         pass

@@ -183,6 +183,11 @@ def get_cred_db_table_config() -> json:
 
 def get_job_run_status_table_config() -> json:
     """
+    This function reads the contents under the 'Job Run Status Table' section of 
+    the configuration file: 'database_config.ini'
+
+    :return login_cred_columns (json): A JSON containing the name of columns as defined
+    in `job_run_status` table
     """
     
     config = configparser.ConfigParser()

@@ -1,14 +1,11 @@
 import json
 from typing import Optional
-import pymysql
-from fastapi import HTTPException    
-
+   
 from utils import get_cred_db_connection_config, get_cred_db_table_config
-from database import sql_queries as query_template
+from database import sql_queries as query_template, app_connection
 from database.db_models import sql_query
 from interfaces import database_interface
 from request_models import connection_enum_and_metadata as conn_enum
-from logging_config import dqt_logger
 
 
 class UserCredentialsDatabase(database_interface.DatabaseInterface):
@@ -34,37 +31,6 @@ class UserCredentialsDatabase(database_interface.DatabaseInterface):
         self.db_connection = None
 
 
-    @staticmethod
-    def __get_app_db_connection_object():
-        """
-        Connects to MySQL database using the login credentials from 'database_config.ini'
-
-        :return obj: Connection object of MySQL database
-        """
-
-        # app user logging in user_credentials database
-        db_conn_details = get_cred_db_connection_config()       
-
-        app_hostname = db_conn_details.get('app_hostname')
-        app_username = db_conn_details.get('app_username')
-        app_password = db_conn_details.get('app_password')
-        app_port = db_conn_details.get('app_port')
-        app_database = db_conn_details.get('app_database')
-
-        try:
-            mysql_connection_object_for_app = pymysql.connect(
-                    host=app_hostname,
-                    user=app_username,      
-                    password=app_password,  
-                    database=app_database,  
-                    port=app_port
-                )
-            dqt_logger.info("Successfully connected to app db")
-            return mysql_connection_object_for_app
-        except pymysql.MySQLError as e:
-            raise HTTPException(status_code=500, detail=f"Error connecting to database: {str(e)}")
-
-
     def connect_to_db(self) -> None:
         """
         Initializes instance variable 'db_connection' with app credentials 
@@ -72,7 +38,7 @@ class UserCredentialsDatabase(database_interface.DatabaseInterface):
         :return: None
         """
         
-        self.db_connection = self.__get_app_db_connection_object()
+        self.db_connection = app_connection.get_app_db_connection_object()
         
     
     def insert_in_db(self, unique_connection_name: str, connection_string: str) -> None:
@@ -133,6 +99,12 @@ class UserCredentialsDatabase(database_interface.DatabaseInterface):
     def close_db_connection(self):
         self.db_connection.close()
 
+
+    def update_in_db(self):
+        return super().update_in_db()
+     
+    def get_from_db(self):
+        return super().get_from_db()
 
     def get_user_credentials(self, unique_connection_name: str) -> json:
         db_details = get_cred_db_connection_config()
@@ -202,4 +174,3 @@ class UserCredentialsDatabase(database_interface.DatabaseInterface):
         else:
             # FUTURE: extract and return required credentials for other data sources
             pass
-    
