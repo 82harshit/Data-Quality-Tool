@@ -8,6 +8,7 @@ import os
 from request_models import connection_enum_and_metadata as conn_enum, connection_model
 from logging_config import dqt_logger
 
+
 def remove_special_characters(input_string) -> str:
     """
     Removes all special characters from the input string, keeping only alphanumeric characters.
@@ -103,7 +104,7 @@ def find_validation_result(data):
                 return result_value['validation_result']
         return None  # Return None if no validation_result is found
     except Exception as e:
-        print(f"Error extracting validation result: {e}")
+        dqt_logger.error(f"Error extracting validation result: {e}")
         return None
     
     
@@ -186,13 +187,13 @@ def get_job_run_status_table_config() -> json:
     This function reads the contents under the 'Job Run Status Table' section of 
     the configuration file: 'database_config.ini'
 
-    :return login_cred_columns (json): A JSON containing the name of columns as defined
-    in `job_run_status` table
+    :return login_cred_columns (json): A JSON containing the name of columns and table name
+    as defined in `job_run_status` table
     """
     
     config = configparser.ConfigParser()
     try:
-        path_to_database_config = os.path.join('database', 'database_config.ini')
+        path_to_database_config = os.path.join('database', 'database_config.ini') # relative path to `database_config.ini`
         config.read(path_to_database_config)
     except FileNotFoundError as file_not_found:
         dqt_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
@@ -201,9 +202,9 @@ def get_job_run_status_table_config() -> json:
     job_id = config.get('Job Run Status Table','job_id')
     job_status = config.get('Job Run Status Table','job_status')
     status_message = config.get('Job Run Status Table','status_message')
+    job_status_table = config.get('Job Run Status Table','job_status_table')
 
-    job_status_columns = {'job_id': job_id, 'job_status': job_status, 'status_message': status_message}
-    return job_status_columns
+    return {'job_id': job_id, 'job_status': job_status, 'status_message': status_message, 'job_status_table': job_status_table}
 
 
 def generate_job_id() -> str:
@@ -215,5 +216,3 @@ def generate_job_id() -> str:
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     new_job_id =  f"Job_{rand_int}{timestamp}"
     return new_job_id
-
-        

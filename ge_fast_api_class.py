@@ -113,9 +113,6 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
 
         :return json: A json containing user credentials
         """
-        
-        self.db_instance = table_db.TableDatabase(hostname="",username="",password="",port=0,connection_type="",database="")
-        self.db_instance.connect_to_db()
         user_exists = self.db_instance.search_in_db(unique_connection_name=self.unique_connection_name) # search for user in login_credentials database
         
         if user_exists:
@@ -143,10 +140,12 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
 
         :return validation_results (json): A JSON containing the validation response from the great_expectations library
         """
-
         # extracting connection_name and quality_checks from submit job object
         self.unique_connection_name = job.connection_name # initializing self.unique_connection_name instance variable
         quality_checks = job.quality_checks
+
+        self.db_instance = table_db.TableDatabase(hostname="",username="",password="",port=0,connection_type="",database="") 
+        self.db_instance.connect_to_db()
 
         # retrieving user credentials from login_credentials table
         user_conn_creds = self.__get_user_conn_creds()
@@ -165,6 +164,9 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
             datasource_name = f"{table_name}_table"
 
             try:
+                table_db.TableDatabase.grant_access(hostname="%",username=username,
+                                                    database_name=database,table_name=table_name)
+                
                 validation_results = run_quality_checks_for_db(database=database,password=password,
                                                             port=port,hostname=hostname,
                                                             quality_checks=quality_checks,
@@ -173,6 +175,9 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
                                                             datasource_type=datasource_type,
                                                             schema_name=table_name)
                 validation_results = json.loads(str(validation_results)) # converting the result in JSON format
+                
+                table_db.TableDatabase.revoke_access(hostname="%",username=username,
+                                                   database_name=database,table_name=table_name)
                 return validation_results
             except Exception as ge_exception:
                 error_msg = f"An error occured while validating data:\n{str(ge_exception)}"

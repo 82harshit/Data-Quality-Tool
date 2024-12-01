@@ -1,8 +1,9 @@
 from logging_config import dqt_logger
+from typing import Optional
 
 
 class SQLQuery:
-    def __init__(self, db_connection, query: str, query_params: None):
+    def __init__(self, db_connection, query: str, query_params: Optional[str] = None):
         self.db_connection = db_connection
         self.query = query
         self.query_params = query_params
@@ -18,6 +19,7 @@ class SQLQuery:
         connection_cursor = self.db_connection.cursor()
         try:
             connection_cursor.execute(self.query, self.query_params)
+            dqt_logger.debug(f"Query:{self.query}, Params:{self.query_params}")
             query_result = connection_cursor.fetchall()
             self.db_connection.commit()
             dqt_logger.info("Successfully executed query")

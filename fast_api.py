@@ -1,5 +1,5 @@
 """
-This file contains two FastAPI endpoints:-
+This file contains three FastAPI endpoints:-
 
 1. /create-connection: 
 
@@ -15,6 +15,8 @@ and generates a unique `connection name` for the user
     2.3 It validates the data using the requested checks on the data source,
         both of which are provided by the user
     2.4 The validation results generated are then saved in a relational database
+    
+3. /submit-job-status: This endpoint returns the execution status of the given job_id
 """
 
 from fastapi import FastAPI, Body, HTTPException
@@ -31,13 +33,15 @@ from database import job_run_status
 def get_and_initialize_job_id_singleton() -> str:
     """
     Creates a new job id and sets it up in the singleton object
+    
     :return job_id(str): Generated job_id
     """
     job_id = generate_job_id() # creates a new job id
     dqt_logger.info(f"Job_ID: {job_id}") # logs the job id
     job_status_instance = job_run_status.Job_Run_Status(job_id=job_id)
+    job_status_instance.connect_to_db()
     job_status_instance.update_in_db(job_status="STARTED")
-    job_run_status.add_status_update_handler_to_logger(job_status_instance=job_status_instance)
+    # job_run_status.add_status_update_handler_to_logger(job_status_instance=job_status_instance) #FIXME: infinite loop
     JobIDSingleton().set_job_id(job_id=job_id) # sets the job_id in singleton object
     return job_id
 
@@ -49,10 +53,10 @@ async def root():
 
 @app.get("/submit-job-status", description="This endpoint returns the application state for 'submit-job' endpoint")
 async def submit_job_status(job_id: str):
-    job_id = JobIDSingleton.get_job_id()
     job_status = job_run_status.Job_Run_Status(job_id=job_id)
     job_status.connect_to_db()
     current_job_state = job_status.get_from_db()
+    job_status.close_db_connection()
     return current_job_state
 
 @app.post("/create-connection", description="This endpoint allows connection to the provided connection type")
@@ -149,7 +153,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         dqt_logger.error(error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
-    # job_id = get_and_initialize_job_id_singleton()
+    job_id = get_and_initialize_job_id_singleton()
     
     ge_fast_interface = GE_Fast_API() # interface object
     
@@ -159,14 +163,14 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     if validation_results: 
         try:
             dqt_logger.info("Saving validation results in database")
-            DataQuality().fetch_and_process_data(validation_results) # FIXME: error: argument of type 'coroutine' is not iterable
-            # return {'job_id': job_id}
+            DataQuality().fetch_and_process_data(validation_results) # FIXME: argument of type 'coroutine' is not iterable
+            return {'job_id': job_id}
         except Exception as saving_validation_error:
             error_msg = f"An error occurred, failed to save validation results in database\n{str(saving_validation_error)}"
             dqt_logger.error(error_msg)
-            # return {'job_id': job_id}
+            return {'job_id': job_id}
     else:
         error_msg = f"Missing validation results."
         dqt_logger.error(error_msg)
-        # return {'job_id': job_id}
+        return {'job_id': job_id}
     

@@ -21,17 +21,13 @@ class Job_Run_Status(database_interface.DatabaseInterface):
         return super().insert_in_db()
     
     def update_in_db(self, job_status: str, status_message: Optional[str] = None):
-        db_conn_details = get_job_run_status_table_config()
-        app_status_table = db_conn_details.get('app_status_table')
-
         job_run_status_details = get_job_run_status_table_config()
 
         col_job_id = job_run_status_details.get('job_id')
         col_job_status = job_run_status_details.get('job_status')
         col_status_message = job_run_status_details.get('status_message')
+        job_status_table = job_run_status_details.get('job_status_table')
         
-        cred_db_conn = self.db_instance
-
         data_to_update = {
             col_job_status: job_status,
             col_status_message: status_message
@@ -39,35 +35,46 @@ class Job_Run_Status(database_interface.DatabaseInterface):
 
         set_clause = ", ".join([f"{key} = %s" for key in data_to_update.keys()])
 
-        sql_query.SQLQuery(db_connection=cred_db_conn, 
-                           sql_query=query_template.UPDATE_JOB_STATUS_QUERY.format(app_status_table, 
-                                                                                   set_clause, col_job_id),
-                           params=(job_status, status_message, self.job_id)).execute_query()
+        update_job_staus_for_job_id_query = sql_query.SQLQuery(db_connection=self.db_instance, 
+                           query=query_template.UPDATE_JOB_STATUS_QUERY.format(job_status_table, 
+                                                                               set_clause, col_job_id),
+                           query_params=(job_status, status_message, self.job_id))
+        update_job_staus_for_job_id_query.execute_query()
         
     def search_in_db(self):
         return super().search_in_db()
     
     def get_from_db(self):
-        db_conn_details = get_cred_db_connection_config() 
         job_run_status_details = get_job_run_status_table_config()
-        
-        app_status_table = db_conn_details.get('app_status_table')
         
         job_id_col = job_run_status_details.get('job_id')
         job_status_col = job_run_status_details.get('job_status')
         status_message_col = job_run_status_details.get('status_message')
+        job_status_table = job_run_status_details.get('job_status_table')
         
-        job_status, status_message = sql_query.SQLQuery(db_connection=self.db_instance,
-                           sql_query=query_template.GET_JOB_STATUS_DETAIL_QUERY.format(job_status_col, status_message_col, 
-                                                                                       app_status_table, job_id_col),
-                           query_params=(self.job_id))
+        query_param = (self.job_id, ) # converting to tuple
         
-        return {job_status_col: job_status, status_message_col: status_message}
-    
+        get_job_status_and_status_message_query = sql_query.SQLQuery(db_connection=self.db_instance,
+                           query=query_template.GET_JOB_STATUS_DETAIL_QUERY.format(job_status_col, status_message_col, 
+                                                                                    job_status_table, job_id_col),
+                           query_params=query_param)
+        
+        job_status_response = get_job_status_and_status_message_query.execute_query()
+        dqt_logger.debug(job_status_response)
+        
+        if job_status_response:
+            job_status = job_status_response[0][0]
+            status_message = job_status_response[0][1]
+            return {job_status_col: job_status, status_message_col: status_message}
+        else:
+            error_msg = "Empty status response recieved"
+            dqt_logger.error(error_msg)
+            return {"error": error_msg}
+        
     def close_db_connection(self):
         self.db_instance.close()
         
-
+# FIXME: may need to be removed
 def add_status_update_handler_to_logger(job_status_instance: job_run_status.Job_Run_Status) -> None:
     job_status_instance.connect_to_db()
     db_handler = status_update_handler.DatabaseUpdateHandler(job_status_instance=job_status_instance)
