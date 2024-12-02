@@ -371,7 +371,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         except Exception as ge_exception:
             error_msg = f"An error occured while validating data\n{str(ge_exception)}"
             ge_logger.error(error_msg)
-            db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message=error_msg)
+            db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message="An error occurred while validating data")
             return {'job_id': job_id}
     
     elif data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
@@ -389,7 +389,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         except Exception as ge_exception:
             error_msg = f"An error occured while validating data\n{str(ge_exception)}"
             ge_logger.error(error_msg)
-            db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message=error_msg)
+            db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message="An error occurred while validating data")
             return {'job_id': job_id}
 
     ge_logger.info("Validation checks successfully executed")

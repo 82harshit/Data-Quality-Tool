@@ -5,7 +5,6 @@ from utils import get_cred_db_connection_config, get_job_run_status_table_config
 import json
 from database import sql_queries as query
 from typing import Optional
-import logging
 from logging_config import ge_logger
 
 
