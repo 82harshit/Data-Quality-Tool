@@ -40,7 +40,7 @@ def get_and_initialize_job_id_singleton() -> str:
     dqt_logger.info(f"Job_ID: {job_id}") # logs the job id
     job_status_instance = job_run_status.Job_Run_Status(job_id=job_id)
     job_status_instance.connect_to_db()
-    job_status_instance.update_in_db(job_status="STARTED")
+    job_status_instance.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.STARTED)
     # job_run_status.add_status_update_handler_to_logger(job_status_instance=job_status_instance) #FIXME: infinite loop
     JobIDSingleton().set_job_id(job_id=job_id) # sets the job_id in singleton object
     return job_id
@@ -141,16 +141,19 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     if not job.connection_name:
         error_msg = "Incorrect JSON provided, missing connection name"
         dqt_logger.error(error_msg)
+        job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg) 
         raise HTTPException(status_code=400, detail={"error": error_msg})
     
     if not job.data_source:
         error_msg = "Incorrect JSON provided, missing data source"
         dqt_logger.error(error_msg)
+        job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg) 
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
     if not job.quality_checks:
         error_msg = "Incorrect JSON provided, missing quality checks"
         dqt_logger.error(error_msg)
+        job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
     job_id = get_and_initialize_job_id_singleton()
@@ -167,6 +170,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
             dqt_logger.info(info_msg)
             job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
             DataQuality().fetch_and_process_data(validation_results) # FIXME: argument of type 'coroutine' is not iterable
+            job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.COMPLETED)
             return {'job_id': job_id}
         except Exception as saving_validation_error:
             error_msg = f"An error occurred, failed to save validation results in database\n{str(saving_validation_error)}"
