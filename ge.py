@@ -246,7 +246,7 @@ def __add_expectations_to_validator(validator, expectations) -> None:
         
     try:
         # saving expectation suite
-        validator.save_expectation_suite(discard_failed_expectations=False)
+        # validator.save_expectation_suite(discard_failed_expectations=False)
         ge_logger.info("Successfully added expectations")
     except Exception as e:
         db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message=f"Failed to save expectations suite\n{str(e)}")
