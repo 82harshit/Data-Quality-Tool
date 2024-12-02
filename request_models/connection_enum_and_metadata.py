@@ -8,7 +8,6 @@ class File_Datasource_Enum(str, Enum):
     """
     This enum contains all the data sources of file type
     """
-    
     CSV = "csv"
     JSON = "json"   
     FILESERVER = "fileserver"

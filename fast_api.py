@@ -154,6 +154,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
     job_id = get_and_initialize_job_id_singleton()
+    job_status_db = job_run_status.Job_Run_Status(job_id=job_id)
     
     ge_fast_interface = GE_Fast_API() # interface object
     
@@ -162,15 +163,19 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     if validation_results: 
         try:
-            dqt_logger.info("Saving validation results in database")
+            info_msg = "Saving validation results in database"
+            dqt_logger.info(info_msg)
+            job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
             DataQuality().fetch_and_process_data(validation_results) # FIXME: argument of type 'coroutine' is not iterable
             return {'job_id': job_id}
         except Exception as saving_validation_error:
             error_msg = f"An error occurred, failed to save validation results in database\n{str(saving_validation_error)}"
             dqt_logger.error(error_msg)
+            job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg)
             return {'job_id': job_id}
     else:
         error_msg = f"Missing validation results."
         dqt_logger.error(error_msg)
+        job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message=error_msg)
         return {'job_id': job_id}
     

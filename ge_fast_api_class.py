@@ -8,7 +8,12 @@ from request_models import connection_enum_and_metadata as conn_enum, connection
 from utils import generate_connection_name, generate_connection_string
 from interfaces import ge_api_interface
 from logging_config import dqt_logger
+from database.job_run_status import Job_Run_Status, Job_Run_Status_Enum
+import job_state_singleton
 
+
+job_id=job_state_singleton.JobIDSingleton.get_job_id()
+job_status_db = Job_Run_Status(job_id=job_id)
 
 class GE_Fast_API(ge_api_interface.GE_API_Interface): 
     def __init__(self):
@@ -58,6 +63,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
         else:
             error_msg = {"error": "Unidentified connection source", "request_json": connection.model_dump_json()}
             dqt_logger.error(error_msg)
+            job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
 
     # for /create-connection endpoint
@@ -83,6 +89,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
                 if not file_name.endswith(expected_extension):
                     error_msg = f"The provided file is not a {expected_extension.upper()} file."
                     dqt_logger.error(error_msg)
+                    job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
                     raise HTTPException(status_code=400, detail=error_msg)
 
                 # Search for the file on the server
@@ -91,12 +98,14 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
                 if not result["file_found"]:
                     error_msg = f"{expected_extension.upper()} file not found on server."
                     dqt_logger.error(error_msg)
+                    job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
                     raise HTTPException(status_code=404, detail=error_msg)
                 
                 dqt_logger.debug(f"{expected_extension.upper()} connection details insertion completed.")
             except Exception as e:
                 error_msg = f"Error processing {expected_extension.upper()} connection: {str(e)}"
                 dqt_logger.error(error_msg)
+                job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
             
         self.db_instance.insert_in_db(unique_connection_name=unique_connection_name,connection_string=connection_string)
@@ -123,6 +132,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
             except Exception as conn_cred_retrieval_error:
                 error_msg = f"An error occurred, could not retrieve user connection credentials\n{str(conn_cred_retrieval_error)}"
                 dqt_logger.error(error_msg)
+                job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
         else:
             error_msg = {"error": "User not found", "connection_name": self.unique_connection_name}
@@ -182,6 +192,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
             except Exception as ge_exception:
                 error_msg = f"An error occured while validating data:\n{str(ge_exception)}"
                 dqt_logger.error(error_msg)
+                job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
             
         elif datasource_type in conn_enum.File_Datasource_Enum.__members__.values():
             # user_ssh_conn = await self.db_instance.connect_to_server_SSH(username=username, password=password, server=hostname, port=port)
@@ -205,6 +216,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
             except Exception as ge_exception:
                 error_msg = f"An error occured while validating data\n{str(ge_exception)}"
                 dqt_logger.error(error_msg)
+                job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
 
         elif datasource_type in conn_enum.Other_Datasources_Enum.__members__.values():
             try:
@@ -213,4 +225,5 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
             except Exception as ge_exception:
                 error_msg = f"An error occured while validating data\n{str(ge_exception)}"
                 dqt_logger.error(error_msg)
+                job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
           

@@ -1,5 +1,4 @@
 from typing import Optional
-from enum import Enum
 
 from interfaces import database_interface
 from utils import get_job_run_status_table_config
@@ -7,16 +6,6 @@ from database.db_models import sql_query
 from database import sql_queries as query_template, app_connection
 from logging_config import dqt_logger
  
-
-class Job_Run_Status_Enum(str, Enum):
-    """
-    This enum contains all the states in which a validation job can be
-    """
-    STARTED = "started"
-    INPROGRESS= "in progress"
-    ERROR = "error"
-    COMPLETED = "completed"
-    
  
 class Job_Run_Status(database_interface.DatabaseInterface):
     def __init__(self, job_id: str):
@@ -82,3 +71,4 @@ class Job_Run_Status(database_interface.DatabaseInterface):
         
     def close_db_connection(self):
         self.db_instance.close()
+        
