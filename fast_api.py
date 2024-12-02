@@ -393,18 +393,19 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
             return {'job_id': job_id}
 
     ge_logger.info("Validation checks successfully executed")
-    db.update_status_of_job_id(job_id=job_id, job_status="Completed")
-
+    
     # log_handler.flush()
     # logs = log_stream.getvalue()
     # ge_logger.removeHandler(log_handler)
 
     if validation_results:
         ge_logger.info("Saving validation results in database")
-        db.update_status_of_job_id(job_id=job_id,job_status="Saving validation results in database")
+        db.update_status_of_job_id(job_id=job_id,job_status="In progress",status_message="Saving validation results in database")
         
         json_validation_results = json.loads(str(validation_results)) # converting the validation results to a json
         DataQuality().fetch_and_process_data(json_validation_results) # storing validation results in database
+       
+        db.update_status_of_job_id(job_id=job_id, job_status="Completed")
     else:
         ge_logger.error("No validation results found")
         db.update_status_of_job_id(job_id=job_id,job_status="No validation results found")

@@ -258,7 +258,7 @@ async def read_file_columns(conn, file_path: str):
             command = f"cat {file_path}"
             result = await conn.run(command, encoding=None)  # Retrieve binary data
             file_content = BytesIO(result.stdout)
-            df = pd.read_excel(file_content)
+            df = pd.read_excel(file_content, engine='openpyxl')
             
 
         else:
