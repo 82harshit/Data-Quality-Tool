@@ -2,9 +2,15 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, D
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from datetime import datetime
 import os
+from database import db_functions
+from state_singelton import JobIDSingleton
+from logging_config import ge_logger
 from dotenv import load_dotenv  # Load environment variables from .env file
  
 load_dotenv()  # Load environment variables from .env file
+ 
+db = db_functions.DBFunctions() 
+job_id = JobIDSingleton.get_job_id()
  
 # Define database URL
 DATABASE_URL = os.getenv('DATABASE_URL', 'mysql+pymysql://db_user:July$2018@32.33.34.7:3306/validation_results')
@@ -54,15 +60,16 @@ class DataQuality:
             existing_batch = db_session.query(Batch).filter(Batch.batch_id == batch_id).first()
             if existing_batch:
                 existing_batch.data_quality_score = data_quality_score
-                print(f"Updated batch {batch_id}")
+                ge_logger.info(f"Updated batch {batch_id}")
             else:
                 new_batch = Batch(batch_id=batch_id, batch_date=batch_date, data_quality_score=data_quality_score)
                 db_session.add(new_batch)
-                print(f"Inserted new batch {batch_id}")
+                ge_logger.info(f"Inserted new batch {batch_id}")
             db_session.commit()
         except Exception as e:
             db_session.rollback()
-            print(f"Error in upserting batch: {e}")
+            ge_logger.error(f"Error in upserting batch: {e}")
+            db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="Error in upserting batch")
  
     def insert_expectation(self, expectation_data: dict, db_session: Session):
         """Inserts a new expectation record."""
@@ -70,23 +77,26 @@ class DataQuality:
             expectation = Expectation(**expectation_data)
             db_session.add(expectation)
             db_session.commit()
-            print(f"Inserted expectation: {expectation_data['expectation_type']}")
+            ge_logger.info(f"Inserted expectation: {expectation_data['expectation_type']}")
         except Exception as e:
             db_session.rollback()
-            print(f"Error in inserting expectation: {e}")
+            ge_logger.error(f"Error in inserting expectation: {e}")
+            db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="Error in inserting expectation")
  
     def fetch_and_process_data(self, json_response):
         db_session = self.SessionLocal()  # Create a new session
         try:
             # Check if 'results' key exists in json_response
             if 'results' not in json_response:
-                print("Error: 'results' key not found in the response")
+                db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="Error: 'results' key not found in the response")
+                ge_logger.error("Error: 'results' key not found in the response")
                 return
  
             # Extract batch details from metadata
             results = json_response['results']
             if not results:
-                print("Error: No results found in the response")
+                ge_logger.error("Error: No results found in the response")
+                db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="No results found in the response")
                 return
  
             batch_id = results[0]['expectation_config']['kwargs']['batch_id']
@@ -109,7 +119,8 @@ class DataQuality:
                 # Ensure 'expectation_type' exists before accessing it
                 expectation_type = expectation_config.get('expectation_type')
                 if not expectation_type:
-                    print(f"Error: 'expectation_type' not found for batch_id {batch_id}")
+                    ge_logger.error(f"Error: 'expectation_type' not found for batch_id {batch_id}")
+                    db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="'expectation_type' not found for batch_id {batch_id}")
                     continue  # Skip processing this result if the expectation_type is missing
  
                 # Prepare expectation data and log it
@@ -130,18 +141,20 @@ class DataQuality:
                 }
  
                 # Log the expectation data
-                print("Inserting expectation:", expectation)
+                ge_logger.info("Inserting expectation:", expectation)
  
                 # Insert expectation into the database
                 self.insert_expectation(expectation, db_session)
  
             # Commit the changes to the database
             db_session.commit()
-            print("Data stored successfully.")
+            ge_logger.info("Data stored successfully.")
+            db.update_status_of_job_id(job_id=job_id, job_status="Completed")
         except Exception as e:
             db_session.rollback()
-            print(f"Error processing data: {e}")
+            ge_logger.error(f"Error processing data: {e}")
+            db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="Error processsing data, cannot save in database.")
         finally:
             db_session.close()
-            return
+            
             
