@@ -218,6 +218,12 @@ def get_job_run_status_table_config() -> json:
 
 
 def generate_job_id() -> str:
+    """
+    This generates a new job id using string 'Job_' appended with a 8 digit random integer and the current timestamp.
+    E.g.: Job_2207654920241130112504
+    
+    :return new_job_id (str): Generated job id
+    """
     rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     new_job_id =  f"Job_{rand_int}{timestamp}"
