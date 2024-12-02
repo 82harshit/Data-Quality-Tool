@@ -408,6 +408,6 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         db.update_status_of_job_id(job_id=job_id, job_status="Completed")
     else:
         ge_logger.error("No validation results found")
-        db.update_status_of_job_id(job_id=job_id,job_status="No validation results found")
+        db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="No validation results found")
         
     return {'job_id': job_id} 
