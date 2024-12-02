@@ -143,4 +143,5 @@ class DataQuality:
             print(f"Error processing data: {e}")
         finally:
             db_session.close()
+            return
             
