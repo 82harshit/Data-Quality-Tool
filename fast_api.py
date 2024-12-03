@@ -173,7 +173,6 @@ async def create_connection(connection: connection_model.Connection = Body(...,
 
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests") 
-        #   response_model=data_quality_metric.DataQualityMetric)
 async def submit_job(job: job_model.SubmitJob = Body(...,example={
   "connection_name": "20241120162230_test_1272990_4002_testdb_2314",
   "data_source": {
@@ -181,25 +180,144 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
       "file_name": "sample_file",
       "table_name": "test_table"
   },
-  "data_target": {
-    "target_data_type": "csv",
-    "target_path": "C:/user/sink_dataset",
-    "target_data_format": "string"
-    # "target_schema": "string"
-  },
   "quality_checks": [
-      {
-        "expectation_type": "expect_column_values_to_not_be_null",
-        "kwargs": {
-            "column": "Customer Id"
-        },
-      },{
-        "expectation_type": "expect_column_values_to_match_regex",
-        "kwargs": {
-            "column": "Customer Id",
-            "regex": "^[a-zA-Z0-9]{15}$"
-        }
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Index"
       }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_of_type",
+      "kwargs": {
+        "column": "Index",
+        "type_": "int64"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "Index"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Customer Id"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Customer Id",
+        "regex": "^[a-zA-Z0-9]{15}$"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "First Name"
+      }
+    },
+    # {
+    #   "expectation_type": "expect_column_values_to_not_be_null",
+    #   "kwargs": {
+    #     "column": "Last Name"
+    #   }
+    # },
+    {
+      "expectation_type": "expect_column_value_lengths_to_be_between",
+      "kwargs": {
+        "column": "Last Name",
+        "max_value": 10,
+        "min_value": 1
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Company"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Company",
+        "regex": "(?i)(\\w+-\\w+)|(\\b(Ltd|Inc|Gov|Group|LLC|PLC)\\b)$"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "City"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Country"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Phone 1"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_of_type",
+      "kwargs": {
+        "column": "Phone 1",
+        "type_": "int"
+      }
+    },
+    {
+      "expectation_type": "expect_column_value_lengths_to_be_between",
+      "kwargs": {
+        "column": "Phone 1",
+        "max_value": 13,
+        "min_value": 10
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "Email"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Subscription Date"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_of_type",
+      "kwargs": {
+        "column": "Subscription Date",
+        "type_": "date"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Subscription Date",
+        "regex": "^\\d{4}\\-\\d{2}\\-\\d{2}$"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Website"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Website",
+        "regex": "^http://www.[\\w-]+.(com|org|net|info)/?$"
+      }
+    }
   ],
   "metadata": {
     "requested_by": "user@example.com",
@@ -377,7 +495,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
             return {'job_id': job_id}
     
     elif data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
-        datasource_name = f"test_datasource_for_sql" # TODO: Reformat as: datasource_name = f"{table_name}_table" if RDBMS
+        datasource_name = f"test_datasource_for_sql_test" 
         table_name = "customers"
 
         ge_logger.info("Running validation checks")
