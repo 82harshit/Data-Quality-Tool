@@ -27,7 +27,6 @@ from ge import run_quality_checks
 import logging
 from logging_config import ge_logger
 from io import StringIO
-# from contextlib import asynccontextmanager
 from state_singelton import JobIDSingleton
 from validation_results import DataQuality
 import json
@@ -48,14 +47,6 @@ def create_job_id() -> str:
     JobIDSingleton().set_job_id(job_id=job_id) # sets the job_id in singleton object
     return job_id
 
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     job_id = generate_job_id()
-#     ge_logger.info(f"Job_ID: {job_id}")
-#     db.insert_job_id(job_id=job_id, job_status="Created")
-#     JobIDSingleton.set_job_id(job_id=job_id)
-#     yield
-
 app = FastAPI()
 
 @app.get("/", description='This is the root route')
@@ -64,7 +55,6 @@ async def root():
 
 @app.get("/submit-job-status", description="This endpoint returns the application state for 'submit-job' endpoint")
 async def submit_job_status(job_id: str):
-    # job_id = JobIDSingleton.get_job_id()
     current_job_state = db.get_status_of_job_id(job_id=job_id)
     return current_job_state
 
@@ -176,7 +166,9 @@ async def create_connection(connection: connection_model.Connection = Body(...,
 async def submit_job(job: job_model.SubmitJob = Body(...,example={
   "connection_name": "20241126153505_merit_3233347_3306_qualitytool_7040",
   "data_source": {
-    "table_name": "customers"
+    "dir_path": "var/home/Desktop",
+    "file_name": "test_file.csv",    
+    "table_name": "test_table"
   },
   "quality_checks": [
     {
@@ -327,10 +319,6 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     This function posts the checks on the data
     """
 
-    # log_stream = StringIO()
-    # log_handler = logging.StreamHandler(log_stream)
-    # ge_logger.addHandler(log_handler) 
-
     job_id = create_job_id()
 
     if not job.connection_name:
@@ -342,11 +330,6 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         ge_logger.error("Incorrect request JSON provided, missing quality checks")
         db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="Incorrect request JSON provided, missing quality checks")
         raise HTTPException(status_code=400, detail={"error": "Incorrect request JSON provided, missing quality checks"})
-
-    # if not job.data_target:
-    #     ge_logger.error("Incorrect request JSON provided, missing data target")
-    #     db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message="Incorrect request JSON provided, missing data target")
-    #     raise HTTPException(status_code=400, detail={"error": "Incorrect request JSON provided, missing data target"})
 
     connection_name = job.connection_name
     quality_checks = job.quality_checks
@@ -467,18 +450,18 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     connection_enum_and_metadata.ConnectionEnum.JSON,
     connection_enum_and_metadata.ConnectionEnum.EXCEL
     ]:
-        user_conn = await connect_to_server_SSH(server=hostname,username=username,password=password,port=port)
-        ge_logger.debug(f"User {username} successfully connected in server {hostname} on {port} \n Connection obj:{user_conn}")
+        # user_conn = await connect_to_server_SSH(server=hostname,username=username,password=password,port=port)
+        # ge_logger.debug(f"User {username} successfully connected in server {hostname} on {port} \n Connection obj:{user_conn}")
         dir_path = job.data_source.dir_path
         ge_logger.debug("Directory_path : ",dir_path)
         file_name = job.data_source.file_name
         ge_logger.debug("File_name : ",file_name)
-        file_path = f"{dir_path}/{file_name}"
-        ge_logger.debug("File path: ",file_path)
-        columns = await read_file_columns(conn=user_conn,file_path=file_path)
-        ge_logger.debug("Column names : ",columns)
+        # file_path = f"{dir_path}/{file_name}"
+        # ge_logger.debug("File path: ",file_path)
+        # columns = await read_file_columns(conn=user_conn,file_path=file_path)
+        # ge_logger.debug("Column names : ",columns)
 
-        datasource_name = f"test_datasource_for_file"
+        datasource_name = f"new_test_datasource_for_file"
         
         db.update_status_of_job_id(job_id=job_id,job_status="In Progress",status_message="Running validation checks")
 
@@ -512,10 +495,6 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     ge_logger.info("Validation checks successfully executed")
     
-    # log_handler.flush()
-    # logs = log_stream.getvalue()
-    # ge_logger.removeHandler(log_handler)
-
     if validation_results:
         ge_logger.info("Saving validation results in database")
         db.update_status_of_job_id(job_id=job_id,job_status="In progress",status_message="Saving validation results in database")
