@@ -6,12 +6,10 @@ from database import db_functions
 from state_singelton import JobIDSingleton
 from logging_config import ge_logger
 from dotenv import load_dotenv  # Load environment variables from .env file
+from db_instance_singleton import DB_Instance_Singleton
  
 load_dotenv()  # Load environment variables from .env file
- 
-db = db_functions.DBFunctions() 
-job_id = JobIDSingleton.get_job_id()
- 
+
 # Define database URL
 DATABASE_URL = os.getenv('DATABASE_URL', 'mysql+pymysql://db_user:July$2018@32.33.34.7:3306/validation_results')
  
@@ -53,6 +51,8 @@ class DataQuality:
     def __init__(self):
         self.engine = engine
         self.SessionLocal = SessionLocal
+        self.db = DB_Instance_Singleton.get_db_instance()
+        self.job_id = JobIDSingleton.get_job_id()
  
     def upsert_batch(self, batch_id: str, batch_date, data_quality_score: float, db_session: Session):
         """Inserts or updates a batch record."""
@@ -69,7 +69,7 @@ class DataQuality:
         except Exception as e:
             db_session.rollback()
             ge_logger.error(f"Error in upserting batch: {e}")
-            db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="Error in upserting batch")
+            self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="Error in upserting batch")
  
     def insert_expectation(self, expectation_data: dict, db_session: Session):
         """Inserts a new expectation record."""
@@ -81,22 +81,23 @@ class DataQuality:
         except Exception as e:
             db_session.rollback()
             ge_logger.error(f"Error in inserting expectation: {e}")
-            db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="Error in inserting expectation")
+            self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="Error in inserting expectation")
  
     def fetch_and_process_data(self, json_response):
         db_session = self.SessionLocal()  # Create a new session
         try:
             # Check if 'results' key exists in json_response
             if 'results' not in json_response:
-                db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="Error: 'results' key not found in the response")
+                self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="Error: 'results' key not found in the response")
                 ge_logger.error("Error: 'results' key not found in the response")
+                self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="Error: 'results' key not found in the response")
                 return
  
             # Extract batch details from metadata
             results = json_response['results']
             if not results:
                 ge_logger.error("Error: No results found in the response")
-                db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="No results found in the response")
+                self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="No results found in the response")
                 return
  
             batch_id = results[0]['expectation_config']['kwargs']['batch_id']
@@ -120,7 +121,7 @@ class DataQuality:
                 expectation_type = expectation_config.get('expectation_type')
                 if not expectation_type:
                     ge_logger.error(f"Error: 'expectation_type' not found for batch_id {batch_id}")
-                    db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="'expectation_type' not found for batch_id {batch_id}")
+                    self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="'expectation_type' not found for batch_id {batch_id}")
                     continue  # Skip processing this result if the expectation_type is missing
  
                 # Prepare expectation data and log it
@@ -149,11 +150,11 @@ class DataQuality:
             # Commit the changes to the database
             db_session.commit()
             ge_logger.info("Data stored successfully.")
-            db.update_status_of_job_id(job_id=job_id, job_status="Completed")
+            self.db.update_status_of_job_id(job_id=self.job_id, job_status="Completed")
         except Exception as e:
             db_session.rollback()
             ge_logger.error(f"Error processing data: {e}")
-            db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="Error processsing data, cannot save in database.")
+            self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="Error processsing data, cannot save in database.")
         finally:
             db_session.close()
             

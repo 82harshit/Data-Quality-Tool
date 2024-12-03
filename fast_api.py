@@ -31,9 +31,11 @@ from io import StringIO
 from state_singelton import JobIDSingleton
 from validation_results import DataQuality
 import json
+from db_instance_singleton import DB_Instance_Singleton
 
 
 db = db_functions.DBFunctions()
+DB_Instance_Singleton.set_db_instance(db=db)
 
 def create_job_id() -> str:
     """
