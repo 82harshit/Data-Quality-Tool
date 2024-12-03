@@ -174,32 +174,11 @@ async def create_connection(connection: connection_model.Connection = Body(...,
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests") 
 async def submit_job(job: job_model.SubmitJob = Body(...,example={
-  "connection_name": "20241120162230_test_1272990_4002_testdb_2314",
+  "connection_name": "20241126153505_merit_3233347_3306_qualitytool_7040",
   "data_source": {
-      "dir_path": "C:/user/Desktop",
-      "file_name": "sample_file",
-      "table_name": "test_table"
+    "table_name": "customers"
   },
   "quality_checks": [
-    {
-      "expectation_type": "expect_column_values_to_not_be_null",
-      "kwargs": {
-        "column": "Index"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_be_of_type",
-      "kwargs": {
-        "column": "Index",
-        "type_": "int64"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_be_unique",
-      "kwargs": {
-        "column": "Index"
-      }
-    },
     {
       "expectation_type": "expect_column_values_to_not_be_null",
       "kwargs": {
@@ -213,24 +192,37 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         "regex": "^[a-zA-Z0-9]{15}$"
       }
     },
+   {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "City",
+        "regex": "^[A-Za-z\\s\\-]+$"
+      }
+    },
     {
       "expectation_type": "expect_column_values_to_not_be_null",
       "kwargs": {
         "column": "First Name"
       }
     },
-    # {
-    #   "expectation_type": "expect_column_values_to_not_be_null",
-    #   "kwargs": {
-    #     "column": "Last Name"
-    #   }
-    # },
     {
-      "expectation_type": "expect_column_value_lengths_to_be_between",
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "First Name",
+        "regex": "^[A-Za-z]{1,20}$"
+      }
+    },
+   {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Last Name"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
       "kwargs": {
         "column": "Last Name",
-        "max_value": 10,
-        "min_value": 1
+        "regex": "^[A-Za-z]{1,20}$"
       }
     },
     {
@@ -240,16 +232,16 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
       }
     },
     {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "Company",
-        "regex": "(?i)(\\w+-\\w+)|(\\b(Ltd|Inc|Gov|Group|LLC|PLC)\\b)$"
-      }
-    },
-    {
       "expectation_type": "expect_column_values_to_not_be_null",
       "kwargs": {
         "column": "City"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "City",
+        "regex": "^[A-Za-z\\s\\-]+$"
       }
     },
     {
@@ -259,30 +251,49 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
       }
     },
     {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Country",
+        "regex": "^[A-Za-z]+$"
+      }
+    },
+   {
       "expectation_type": "expect_column_values_to_not_be_null",
       "kwargs": {
         "column": "Phone 1"
       }
     },
-    {
-      "expectation_type": "expect_column_values_to_be_of_type",
+   {
+      "expectation_type": "expect_column_values_to_match_regex",
       "kwargs": {
         "column": "Phone 1",
-        "type_": "int"
+        "regex": "^[+()\\d\\s-]+$"
       }
     },
     {
-      "expectation_type": "expect_column_value_lengths_to_be_between",
+      "expectation_type": "expect_column_values_to_match_regex",
       "kwargs": {
-        "column": "Phone 1",
-        "max_value": 13,
-        "min_value": 10
+        "column": "Phone 2",
+        "regex": "^[+()\\d\\s-]*$"
       }
     },
     {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Email"
+      }
+    },
+   {
       "expectation_type": "expect_column_values_to_be_unique",
       "kwargs": {
         "column": "Email"
+      }
+    },
+   {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Email",
+        "regex": "^[^@]+@[^@]+\\.[^@]+$"
       }
     },
     {
@@ -291,31 +302,18 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         "column": "Subscription Date"
       }
     },
-    {
-      "expectation_type": "expect_column_values_to_be_of_type",
-      "kwargs": {
-        "column": "Subscription Date",
-        "type_": "date"
-      }
-    },
-    {
+   {
       "expectation_type": "expect_column_values_to_match_regex",
       "kwargs": {
         "column": "Subscription Date",
-        "regex": "^\\d{4}\\-\\d{2}\\-\\d{2}$"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_not_be_null",
-      "kwargs": {
-        "column": "Website"
+        "regex": "^\\d{4}-\\d{2}-\\d{2}$"
       }
     },
     {
       "expectation_type": "expect_column_values_to_match_regex",
       "kwargs": {
         "column": "Website",
-        "regex": "^http://www.[\\w-]+.(com|org|net|info)/?$"
+        "regex": "^(http|https)://[^\\s/$.?#].[^\\s]*$"
       }
     }
   ],
@@ -495,7 +493,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
             return {'job_id': job_id}
     
     elif data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
-        datasource_name = f"test_datasource_for_sql_test" 
+        datasource_name = f"new_test_datasource_for_sql_test" 
         table_name = "customers"
 
         ge_logger.info("Running validation checks")
@@ -507,9 +505,9 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
                                                 database=data_source, table_name=table_name, schema_name=data_source, 
                                                 username=username, quality_checks=quality_checks, datasource_type=data_source_type)
         except Exception as ge_exception:
-            error_msg = f"An error occured while validating data\n{str(ge_exception)}"
+            error_msg = f"An error occured while validating data. Error: {str(ge_exception)}"
             ge_logger.error(error_msg)
-            db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message="An error occurred while validating data")
+            db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message=error_msg)
             return {'job_id': job_id}
 
     ge_logger.info("Validation checks successfully executed")

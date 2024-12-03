@@ -236,11 +236,13 @@ def __add_expectations_to_validator(validator, expectations) -> None:
         db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message="An error occured while adding expectations to validator. No expectations provided.")
         raise Exception("An error occured while adding expectations to validator. No expectations provided")
     
+    ge_logger.debug("Adding expectations to exp suite")
     # adding expectations to the validator
     for expectation in expectations:
         expectation_type = expectation.expectation_type
         kwargs = expectation.kwargs
-
+        ge_logger.debug(f"Expectation type: {expectation_type}")
+        ge_logger.debug(f"Kwargs: {kwargs}")
         expectation_func = getattr(validator, expectation_type)
         expectation_func(**kwargs)
         
@@ -337,6 +339,7 @@ def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str
 
     ge_logger.debug(f"Exp suite name:{expectation_suite_name}\n{batch_request_json}")
     validator = __create_validator(expectation_suite_name=expectation_suite_name, batch_request=batch_request_json)
+    ge_logger.debug(f"Created validator: {validator}")
 
     __add_expectations_to_validator(validator=validator,expectations=quality_checks)
     checkpoint_results = __create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name, validator=validator, 

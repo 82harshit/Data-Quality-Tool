@@ -250,6 +250,42 @@ datasources:
         username: merit
     data_connectors:
       default_configured_data_connector_name:
+        name: default_configured_data_connector_name
+        class_name: ConfiguredAssetSqlDataConnector
+        module_name: great_expectations.datasource.data_connector
+        assets:
+          customers:
+            class_name: Asset
+            module_name: great_expectations.datasource.data_connector.asset
+            schema_name: quality_tool
+      default_inferred_data_connector_name:
+        name: default_inferred_data_connector_name
+        class_name: InferredAssetSqlDataConnector
+        module_name: great_expectations.datasource.data_connector
+        include_schema_name: true
+        introspection_directives:
+          schema_name: quality_tool
+      default_runtime_data_connector_name:
+        name: default_runtime_data_connector_name
+        class_name: RuntimeDataConnector
+        module_name: great_expectations.datasource.data_connector
+        batch_identifiers:
+          - default_identifier_name
+  new_test_datasource_for_sql_test:
+    class_name: Datasource
+    module_name: great_expectations.datasource
+    execution_engine:
+      class_name: SqlAlchemyExecutionEngine
+      module_name: great_expectations.execution_engine
+      credentials:
+        database: quality_tool
+        drivername: mysql+pymysql
+        host: 32.33.34.7
+        password: July$2018
+        port: '3306'
+        username: merit
+    data_connectors:
+      default_configured_data_connector_name:
         class_name: ConfiguredAssetSqlDataConnector
         module_name: great_expectations.datasource.data_connector
         assets:
