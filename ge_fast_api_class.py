@@ -156,6 +156,8 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
         # retrieving user credentials from login_credentials table
         user_conn_creds = self.__get_user_conn_creds()
 
+        dqt_logger.debug(f"User connection creds: {user_conn_creds}")
+
         # common user credentials
         port = user_conn_creds.get('port')
         username = user_conn_creds.get('username')
@@ -170,8 +172,8 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
             datasource_name = f"{table_name}_table"
 
             try:
-                table_db.TableDatabase.create_user_and_grant_read_access(hostname="%",username=username,
-                                                    database_name=database,table_name=table_name,password=password)
+                # table_db.TableDatabase.create_user_and_grant_read_access(hostname="%",username=username,
+                                                    # database_name=database,table_name=table_name,password=password)
                 
                 validation_results = run_quality_checks_for_db(database=database,password=password,
                                                             port=port,hostname=hostname,
@@ -182,8 +184,8 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
                                                             schema_name=table_name)
                 validation_results = json.loads(str(validation_results)) # converting the result in JSON format
                 
-                table_db.TableDatabase.revoke_access_and_delete_user(hostname="%",username=username,
-                                                   database_name=database,table_name=table_name)
+                # table_db.TableDatabase.revoke_access_and_delete_user(hostname="%",username=username,
+                                                #    database_name=database,table_name=table_name)
                 return validation_results
             except Exception as ge_exception:
                 error_msg = f"An error occured while validating data:\n{str(ge_exception)}"
