@@ -28,6 +28,8 @@ from save_validation_results import DataQuality
 from utils import generate_job_id
 from job_state_singleton import JobIDSingleton
 from database import job_run_status
+from job_run_state_management.job_state import JobState, JobStateManager
+from job_run_state_management.state_observer import DatabaseObserver
 
 
 def get_and_initialize_job_id_singleton() -> str:
@@ -38,10 +40,13 @@ def get_and_initialize_job_id_singleton() -> str:
     """
     job_id = generate_job_id() # creates a new job id
     dqt_logger.info(f"Job_ID: {job_id}") # logs the job id
-    job_status_instance = job_run_status.Job_Run_Status(job_id=job_id)
-    job_status_instance.connect_to_db()
-    job_status_instance.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.STARTED)
-    # job_run_status.add_status_update_handler_to_logger(job_status_instance=job_status_instance) #FIXME: infinite loop
+    # job_state = JobState(job_id=job_id)
+    # database_instance = job_run_status.Job_Run_Status(job_id=job_id)
+    # database_observer = DatabaseObserver(database_instance)
+    # job_state.add_observer(database_observer)
+    # job_status_instance = job_run_status.Job_Run_Status(job_id=job_id)
+    # job_status_instance.connect_to_db()
+    # job_status_instance.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.STARTED)
     JobIDSingleton().set_job_id(job_id=job_id) # sets the job_id in singleton object
     return job_id
 
@@ -141,26 +146,27 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     if not job.connection_name:
         error_msg = "Incorrect JSON provided, missing connection name"
         dqt_logger.error(error_msg)
-        job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg) 
+        # job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg) 
         raise HTTPException(status_code=400, detail={"error": error_msg})
     
     if not job.data_source:
         error_msg = "Incorrect JSON provided, missing data source"
         dqt_logger.error(error_msg)
-        job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg) 
+        # job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg) 
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
     if not job.quality_checks:
         error_msg = "Incorrect JSON provided, missing quality checks"
         dqt_logger.error(error_msg)
-        job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg)
+        # job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
     job_id = get_and_initialize_job_id_singleton()
-    job_status_db = job_run_status.Job_Run_Status(job_id=job_id)
+    # job_status_db = job_run_status.Job_Run_Status(job_id=job_id)
     
-    ge_fast_interface = GE_Fast_API() # interface object
+    ge_fast_interface = GE_Fast_API()
     
+    # with JobStateManager(job_state, start_message="Validaton execution started", end_message="Validation executed successfully"):
     validation_results = await ge_fast_interface.validation_check_request(job=job)
     dqt_logger.debug(f"Validation results:\n{validation_results}")
 
@@ -168,18 +174,18 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         try:
             info_msg = "Saving validation results in database"
             dqt_logger.info(info_msg)
-            job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            # job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
             DataQuality().fetch_and_process_data(validation_results) # FIXME: argument of type 'coroutine' is not iterable
-            job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.COMPLETED)
+            # job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.COMPLETED)
             return {'job_id': job_id}
         except Exception as saving_validation_error:
             error_msg = f"An error occurred, failed to save validation results in database\n{str(saving_validation_error)}"
             dqt_logger.error(error_msg)
-            job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg)
+            # job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message= error_msg)
             return {'job_id': job_id}
     else:
         error_msg = f"Missing validation results."
         dqt_logger.error(error_msg)
-        job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message=error_msg)
+        # job_status_db.update_in_db(job_status=job_run_status.Job_Run_Status_Enum.ERROR, status_message=error_msg)
         return {'job_id': job_id}
     

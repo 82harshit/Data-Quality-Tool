@@ -1,0 +1,25 @@
+{
+  "data_asset_type": null,
+  "expectation_suite_name": "customers-100.xlsx_file_data_source_xlsx_customers-100.xlsx",
+  "expectations": [
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Customer Id"
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Customer Id",
+        "regex": "^[a-zA-Z0-9]{15}$"
+      },
+      "meta": {}
+    }
+  ],
+  "ge_cloud_id": null,
+  "meta": {
+    "great_expectations_version": "0.18.21"
+  }
+}
