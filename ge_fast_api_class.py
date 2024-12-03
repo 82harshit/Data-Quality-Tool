@@ -170,8 +170,8 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
             datasource_name = f"{table_name}_table"
 
             try:
-                table_db.TableDatabase.grant_access(hostname="%",username=username,
-                                                    database_name=database,table_name=table_name)
+                table_db.TableDatabase.create_user_and_grant_read_access(hostname="%",username=username,
+                                                    database_name=database,table_name=table_name,password=password)
                 
                 validation_results = run_quality_checks_for_db(database=database,password=password,
                                                             port=port,hostname=hostname,
@@ -182,7 +182,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
                                                             schema_name=table_name)
                 validation_results = json.loads(str(validation_results)) # converting the result in JSON format
                 
-                table_db.TableDatabase.revoke_access(hostname="%",username=username,
+                table_db.TableDatabase.revoke_access_and_delete_user(hostname="%",username=username,
                                                    database_name=database,table_name=table_name)
                 return validation_results
             except Exception as ge_exception:
