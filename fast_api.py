@@ -449,7 +449,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         # columns = await read_file_columns(conn=user_conn,file_path=file_path)
         # ge_logger.debug("Column names : ",columns)
 
-        datasource_name = f"new_test_datasource_for_file"
+        datasource_name = f"{file_name}_file"
         
         db.update_status_of_job_id(job_id=job_id,job_status="In Progress",status_message="Running validation checks")
 
@@ -463,9 +463,11 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
             db.update_status_of_job_id(job_id=job_id,job_status="Error",status_message="An error occurred while validating data")
             return {'job_id': job_id}
     
-    elif data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL:
-        datasource_name = f"new_test_datasource_for_sql_test" 
-        table_name = "customers"
+    elif data_source_type == connection_enum_and_metadata.ConnectionEnum.MYSQL: 
+        table_name = job.data_source.table_name
+        ge_logger.debug("Table name : ",table_name)
+        
+        datasource_name = f"{table_name}_table"
 
         ge_logger.info("Running validation checks")
 
@@ -486,7 +488,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     if validation_results:
         ge_logger.info("Saving validation results in database")
         db.update_status_of_job_id(job_id=job_id,job_status="In progress",status_message="Saving validation results in database")
-        
+        ge_logger.info(f"Validation results: {validation_results}")
         json_validation_results = json.loads(str(validation_results)) # converting the validation results to a json
         DataQuality().fetch_and_process_data(json_response=json_validation_results,job_id=job_id) # storing validation results in database
     else:

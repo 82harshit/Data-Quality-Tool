@@ -1,0 +1,65 @@
+[
+    {
+        "expectation_type": "expect_column_min_to_be_between",
+        "kwargs": {
+            "column": "MinTemp",
+            "min_value": -2.0,
+            "max_value": 7.8
+        }
+    },
+    {
+        "expectation_type": "expect_column_max_to_be_between",
+        "kwargs": {
+            "column": "MaxTemp",
+            "min_value": 16.2,
+            "max_value": 32.5
+        }
+    },
+    {
+        "expectation_type": "expect_column_max_to_be_between",
+        "kwargs": {
+            "column": "Rainfall",
+            "min_value": 16.2,
+            "max_value": 32.5
+        }
+    },
+    {
+        "expectation_type": "expect_column_median_to_be_between",
+        "kwargs": {
+            "column": "Evaporation",
+            "min_value": 1.2,
+            "max_value": 3.5
+        }
+    },
+    {
+        "expectation_type": "expect_column_mean_to_be_between",
+        "kwargs": {
+            "column": "Sunshine",
+            "min_value": 11.2,
+            "max_value": 13.5
+        }
+    },
+    {
+        "expectation_type": "expect_column_distinct_values_to_be_in_set",
+        "kwargs": {
+            "column": "RainTomorrow",
+            "value_set": [
+                "Yes",
+                "No",
+                "Maybe"
+            ]
+        }
+    },
+    {
+        "expectation_type": "expect_column_values_to_not_be_null",
+        "kwargs": {
+            "column": "WindSpeed9am"
+        }
+    },
+    {
+        "expectation_type": "expect_column_values_to_not_be_null",
+        "kwargs": {
+            "column": "WindGustSpeed"
+        }
+    }
+]

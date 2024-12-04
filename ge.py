@@ -8,12 +8,14 @@ from great_expectations.checkpoint import SimpleCheckpoint
 from great_expectations.exceptions import DataContextError
 
 from typing import Optional
-from utils import find_validation_result
+from utils import find_validation_result, remove_special_characters
 from request_models import connection_enum_and_metadata as conn
 
 from logging_config import ge_logger
 from database import db_functions
 from state_singelton import JobIDSingleton
+import random
+
 
 db = db_functions.DBFunctions()
 job_id = JobIDSingleton().get_job_id()
@@ -318,20 +320,35 @@ def run_quality_checks(quality_checks: json, datasource_type: str, hostname: str
     if (datasource_type == conn.ConnectionEnum.CSV or datasource_type == conn.ConnectionEnum.JSON or
         datasource_type == conn.ConnectionEnum.EXCEL):
     
+        datasource_name = remove_special_characters(datasource_name)
+        username = remove_special_characters(username)
+        datasource_name = remove_special_characters(datasource_name)
+        port = remove_special_characters(port)
+    
         __create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
                                 username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name, 
                                 dir_name=dir_name)
         
-        expectation_suite_name = f"{datasource_name}_{username}_{datasource_name}_{port}_{hostname}" # expectation suite name format
+        rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
+        
+        expectation_suite_name = f"{datasource_name}_{username}_{datasource_name}_{port}_{rand_int}" # expectation suite name format
         __create_expectation_suite(expectation_suite_name=expectation_suite_name)
 
         batch_request_json = __create_batch_request(datasource_name=datasource_name,data_source_type=datasource_type, data_asset_name=file_name)
 
     elif (datasource_type == conn.ConnectionEnum.MYSQL):
+        datasource_name = remove_special_characters(datasource_name)
+        username = remove_special_characters(username)
+        table_name = remove_special_characters(table_name)
+        port = remove_special_characters(port)
+        
         __create_new_datasource(datasource_type=datasource_type, port=port, host=hostname, password=password, database=database,
                               username=username, datasource_name=datasource_name, table_name=table_name, schema_name=schema_name,
                               dir_name=dir_name)
-        expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format
+       
+        rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
+       
+        expectation_suite_name = f"{datasource_name}_{username}_{table_name}_{port}_{rand_int}" # expectation suite name format
         __create_expectation_suite(expectation_suite_name=expectation_suite_name)
 
         batch_request_json = __create_batch_request(datasource_name=datasource_name,data_source_type=datasource_type, data_asset_name=table_name)
