@@ -123,7 +123,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
                     ))
     
             ge_logger.info("Login credential insertion completed")
-            return {"status": "connected", "connection_name": unique_connection_name, "logs": logs}
+            return {"status": "connected", "connection_name": unique_connection_name}
         except Exception as e:
             ge_logger.error(f"An error occurred: {str(e)}")
             raise HTTPException(status_code=503, detail={"error": str(e), "request_json": connection.model_dump_json()})
