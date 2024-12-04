@@ -12,12 +12,7 @@ from great_expectations.exceptions import DataContextError
 from request_models import connection_enum_and_metadata as conn_enum
 from utils import find_validation_result
 from logging_config import dqt_logger
-from database.job_run_status import Job_Run_Status, Job_Run_Status_Enum
-import job_state_singleton
 
-
-# job_id=job_state_singleton.JobIDSingleton.get_job_id()
-# job_status_db = Job_Run_Status(job_id=job_id)
 
 class GreatExpectationsModel:
     def __init__(self, quality_checks: List[dict]):

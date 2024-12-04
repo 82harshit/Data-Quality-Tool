@@ -7,12 +7,6 @@ import pyorc
 
 from database.db_models import user_credentials_db
 from logging_config import dqt_logger
-from database.job_run_status import Job_Run_Status, Job_Run_Status_Enum
-import job_state_singleton
-
-
-job_id=job_state_singleton.JobIDSingleton.get_job_id()
-job_status_db = Job_Run_Status(job_id=job_id)
 
 
 class FileDatabase(user_credentials_db.UserCredentialsDatabase):
@@ -32,12 +26,12 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
             )
             info_msg = "SSH connection established..."
             dqt_logger.info(info_msg)
-            job_status_db.update_in_db(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
             return connection
         except Exception as ssh_conn_error:
             error_msg = f"An error occurred while connecting to the server using SSH:\n{str(ssh_conn_error)}"
             dqt_logger.error(error_msg)
-            job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+            # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
             raise Exception(error_msg)
 
 
@@ -53,7 +47,7 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
             ) as conn:
                 info_msg = "SSH connection established..."
                 dqt_logger.info(info_msg)
-                job_status_db.update_in_db(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+                # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
 
                 # Extract connection details
                 file_name = self.file_name
@@ -110,18 +104,18 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
                 else:
                     error_msg = "Invalid connection configuration. Please provide either 'dir_path' with 'file_name', or just 'file_name'."
                     dqt_logger.error(error_msg)
-                    job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+                    # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
                     raise ValueError(error_msg)
 
         except asyncssh.PermissionDenied:
             error_msg = "SSH permission denied. Check your credentials."
             dqt_logger.error(error_msg)
-            job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+            # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
             raise HTTPException(status_code=403, detail=error_msg)
         except Exception as e:
             error_msg = f"An error occurred: {str(e)}"
             dqt_logger.error(error_msg)
-            job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
+            # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
             raise HTTPException(status_code=500, detail=error_msg)
 
 
@@ -186,12 +180,12 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
                 command = f"cat {file_path}"
                 result = await conn.run(command, encoding=None)  # Retrieve binary data
                 file_content = BytesIO(result.stdout)
-                df = pd.read_excel(file_content)
+                df = pd.read_excel(file_content, engine='openpyxl')
                 
             else:
                 error_msg = "Unsupported file format"
                 dqt_logger.error(error_msg)
-                job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
+                # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
                 raise HTTPException(status_code=400, detail=error_msg)
 
             # Return the column names
@@ -199,10 +193,10 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
         except Exception as e:
             error_msg = f"Error processing file: {str(e)}"
             dqt_logger.error(error_msg)
-            job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
+            # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
             raise HTTPException(status_code=500, detail=error_msg)
-    
-    # # TODO: test
+
+
     # async def handle_file_connection(self, unique_connection_name: str, connection_string: str, expected_extension: str) -> json:
     #     """
     #     Generalized function to handle file-based connections.

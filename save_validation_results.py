@@ -8,8 +8,8 @@ from logging_config import dqt_logger
 load_dotenv()  # Load environment variables from .env file
  
 # Define database URL
-# DATABASE_URL = os.getenv('DATABASE_URL', 'mysql+pymysql://db_user:July$2018@32.33.34.7:3306/validation_results')
-DATABASE_URL = os.getenv('DATABASE_URL')
+DATABASE_URL = os.getenv('DATABASE_URL', 'mysql+pymysql://db_user:July$2018@32.33.34.7:3306/validation_results')
+# DATABASE_URL = os.getenv('DATABASE_URL')
  
 # Create an engine and session local factory
 engine = create_engine(DATABASE_URL)

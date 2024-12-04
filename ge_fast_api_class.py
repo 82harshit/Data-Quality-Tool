@@ -8,13 +8,7 @@ from request_models import connection_enum_and_metadata as conn_enum, connection
 from utils import generate_connection_name, generate_connection_string
 from interfaces import ge_api_interface
 from logging_config import dqt_logger
-from database.job_run_status import Job_Run_Status, Job_Run_Status_Enum
-import job_state_singleton
 
-
-# job_id=job_state_singleton.JobIDSingleton.get_job_id()
-# job_status_db = Job_Run_Status(job_id=job_id)
-# job_status_db.connect_to_db()
 
 class GE_Fast_API(ge_api_interface.GE_API_Interface): 
     def __init__(self):
@@ -152,9 +146,8 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
 
         self.db_instance = table_db.TableDatabase(hostname="",username="",password="",port=0,connection_type="",database="") 
         self.db_instance.connect_to_db()
-
-        # retrieving user credentials from login_credentials table
-        user_conn_creds = self.__get_user_conn_creds()
+        user_conn_creds = self.__get_user_conn_creds()  # retrieving user credentials from login_credentials table
+        self.db_instance.close_db_connection()
 
         dqt_logger.debug(f"User connection creds: {user_conn_creds}")
 
@@ -173,7 +166,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
 
             try:
                 # table_db.TableDatabase.create_user_and_grant_read_access(hostname="%",username=username,
-                                                    # database_name=database,table_name=table_name,password=password)
+                #                                     database_name=database,table_name=table_name,password=password)
                 
                 validation_results = run_quality_checks_for_db(database=database,password=password,
                                                             port=port,hostname=hostname,
@@ -181,11 +174,11 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
                                                             username=username,table_name=table_name,
                                                             datasource_name=datasource_name,
                                                             datasource_type=datasource_type,
-                                                            schema_name=table_name)
+                                                            schema_name=datasource_type)
                 validation_results = json.loads(str(validation_results)) # converting the result in JSON format
                 
                 # table_db.TableDatabase.revoke_access_and_delete_user(hostname="%",username=username,
-                                                #    database_name=database,table_name=table_name)
+                #                                     database_name=database,table_name=table_name)
                 return validation_results
             except Exception as ge_exception:
                 error_msg = f"An error occured while validating data:\n{str(ge_exception)}"

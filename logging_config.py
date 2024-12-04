@@ -21,13 +21,13 @@ logging_config = {
     'handlers': {
         'consoleHandler': {
             'class': 'logging.StreamHandler',
-            'level': 'DEBUG',
+            'level': 'INFO',
             'formatter': 'simpleFormatter',
             'stream': 'ext://sys.stdout',
         },
         'fileHandler': {
             'class': 'logging.handlers.TimedRotatingFileHandler',
-            'level': 'DEBUG',
+            'level': 'INFO',
             'formatter': 'simpleFormatter',
             'filename': log_filename,
             'when': 'midnight',  # Rotate at midnight
@@ -38,12 +38,12 @@ logging_config = {
     },
     'loggers': {
         'root': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'handlers': ['consoleHandler', 'fileHandler'],
             'propagate': False,
         },
         'dqt_logger': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'handlers': ['consoleHandler', 'fileHandler'],
             'propagate': False,
         },
