@@ -30,11 +30,9 @@ from io import StringIO
 from state_singelton import JobIDSingleton
 from validation_results import DataQuality
 import json
-from db_instance_singleton import DB_Instance_Singleton
 
 
 db = db_functions.DBFunctions()
-DB_Instance_Singleton.set_db_instance(db=db)
 
 def create_job_id() -> str:
     """
@@ -500,7 +498,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         db.update_status_of_job_id(job_id=job_id,job_status="In progress",status_message="Saving validation results in database")
         
         json_validation_results = json.loads(str(validation_results)) # converting the validation results to a json
-        DataQuality().fetch_and_process_data(json_validation_results) # storing validation results in database
+        DataQuality().fetch_and_process_data(json_response=json_validation_results,job_id=job_id) # storing validation results in database
     else:
         ge_logger.error("No validation results found")
         db.update_status_of_job_id(job_id=job_id, job_status="Error", status_message="No validation results found")

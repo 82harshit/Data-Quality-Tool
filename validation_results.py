@@ -1,17 +1,17 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, Date, JSON, ForeignKey
-from sqlalchemy.orm import sessionmaker, Session, declarative_base
+from sqlalchemy.orm import sessionmaker, declarative_base, Session, relationship
 from datetime import datetime
 import os
-from database import db_functions
+from dotenv import load_dotenv
 from state_singelton import JobIDSingleton
+from database.db_functions import DBFunctions
 from logging_config import ge_logger
-from dotenv import load_dotenv  # Load environment variables from .env file
-from db_instance_singleton import DB_Instance_Singleton
  
-load_dotenv()  # Load environment variables from .env file
-
+# Load environment variables
+load_dotenv()
+ 
 # Define database URL
-DATABASE_URL = os.getenv('DATABASE_URL', 'mysql+pymysql://db_user:July$2018@32.33.34.7:3306/validation_results')
+DATABASE_URL = os.getenv('DATABASE_URL', 'mysql+pymysql://db_user:July$2018@localhost:3306/valdiation_results')
  
 # Create an engine and session local factory
 engine = create_engine(DATABASE_URL)
@@ -20,20 +20,21 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Define Base class for models
 Base = declarative_base()
  
-# Define the Batch model
+# Batch Model (One batch -> one job_id)
 class Batch(Base):
     __tablename__ = 'batches'
  
     batch_id = Column(String(255), primary_key=True)
+    job_id = Column(String(255), unique=True, nullable=False)  # Each batch has a unique job_id
     batch_date = Column(Date)
     data_quality_score = Column(Float)
  
-# Define the Expectation model
+# Expectation Model (Many expectations per batch)
 class Expectation(Base):
     __tablename__ = 'expectations'
  
-    expectation_id = Column(Integer, primary_key=True, autoincrement=True)
-    batch_id = Column(String(255), ForeignKey('batches.batch_id'))
+    execution_id = Column(Integer, primary_key=True, autoincrement=True)  # Auto-increment primary key
+    batch_id = Column(String(255), ForeignKey('batches.batch_id'), nullable=False)
     expectation_type = Column(String(255))
     column = Column(String(255))
     regex = Column(String(255), nullable=True)
@@ -47,14 +48,20 @@ class Expectation(Base):
     exception_message = Column(String(255), nullable=True)
     exception_traceback = Column(String(255), nullable=True)
  
+    batch = relationship("Batch", back_populates="expectations")
+ 
+# Define the reverse relationship on the Batch model
+Batch.expectations = relationship("Expectation", back_populates="batch", cascade="all, delete-orphan")
+ 
+# DataQuality Class
 class DataQuality:
     def __init__(self):
         self.engine = engine
         self.SessionLocal = SessionLocal
-        self.db = DB_Instance_Singleton.get_db_instance()
+        self.db = DBFunctions()
         self.job_id = JobIDSingleton.get_job_id()
  
-    def upsert_batch(self, batch_id: str, batch_date, data_quality_score: float, db_session: Session):
+    def upsert_batch(self, batch_id: str, job_id: str, batch_date, data_quality_score: float, db_session: Session):
         """Inserts or updates a batch record."""
         try:
             existing_batch = db_session.query(Batch).filter(Batch.batch_id == batch_id).first()
@@ -62,7 +69,7 @@ class DataQuality:
                 existing_batch.data_quality_score = data_quality_score
                 ge_logger.info(f"Updated batch {batch_id}")
             else:
-                new_batch = Batch(batch_id=batch_id, batch_date=batch_date, data_quality_score=data_quality_score)
+                new_batch = Batch(batch_id=batch_id, job_id=job_id, batch_date=batch_date, data_quality_score=data_quality_score)
                 db_session.add(new_batch)
                 ge_logger.info(f"Inserted new batch {batch_id}")
             db_session.commit()
@@ -77,23 +84,19 @@ class DataQuality:
             expectation = Expectation(**expectation_data)
             db_session.add(expectation)
             db_session.commit()
-            ge_logger.info(f"Inserted expectation: {expectation_data['expectation_type']}")
+            ge_logger.info(f"Inserted expectation for batch_id: {expectation_data['batch_id']}")
         except Exception as e:
             db_session.rollback()
             ge_logger.error(f"Error in inserting expectation: {e}")
-            self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="Error in inserting expectation")
  
-    def fetch_and_process_data(self, json_response):
+    def fetch_and_process_data(self, json_response, job_id: str):
         db_session = self.SessionLocal()  # Create a new session
         try:
-            # Check if 'results' key exists in json_response
             if 'results' not in json_response:
-                self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="Error: 'results' key not found in the response")
                 ge_logger.error("Error: 'results' key not found in the response")
                 self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="Error: 'results' key not found in the response")
                 return
  
-            # Extract batch details from metadata
             results = json_response['results']
             if not results:
                 ge_logger.error("Error: No results found in the response")
@@ -101,30 +104,25 @@ class DataQuality:
                 return
  
             batch_id = results[0]['expectation_config']['kwargs']['batch_id']
-            batch_date = datetime.now().date()  # Assuming current date for simplicity
+            batch_date = datetime.now().date()
  
-            # Calculate data quality score (e.g., based on unexpected percentage)
             statistics = json_response['statistics']
             success_percent = statistics.get('success_percent', 0.0)
             data_quality_score = success_percent
  
-            # Insert batch record (upsert logic to avoid duplicates)
-            self.upsert_batch(batch_id, batch_date, data_quality_score, db_session)
+            self.upsert_batch(batch_id, job_id, batch_date, data_quality_score, db_session)
  
-            # Iterate through individual expectation results
             for result in results:
                 expectation_config = result['expectation_config']
                 result_details = result['result']
                 exception_info = result.get('exception_info', {})
  
-                # Ensure 'expectation_type' exists before accessing it
                 expectation_type = expectation_config.get('expectation_type')
                 if not expectation_type:
                     ge_logger.error(f"Error: 'expectation_type' not found for batch_id {batch_id}")
                     self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="'expectation_type' not found for batch_id {batch_id}")
-                    continue  # Skip processing this result if the expectation_type is missing
+                    continue
  
-                # Prepare expectation data and log it
                 expectation = {
                     'batch_id': batch_id,
                     'expectation_type': expectation_type,
@@ -141,13 +139,8 @@ class DataQuality:
                     'exception_traceback': exception_info.get('exception_traceback', '')
                 }
  
-                # Log the expectation data
-                ge_logger.info("Inserting expectation:", expectation)
- 
-                # Insert expectation into the database
                 self.insert_expectation(expectation, db_session)
  
-            # Commit the changes to the database
             db_session.commit()
             ge_logger.info("Data stored successfully.")
             self.db.update_status_of_job_id(job_id=self.job_id, job_status="Completed")
@@ -157,5 +150,3 @@ class DataQuality:
             self.db.update_status_of_job_id(job_id=self.job_id, job_status="Error", status_message="Error processsing data, cannot save in database.")
         finally:
             db_session.close()
-            
-            
