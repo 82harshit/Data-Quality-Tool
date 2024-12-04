@@ -79,11 +79,6 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         }
     }
 )):
-    # TODO: Add stream handler in logging_config
-    log_stream = StringIO()
-    log_handler = logging.StreamHandler(log_stream)
-    ge_logger.addHandler(log_handler)
-
     if not connection.user_credentials:
         ge_logger.error("Incorrect request JSON provided, missing user credentials")
         raise HTTPException(status_code=400, detail={"error": "Missing user credentials"})
@@ -128,11 +123,6 @@ async def create_connection(connection: connection_model.Connection = Body(...,
                     ))
     
             ge_logger.info("Login credential insertion completed")
-
-            log_handler.flush()
-            logs = log_stream.getvalue()
-            ge_logger.removeHandler(log_handler)
-
             return {"status": "connected", "connection_name": unique_connection_name, "logs": logs}
         except Exception as e:
             ge_logger.error(f"An error occurred: {str(e)}")
