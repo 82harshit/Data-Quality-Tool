@@ -21,12 +21,11 @@ from fastapi import FastAPI, Body, HTTPException
 from request_models import connection_enum_and_metadata, connection_model, job_model
 from utils import generate_connection_name, generate_connection_string, generate_job_id
 import db_constants
-from server_functions import get_mysql_db,  handle_file_connection, read_file_columns,connect_to_server_SSH
+from server_functions import get_mysql_db,  handle_file_connection
 from database import db_functions, sql_queries as query
 from ge import run_quality_checks
-import logging
+import random
 from logging_config import ge_logger
-from io import StringIO
 from state_singelton import JobIDSingleton
 from validation_results import DataQuality
 import json
@@ -449,7 +448,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         # columns = await read_file_columns(conn=user_conn,file_path=file_path)
         # ge_logger.debug("Column names : ",columns)
 
-        datasource_name = f"{file_name}_file"
+        rand_int = random.randint(1000, 9999)
+        datasource_name = f"{file_name}_file_{rand_int}"
         
         db.update_status_of_job_id(job_id=job_id,job_status="In Progress",status_message="Running validation checks")
 
@@ -467,7 +467,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         table_name = job.data_source.table_name
         ge_logger.debug("Table name : ",table_name)
         
-        datasource_name = f"{table_name}_table"
+        rand_int = random.randint(1000, 9999)
+        datasource_name = f"{table_name}_table_{rand_int}"
 
         ge_logger.info("Running validation checks")
 
@@ -488,7 +489,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     if validation_results:
         ge_logger.info("Saving validation results in database")
         db.update_status_of_job_id(job_id=job_id,job_status="In progress",status_message="Saving validation results in database")
-        ge_logger.info(f"Validation results: {validation_results}")
+        ge_logger.debug(f"Validation results: {validation_results}")
         json_validation_results = json.loads(str(validation_results)) # converting the validation results to a json
         DataQuality().fetch_and_process_data(json_response=json_validation_results,job_id=job_id) # storing validation results in database
     else:
