@@ -194,13 +194,13 @@ datasources:
           customers:
             class_name: Asset
             module_name: great_expectations.datasource.data_connector.asset
-            schema_name: mysql
+            schema_name: quality_tool
       default_inferred_data_connector_name:
         class_name: InferredAssetSqlDataConnector
         module_name: great_expectations.datasource.data_connector
         include_schema_name: true
         introspection_directives:
-          schema_name: mysql
+          schema_name: quality_tool
       default_runtime_data_connector_name:
         class_name: RuntimeDataConnector
         module_name: great_expectations.datasource.data_connector
