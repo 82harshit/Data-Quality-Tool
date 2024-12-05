@@ -287,7 +287,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
             info_msg = "Saving validation results in database"
             dqt_logger.info(info_msg)
             JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
-            DataQuality().fetch_and_process_data(validation_results) # FIXME: argument of type 'coroutine' is not iterable 
+            DataQuality().fetch_and_process_data(validation_results, job_id=job_id) # FIXME: argument of type 'coroutine' is not iterable 
             return {'job_id': job_id}
         except Exception as saving_validation_error:
             error_msg = f"An error occurred, failed to save validation results in database\nError:{str(saving_validation_error)}"
