@@ -176,7 +176,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
                                                             username=username,table_name=table_name,
                                                             datasource_name=datasource_name,
                                                             datasource_type=datasource_type,
-                                                            schema_name=datasource_name)
+                                                            schema_name=database)
                 validation_results = json.loads(str(validation_results)) # converting the result in JSON format
                 
                 # table_db.TableDatabase.revoke_access_and_delete_user(hostname="%",username=username,
