@@ -37,16 +37,10 @@ class Expectation(Base):
     batch_id = Column(String(255), ForeignKey('batches.batch_id'), nullable=False)
     expectation_type = Column(String(255))
     column = Column(String(255))
-    regex = Column(String(255), nullable=True)
-    element_count = Column(Integer)
-    unexpected_count = Column(Integer)
-    unexpected_percent = Column(Float)
-    missing_count = Column(Integer)
-    missing_percent = Column(Float)
-    unexpected_values = Column(JSON)
     success = Column(Boolean)
     exception_message = Column(String(255), nullable=True)
     exception_traceback = Column(String(255), nullable=True)
+    result = Column(JSON)
  
     batch = relationship("Batch", back_populates="expectations")
  
@@ -127,16 +121,10 @@ class DataQuality:
                     'batch_id': batch_id,
                     'expectation_type': expectation_type,
                     'column': expectation_config['kwargs'].get('column'),
-                    'regex': expectation_config['kwargs'].get('regex'),
-                    'element_count': result_details.get('element_count', 0),
-                    'unexpected_count': result_details.get('unexpected_count', 0.0),
-                    'unexpected_percent': result_details.get('unexpected_percent', 0.0),
-                    'missing_count': result_details.get('missing_count', 0.0),
-                    'missing_percent': result_details.get('missing_percent', 0.0),
-                    'unexpected_values': result_details.get('partial_unexpected_list', []),
                     'success': result.get('success', False),
                     'exception_message': exception_info.get('exception_message', ''),
-                    'exception_traceback': exception_info.get('exception_traceback', '')
+                    'exception_traceback': exception_info.get('exception_traceback', ''),
+                    'result': result_details
                 }
  
                 self.insert_expectation(expectation, db_session)
