@@ -1,15 +1,17 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, Date, JSON, ForeignKey
-from sqlalchemy.orm import sessionmaker, Session, declarative_base
+from sqlalchemy.orm import sessionmaker, Session, declarative_base, relationship
 from datetime import datetime
 import os
 from dotenv import load_dotenv  # Load environment variables from .env file
 from logging_config import dqt_logger
+from job_state_singleton import JobStateSingleton
+from database.db_models.job_run_status import Job_Run_Status_Enum
+
 
 load_dotenv()  # Load environment variables from .env file
  
 # Define database URL
 DATABASE_URL = os.getenv('DATABASE_URL', 'mysql+pymysql://db_user:July$2018@32.33.34.7:3306/validation_results')
-# DATABASE_URL = os.getenv('DATABASE_URL')
  
 # Create an engine and session local factory
 engine = create_engine(DATABASE_URL)
@@ -23,6 +25,7 @@ class Batch(Base):
     __tablename__ = 'batches'
  
     batch_id = Column(String(255), primary_key=True)
+    job_id = Column(String(255), unique=True, nullable=False)  # Each batch has a unique job_id
     batch_date = Column(Date)
     data_quality_score = Column(Float)
  
@@ -34,37 +37,43 @@ class Expectation(Base):
     batch_id = Column(String(255), ForeignKey('batches.batch_id'))
     expectation_type = Column(String(255))
     column = Column(String(255))
-    regex = Column(String(255), nullable=True)
-    element_count = Column(Integer)
-    unexpected_count = Column(Integer)
-    unexpected_percent = Column(Float)
-    missing_count = Column(Integer)
-    missing_percent = Column(Float)
-    unexpected_values = Column(JSON)
     success = Column(Boolean)
     exception_message = Column(String(255), nullable=True)
     exception_traceback = Column(String(255), nullable=True)
- 
+    result = Column(JSON)
+    
+    batch = relationship("Batch", back_populates="expectations")
+    
+# Define the reverse relationship on the Batch model
+Batch.expectations = relationship("Expectation", back_populates="batch", cascade="all, delete-orphan")
+
 class DataQuality:
     def __init__(self):
         self.engine = engine
         self.SessionLocal = SessionLocal
+        self.job_state = JobStateSingleton
  
-    def upsert_batch(self, batch_id: str, batch_date, data_quality_score: float, db_session: Session):
+    def upsert_batch(self, batch_id: str, job_id: str, batch_date, data_quality_score: float, db_session: Session):
         """Inserts or updates a batch record."""
         try:
             existing_batch = db_session.query(Batch).filter(Batch.batch_id == batch_id).first()
             if existing_batch:
                 existing_batch.data_quality_score = data_quality_score
-                dqt_logger.info(f"Updated batch {batch_id}")
+                info_msg = f"Updated batch {batch_id}"
+                dqt_logger.info(info_msg)
+                self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
             else:
-                new_batch = Batch(batch_id=batch_id, batch_date=batch_date, data_quality_score=data_quality_score)
+                new_batch = Batch(batch_id=batch_id, job_id=job_id, batch_date=batch_date, data_quality_score=data_quality_score)
                 db_session.add(new_batch)
-                dqt_logger.info(f"Inserted new batch {batch_id}")
+                info_msg = f"Inserted new batch {batch_id}"
+                dqt_logger.info(info_msg)
+                self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
             db_session.commit()
         except Exception as e:
             db_session.rollback()
-            dqt_logger.error(f"Error in upserting batch: {e}")
+            error_msg = f"Error in upserting batch: {e}"
+            dqt_logger.error(error_msg)
+            self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
  
     def insert_expectation(self, expectation_data: dict, db_session: Session):
         """Inserts a new expectation record."""
@@ -75,20 +84,26 @@ class DataQuality:
             dqt_logger.info(f"Inserted expectation: {expectation_data['expectation_type']}")
         except Exception as e:
             db_session.rollback()
-            dqt_logger.error(f"Error in inserting expectation: {e}")
+            error_msg = f"Error in inserting expectation: {e}"
+            dqt_logger.error(error_msg)
+            self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
  
-    def fetch_and_process_data(self, json_response):
+    def fetch_and_process_data(self, json_response, job_id: str):
         db_session = self.SessionLocal()  # Create a new session
         try:
             # Check if 'results' key exists in json_response
             if 'results' not in json_response:
-                dqt_logger.error("Error: 'results' key not found in the response")
+                error_msg = "Error: 'results' key not found in the response"
+                dqt_logger.error(error_msg)
+                self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
                 return
  
             # Extract batch details from metadata
             results = json_response['results']
             if not results:
-                dqt_logger.error("Error: No results found in the response")
+                error_msg = "Error: No results found in the response"
+                dqt_logger.error(error_msg)
+                self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
                 return
  
             batch_id = results[0]['expectation_config']['kwargs']['batch_id']
@@ -100,7 +115,7 @@ class DataQuality:
             data_quality_score = success_percent
  
             # Insert batch record (upsert logic to avoid duplicates)
-            self.upsert_batch(batch_id, batch_date, data_quality_score, db_session)
+            self.upsert_batch(batch_id, job_id, batch_date, data_quality_score, db_session)
  
             # Iterate through individual expectation results
             for result in results:
@@ -111,28 +126,26 @@ class DataQuality:
                 # Ensure 'expectation_type' exists before accessing it
                 expectation_type = expectation_config.get('expectation_type')
                 if not expectation_type:
-                    dqt_logger.error(f"Error: 'expectation_type' not found for batch_id {batch_id}")
+                    error_msg = f"Error: 'expectation_type' not found for batch_id {batch_id}"
+                    dqt_logger.error(error_msg)
+                    self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
                     continue  # Skip processing this result if the expectation_type is missing
  
                 # Prepare expectation data and log it
                 expectation = {
                     'batch_id': batch_id,
                     'expectation_type': expectation_type,
-                    'column': expectation_config['kwargs'].get('column'),
-                    'regex': expectation_config['kwargs'].get('regex'),
-                    'element_count': result_details.get('element_count', 0),
-                    'unexpected_count': result_details.get('unexpected_count', 0.0),
-                    'unexpected_percent': result_details.get('unexpected_percent', 0.0),
-                    'missing_count': result_details.get('missing_count', 0.0),
-                    'missing_percent': result_details.get('missing_percent', 0.0),
-                    'unexpected_values': result_details.get('partial_unexpected_list', []),
+                    'column': expectation_config['kwargs'].get('column'),  
                     'success': result.get('success', False),
                     'exception_message': exception_info.get('exception_message', ''),
-                    'exception_traceback': exception_info.get('exception_traceback', '')
+                    'exception_traceback': exception_info.get('exception_traceback', ''),
+                    'result': result_details
                 }
  
                 # Log the expectation data
-                dqt_logger.info("Inserting expectation:", expectation)
+                info_msg = f"Inserting expectation:{expectation}"
+                dqt_logger.info(info_msg)
+                self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
  
                 # Insert expectation into the database
                 self.insert_expectation(expectation, db_session)
@@ -140,9 +153,12 @@ class DataQuality:
             # Commit the changes to the database
             db_session.commit()
             dqt_logger.info("Data stored successfully.")
+            self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.COMPLETED)
         except Exception as e:
             db_session.rollback()
-            dqt_logger.error(f"Error processing data: {e}")
+            error_msg = f"Error processing data: {e}"
+            dqt_logger.error(error_msg)
+            self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
         finally:
             db_session.close()
             

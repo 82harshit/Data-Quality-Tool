@@ -27,7 +27,7 @@ from ge_fast_api_class import GE_Fast_API
 from save_validation_results import DataQuality
 from utils import generate_job_id
 from job_state_singleton import JobStateSingleton
-from database.job_run_status import Job_Run_Status_Enum
+from database.db_models.job_run_status import Job_Run_Status_Enum
 
 
 def get_job_id_and_initialize_job_state_singleton() -> str:
@@ -112,18 +112,143 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
       "table_name": "test_table"
   },
   "quality_checks": [
-      {
-        "expectation_type": "expect_column_values_to_not_be_null",
-        "kwargs": {
-            "column": "Customer Id"
-        },
-      },{
-        "expectation_type": "expect_column_values_to_match_regex",
-        "kwargs": {
-            "column": "Customer Id",
-            "regex": "^[a-zA-Z0-9]{15}$"
-        }
+   {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Customer Id"
       }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Customer Id",
+        "regex": "^[a-zA-Z0-9]{15}$"
+      }
+    },
+   {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "City",
+        "regex": "^[A-Za-z\\s\\-]+$"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "First Name"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "First Name",
+        "regex": "^[A-Za-z]{1,20}$"
+      }
+    },
+   {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Last Name"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Last Name",
+        "regex": "^[A-Za-z]{1,20}$"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Company"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "City"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "City",
+        "regex": "^[A-Za-z\\s\\-]+$"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Country"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Country",
+        "regex": "^[A-Za-z]+$"
+      }
+    },
+   {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Phone 1"
+      }
+    },
+   {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Phone 1",
+        "regex": "^[+()\\d\\s-]+$"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Phone 2",
+        "regex": "^[+()\\d\\s-]*$"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Email"
+      }
+    },
+   {
+      "expectation_type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "Email"
+      }
+    },
+   {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Email",
+        "regex": "^[^@]+@[^@]+\\.[^@]+$"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "Subscription Date"
+      }
+    },
+   {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Subscription Date",
+        "regex": "^\\d{4}-\\d{2}-\\d{2}$"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "Website",
+        "regex": "^(http|https)://[^\\s/$.?#].[^\\s]*$"
+      }
+    }
   ],
   "metadata": {
     "requested_by": "user@example.com",

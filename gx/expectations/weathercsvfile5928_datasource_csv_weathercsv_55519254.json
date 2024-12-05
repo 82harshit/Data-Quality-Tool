@@ -1,0 +1,9 @@
+{
+  "data_asset_type": null,
+  "expectation_suite_name": "weathercsvfile5928_datasource_csv_weathercsv_55519254",
+  "expectations": [],
+  "ge_cloud_id": null,
+  "meta": {
+    "great_expectations_version": "0.18.21"
+  }
+}

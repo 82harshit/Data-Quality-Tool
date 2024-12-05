@@ -188,6 +188,7 @@ datasources:
         username: merit
     data_connectors:
       default_configured_data_connector_name:
+        name: default_configured_data_connector_name
         class_name: ConfiguredAssetSqlDataConnector
         module_name: great_expectations.datasource.data_connector
         assets:
@@ -196,12 +197,14 @@ datasources:
             module_name: great_expectations.datasource.data_connector.asset
             schema_name: quality_tool
       default_inferred_data_connector_name:
+        name: default_inferred_data_connector_name
         class_name: InferredAssetSqlDataConnector
         module_name: great_expectations.datasource.data_connector
         include_schema_name: true
         introspection_directives:
           schema_name: quality_tool
       default_runtime_data_connector_name:
+        name: default_runtime_data_connector_name
         class_name: RuntimeDataConnector
         module_name: great_expectations.datasource.data_connector
         batch_identifiers:
@@ -250,6 +253,82 @@ datasources:
           pattern: (.*)
       default_runtime_data_connector_name:
         name: default_runtime_data_connector_name
+        class_name: RuntimeDataConnector
+        module_name: great_expectations.datasource.data_connector
+        assets:
+          my_runtime_asset_name:
+            class_name: Asset
+            module_name: great_expectations.datasource.data_connector.asset
+            batch_identifiers:
+              - runtime_batch_identifier_name
+  weather.csv_file_6849:
+    class_name: Datasource
+    module_name: great_expectations.datasource
+    execution_engine:
+      class_name: PandasExecutionEngine
+      module_name: great_expectations.execution_engine
+    data_connectors:
+      default_inferred_data_connector_name:
+        name: default_inferred_data_connector_name
+        class_name: InferredAssetFilesystemDataConnector
+        module_name: great_expectations.datasource.data_connector
+        base_directory: C:\Data Quality Tool\gx\data_source
+        default_regex:
+          group_names:
+            - data_asset_name
+          pattern: (.*)
+      default_runtime_data_connector_name:
+        name: default_runtime_data_connector_name
+        class_name: RuntimeDataConnector
+        module_name: great_expectations.datasource.data_connector
+        assets:
+          my_runtime_asset_name:
+            class_name: Asset
+            module_name: great_expectations.datasource.data_connector.asset
+            batch_identifiers:
+              - runtime_batch_identifier_name
+  weather.csv_file_5966:
+    class_name: Datasource
+    module_name: great_expectations.datasource
+    execution_engine:
+      class_name: PandasExecutionEngine
+      module_name: great_expectations.execution_engine
+    data_connectors:
+      default_inferred_data_connector_name:
+        name: default_inferred_data_connector_name
+        class_name: InferredAssetFilesystemDataConnector
+        module_name: great_expectations.datasource.data_connector
+        base_directory: C:\Data Quality Tool\gx\data_source
+        default_regex:
+          group_names:
+            - data_asset_name
+          pattern: (.*)
+      default_runtime_data_connector_name:
+        name: default_runtime_data_connector_name
+        class_name: RuntimeDataConnector
+        module_name: great_expectations.datasource.data_connector
+        assets:
+          my_runtime_asset_name:
+            class_name: Asset
+            module_name: great_expectations.datasource.data_connector.asset
+            batch_identifiers:
+              - runtime_batch_identifier_name
+  weathercsvfile5928:
+    class_name: Datasource
+    module_name: great_expectations.datasource
+    execution_engine:
+      class_name: PandasExecutionEngine
+      module_name: great_expectations.execution_engine
+    data_connectors:
+      default_inferred_data_connector_name:
+        class_name: InferredAssetFilesystemDataConnector
+        module_name: great_expectations.datasource.data_connector
+        base_directory: C:\Data Quality Tool\gx\data_source
+        default_regex:
+          group_names:
+            - data_asset_name
+          pattern: (.*)
+      default_runtime_data_connector_name:
         class_name: RuntimeDataConnector
         module_name: great_expectations.datasource.data_connector
         assets:

@@ -2,6 +2,7 @@ from typing import List, Optional
 import yaml
 import json
 import os
+import random
 
 import great_expectations as gx
 from great_expectations.cli.datasource import sanitize_yaml_and_save_datasource
@@ -10,7 +11,7 @@ from great_expectations.checkpoint import SimpleCheckpoint
 from great_expectations.exceptions import DataContextError
 
 from request_models import connection_enum_and_metadata as conn_enum
-from utils import find_validation_result
+from utils import find_validation_result, remove_special_characters
 from logging_config import dqt_logger
 
 
@@ -209,7 +210,7 @@ class GreatExpectationsModel:
             sanitize_yaml_and_save_datasource(self.ge_context, config_yaml, overwrite_existing=True)
             info_msg = "Tested and saved datasource config"
             # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
-            dqt_logger.info("Tested and saved datasource config")
+            dqt_logger.info(info_msg)
         except Exception as e:
             error_msg = f"Datasource could not be created\n{str(e)}"
             dqt_logger.error(error_msg)
@@ -417,7 +418,14 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
     
     :return checkpoint_results (json): The generated validation results
     """
-    expectation_suite_name_db = f"{datasource_name}_{username}_{table_name}_{port}_{hostname}" # expectation suite name format for db
+    rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
+    # removing special characters
+    datasource_name = remove_special_characters(datasource_name)
+    username = remove_special_characters(username)
+    table_name = remove_special_characters(table_name)
+    port = remove_special_characters(port)
+    
+    expectation_suite_name_db = f"{datasource_name}_{username}_{table_name}_{port}_{rand_int}" # expectation suite name format for db
     
     ge = GreatExpectationsModel(quality_checks=quality_checks)
     ge_sql = ge.GE_SQL_Datasource(datasource_type=datasource_type, host=hostname, password=password, 
@@ -456,7 +464,14 @@ def run_quality_check_for_file(datasource_type: str, datasource_name: str, dir_p
     :return checkpoint_results (json): The generated validation results
     """
     dir_name = os.path.basename(dir_path) # extract name of dir from dir_path to create expectation_suite_name
-    expectation_suite_name_file = f"{datasource_name}_{dir_name}_{datasource_type}_{file_name}" # expectation suite name format for file
+    rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
+    
+    # removing special characters
+    datasource_name = remove_special_characters(datasource_name)
+    dir_name = remove_special_characters(dir_name)
+    file_name = remove_special_characters(file_name)
+    
+    expectation_suite_name_file = f"{datasource_name}_{dir_name}_{datasource_type}_{file_name}_{rand_int}" # expectation suite name format for file
     
     ge = GreatExpectationsModel(quality_checks=quality_checks)
     ge_file = ge.GE_File_Datasource(datasource_name=datasource_name, datasource_type=datasource_type, dir_name=dir_path)

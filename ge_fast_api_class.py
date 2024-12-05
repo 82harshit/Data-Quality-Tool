@@ -1,6 +1,7 @@
 from typing import Optional
 from fast_api import HTTPException
 import json
+import random
 
 from database.db_models import table_db, file_db
 from great_exp.great_exp_model import run_quality_check_for_file, run_quality_checks_for_db
@@ -162,7 +163,8 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
             table_name = job.data_source.table_name
             database = user_conn_creds.get('database')
 
-            datasource_name = f"{table_name}_table"
+            rand_int = random.randint(1000, 9999) # random 4 digit integer
+            datasource_name = f"{table_name}_table_{rand_int}"
 
             try:
                 # table_db.TableDatabase.create_user_and_grant_read_access(hostname="%",username=username,
@@ -174,7 +176,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
                                                             username=username,table_name=table_name,
                                                             datasource_name=datasource_name,
                                                             datasource_type=datasource_type,
-                                                            schema_name=database)
+                                                            schema_name=datasource_name)
                 validation_results = json.loads(str(validation_results)) # converting the result in JSON format
                 
                 # table_db.TableDatabase.revoke_access_and_delete_user(hostname="%",username=username,
@@ -185,16 +187,11 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
                 dqt_logger.error(error_msg)
             
         elif datasource_type in conn_enum.File_Datasource_Enum.__members__.values():
-            # user_ssh_conn = await self.db_instance.connect_to_server_SSH(username=username, password=password, server=hostname, port=port)
-        
             dir_path = job.data_source.dir_path
-            # dir_name = os.path.basename(dir_path)
             file_name = job.data_source.file_name
-
-            # file_path = f"{dir_path}/{file_name}"
-            # columns = await self.db_instance.read_file_columns(conn=user_ssh_conn,file_path=file_path)
-        
-            datasource_name = f"{file_name}_file"
+            
+            rand_int = random.randint(1000, 9999) # random 4 digit integer
+            datasource_name = f"{file_name}_file_{rand_int}"
 
             try:
                 validation_results = run_quality_check_for_file(datasource_type=datasource_type, 
