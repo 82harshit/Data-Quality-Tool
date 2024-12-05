@@ -7,7 +7,7 @@ from database import app_connection
 
 class TableDatabase(user_credentials_db.UserCredentialsDatabase):
     def __init__(self, hostname: str, username: str, password: str, port: int, database: str, connection_type: str):
-        super().__init__(hostname, username, password, port, database, connection_type)
+        super().__init__(hostname=hostname, username=username, password=password, port=port, database=database, connection_type=connection_type)
 
     @staticmethod
     def create_user_and_grant_read_access(hostname: str, username: str, database_name: str, table_name: str, password: str) -> None: 

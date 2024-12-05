@@ -10,8 +10,8 @@ from logging_config import dqt_logger
 
 
 class FileDatabase(user_credentials_db.UserCredentialsDatabase):
-    def __init__(self, hostname, username, password, port, database, connection_type, file_name: str, dir_path: str):
-        super().__init__(hostname, username, password, port, database, connection_type)
+    def __init__(self, hostname: str, username: str, password: str, port: int, database: str, connection_type: str, file_name: str, dir_path: str):
+        super().__init__(hostname=hostname, username=username, password=password, port=port, database=database, connection_type=connection_type)
         self.file_name = file_name
         self.dir_path = dir_path
 

@@ -119,8 +119,13 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
         if user_exists:
             try:
                 user_conn_creds = self.db_instance.get_user_credentials(unique_connection_name=self.unique_connection_name)
-                dqt_logger.debug(f"retrieved user connection credentials: {user_conn_creds}")
-                return user_conn_creds            
+                if user_conn_creds:
+                    dqt_logger.debug(f"Retrieved user connection credentials: {user_conn_creds}")
+                    return user_conn_creds       
+                else:
+                    error_msg = "No user connection credentials retrieved"
+                    dqt_logger.error(error_msg)
+                    raise HTTPException(status_code=500, detail=error_msg)     
             except Exception as conn_cred_retrieval_error:
                 error_msg = f"An error occurred, could not retrieve user connection credentials\n{str(conn_cred_retrieval_error)}"
                 dqt_logger.error(error_msg)
