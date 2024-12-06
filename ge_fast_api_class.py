@@ -4,7 +4,7 @@ import json
 import random
 
 from database.db_models import table_db, file_db
-from great_exp.great_exp_model import run_quality_check_for_file, run_quality_checks_for_db
+from great_exp.great_exp_model import run_quality_checks_for_file, run_quality_checks_for_db
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
 from utils import generate_connection_name, generate_connection_string
 from interfaces import ge_api_interface
@@ -215,7 +215,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
             datasource_name = f"{file_name}_file_{rand_int}"
 
             try:
-                validation_results = run_quality_check_for_file(datasource_type=datasource_type, 
+                validation_results = run_quality_checks_for_file(datasource_type=datasource_type, 
                                                                 datasource_name=datasource_name, 
                                                                 file_name=file_name, dir_path=dir_path,
                                                                 quality_checks=quality_checks)

@@ -18,15 +18,11 @@ from logging_config import dqt_logger
 
 
 class GreatExpectationsModel:
-    def __init__(self, quality_checks: List[dict]):
+    def __init__(self):
         """
-        Initializes the quality_checks and creates a new great_expectations context 
-        
-        :param quality_checks (List[dict]): The list of expectations to validate
+        Creates a new great_expectations context 
         """
         self.ge_context = gx.get_context()
-        self.quality_checks = quality_checks
-
 
     class GE_SQL_Datasource:
         def __init__(self, datasource_type: str, datasource_name: str, host: str, 
@@ -421,15 +417,10 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
     :return checkpoint_results (json): The generated validation results
     """
     rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
-    # removing special characters
-    datasource_name = remove_special_characters(datasource_name)
-    username = remove_special_characters(username)
-    table_name = remove_special_characters(table_name)
-    port = remove_special_characters(port)
-    
+
     expectation_suite_name_db = f"{datasource_name}_{username}_{table_name}_{port}_{rand_int}" # expectation suite name format for db
     
-    ge = GreatExpectationsModel(quality_checks=quality_checks)
+    ge = GreatExpectationsModel()
     ge_sql = ge.GE_SQL_Datasource(datasource_type=datasource_type, host=hostname, password=password, 
                                     username=username, database=database, schema_name=schema_name, 
                                     datasource_name=datasource_name, port=port, table_name=table_name)
@@ -438,11 +429,11 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
     ge.create_datasource(config_yaml=database_config_yaml)
     ge.create_or_load_expectation_suite(expectation_suite_name=expectation_suite_name_db)
     batch_request_json = ge.create_batch_request_json_for_db(datasource_name=datasource_name,
-                                            data_asset_name=table_name,
-                                            limit=batch_limit)
+                                                            data_asset_name=table_name,
+                                                            limit=batch_limit)
     db_validator = ge.create_validator(expectation_suite_name=expectation_suite_name_db, 
                                         batch_request=batch_request_json)
-    ge.add_expectations_to_validator(validator=db_validator, expectations=ge.quality_checks)
+    ge.add_expectations_to_validator(validator=db_validator, expectations=quality_checks)
     checkpoint_results = ge.create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name_db,
                                                             batch_request=batch_request_json,
                                                             validator=db_validator)
@@ -450,7 +441,7 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
     return validation_results
 
 
-def run_quality_check_for_file(datasource_type: str, datasource_name: str, dir_path: str, quality_checks: List[dict], 
+def run_quality_checks_for_file(datasource_type: str, datasource_name: str, dir_path: str, quality_checks: List[dict], 
                             file_name: str, batch_limit: Optional[int] = 0) -> json:
     """
     Triggers the functions of great_expectations library in the required sequence
@@ -468,14 +459,9 @@ def run_quality_check_for_file(datasource_type: str, datasource_name: str, dir_p
     dir_name = os.path.basename(dir_path) # extract name of dir from dir_path to create expectation_suite_name
     rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
     
-    # removing special characters
-    datasource_name = remove_special_characters(datasource_name)
-    dir_name = remove_special_characters(dir_name)
-    file_name = remove_special_characters(file_name)
-    
     expectation_suite_name_file = f"{datasource_name}_{dir_name}_{datasource_type}_{file_name}_{rand_int}" # expectation suite name format for file
     
-    ge = GreatExpectationsModel(quality_checks=quality_checks)
+    ge = GreatExpectationsModel()
     ge_file = ge.GE_File_Datasource(datasource_name=datasource_name, datasource_type=datasource_type, dir_name=dir_path)
     
     file_config_yaml = ge_file.get_file_config()
