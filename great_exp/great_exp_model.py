@@ -32,7 +32,7 @@ class GreatExpectationsModel:
             Initializes instance variables
 
             
-            :param datasource_type (str): The type of the datasource (database or file)
+            :param datasource_type (str): The type of the datasource (mysql, postgres, redshift, etc.)
             :param datasource_name (str): The name of the datasource
             :param host (str): The address of the host
             :param port (int): The port number of the host to connect
@@ -206,8 +206,43 @@ class GreatExpectationsModel:
             JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
             return datasource_config_for_pandas_yaml
 
-        def __get_pyspark_datasource_config():
-            pass
+        def __get_pyspark_datasource_config(self) -> yaml:
+            """
+            Creates a JSON file with the predefined configurations for great_expectations library for pyspark.
+
+            :return datasource_config_for_pyspark_yaml (yaml): The config file for pyspark converted to YAML
+            """
+            datasource_config_for_pyspark_json = {
+            "name": self.datasource_name,
+            "class_name": "Datasource",
+            "execution_engine": {
+                "class_name": "SparkDFExecutionEngine"
+            },
+            "data_connectors": {
+                "default_inferred_data_connector_name": {
+                "class_name": "InferredAssetFilesystemDataConnector",
+                "base_directory": self.dir_name,
+                "default_regex": {
+                    "group_names": ["data_asset_name"],
+                    "pattern": "(.*)"
+                    }
+                },
+                "default_runtime_data_connector_name": {
+                    "class_name": "RuntimeDataConnector",
+                    "assets": {
+                        "my_runtime_asset_name": {
+                            "batch_identifiers": ["runtime_batch_identifier_name"]
+                            }
+                        }
+                    }
+                }
+            }
+
+            datasource_config_for_pyspark_yaml = yaml.dump(datasource_config_for_pyspark_json)
+            info_msg = "Created datasource config for pyspark"
+            dqt_logger.info(info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            return datasource_config_for_pyspark_yaml
 
 
     def create_datasource(self, config_yaml: yaml) -> None:
