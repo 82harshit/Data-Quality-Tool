@@ -44,7 +44,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
             dir_path = connection.connection_credentials.dir_path
 
             file_db_obj = file_db.FileDatabase(hostname=hostname, username=username, password=password, port=port, 
-                                               dir_path=dir_path, file_name=file_name, database=None,
+                                               dir_path=dir_path, file_name=file_name, database=self.connection_type, # adding connection_type instead of a database name
                                                connection_type=self.connection_type)
             self.db_instance = file_db_obj
         elif self.connection_type in conn_enum.Other_Datasources_Enum.__members__.values():
@@ -70,7 +70,12 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
 
         :return json: Response json containing the connection status and unique connection name
         """
-
+       
+        if self.db_instance is None:
+            warning_msg = "File object not initialized before establising connection"
+            dqt_logger.warning(warning_msg)
+            raise Exception(warning_msg) 
+        
         self.db_instance.connect_to_db() # create connection the credentials database
         unique_connection_name = generate_connection_name(connection=connection) # create unique connection name
         connection_string = generate_connection_string(connection=connection) # create connection string
@@ -90,16 +95,16 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
                 result = await self.db_instance.search_file_on_server()
 
                 if not result["file_found"]:
-                    error_msg = f"{expected_extension.upper()} file not found on server."
+                    error_msg = f"{file_name} file not found on server."
                     dqt_logger.error(error_msg)
                     raise HTTPException(status_code=404, detail=error_msg)
                 
-                dqt_logger.debug(f"{expected_extension.upper()} connection details insertion completed.")
+                dqt_logger.info(f"{file_name} connection details insertion completed.")
             except Exception as e:
-                error_msg = f"Error processing {expected_extension.upper()} connection: {str(e)}"
+                error_msg = f"Error processing {file_name} connection: {str(e)}"
                 dqt_logger.error(error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
-            
+        
         self.db_instance.insert_in_db(unique_connection_name=unique_connection_name,connection_string=connection_string)
         self.db_instance.close_db_connection()
         return unique_connection_name

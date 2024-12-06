@@ -96,7 +96,7 @@ class DataQuality:
                 error_msg = "Error: 'results' key not found in the response"
                 dqt_logger.error(error_msg)
                 self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
-                return
+                raise Exception(error_msg)
  
             # Extract batch details from metadata
             results = json_response['results']
@@ -104,7 +104,7 @@ class DataQuality:
                 error_msg = "Error: No results found in the response"
                 dqt_logger.error(error_msg)
                 self.job_state.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
-                return
+                raise Exception(error_msg)
  
             batch_id = results[0]['expectation_config']['kwargs']['batch_id']
             batch_date = datetime.now().date()  # Assuming current date for simplicity
