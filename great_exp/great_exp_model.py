@@ -11,7 +11,7 @@ from great_expectations.checkpoint import SimpleCheckpoint
 from great_expectations.exceptions import DataContextError
 
 from request_models import connection_enum_and_metadata as conn_enum
-from utils import find_validation_result, remove_special_characters
+from utils import find_validation_result
 from job_state_singleton import JobStateSingleton
 from database.db_models.job_run_status import Job_Run_Status_Enum
 from logging_config import dqt_logger
@@ -28,7 +28,22 @@ class GreatExpectationsModel:
         def __init__(self, datasource_type: str, datasource_name: str, host: str, 
                      port: int, username: str, password: str, database: str, 
                      schema_name: str, table_name: str):
+            """
+            Initializes instance variables
+
             
+            :param datasource_type (str): The type of the datasource (database or file)
+            :param datasource_name (str): The name of the datasource
+            :param host (str): The address of the host
+            :param port (int): The port number of the host to connect
+            :param username (str): The name of the user that wants to connect
+            :param password (str): The password of the user that wants to connect
+            :param database (str): The name of the database the user wants to connect
+            :param schema_name (str): The name of the database schema
+            :param table_name (str): The name of the table in the database to connect
+            
+            :return: None
+            """
             self.datasource_type = datasource_type
             self.datasource_name = datasource_name
             self.host = host
