@@ -113,7 +113,7 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
             if not db_exists:
                 error_msg = "Trying to connect to a database that does not exist on the given server"
                 dqt_logger.error(error_msg)
-                raise Exception(error_msg)
+                raise HTTPException(status_code=500, detail=error_msg)
                 
         self.db_instance.insert_in_db(unique_connection_name=unique_connection_name,connection_string=connection_string)
         dqt_logger.info("Connection details insertion completed")
