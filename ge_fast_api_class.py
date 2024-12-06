@@ -8,6 +8,9 @@ from great_exp.great_exp_model import run_quality_check_for_file, run_quality_ch
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
 from utils import generate_connection_name, generate_connection_string
 from interfaces import ge_api_interface
+from database import sql_queries as query_template
+from database.db_models.sql_query import SQLQuery
+from database.app_connection import get_app_db_connection_object
 from logging_config import dqt_logger
 
 
@@ -92,20 +95,28 @@ class GE_Fast_API(ge_api_interface.GE_API_Interface):
                     raise HTTPException(status_code=400, detail=error_msg)
 
                 # Search for the file on the server
-                result = await self.db_instance.search_file_on_server()
+                search_result = await self.db_instance.search_file_on_server()
 
-                if not result["file_found"]:
+                if not search_result["file_found"]:
                     error_msg = f"{file_name} file not found on server."
                     dqt_logger.error(error_msg)
                     raise HTTPException(status_code=404, detail=error_msg)
-                
-                dqt_logger.info(f"{file_name} connection details insertion completed.")
             except Exception as e:
                 error_msg = f"Error processing {file_name} connection: {str(e)}"
                 dqt_logger.error(error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
-        
+        else: # for database
+            database_name = connection.connection_credentials.database
+            # check if database exists before inserting credentials
+            check_if_db_exists_query = query_template.CHECK_IF_DB_EXISTS.format(database_name)
+            db_exists = SQLQuery(db_connection=get_app_db_connection_object(), query=check_if_db_exists_query).execute_query()
+            if not db_exists:
+                error_msg = "Trying to connect to a database that does not exist on the given server"
+                dqt_logger.error(error_msg)
+                raise Exception(error_msg)
+                
         self.db_instance.insert_in_db(unique_connection_name=unique_connection_name,connection_string=connection_string)
+        dqt_logger.info("Connection details insertion completed")
         self.db_instance.close_db_connection()
         return unique_connection_name
     
