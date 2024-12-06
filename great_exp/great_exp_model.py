@@ -123,34 +123,82 @@ class GreatExpectationsModel:
                     }
                 }
             }
+            
             datasource_config_for_mysql_yaml = yaml.dump(datasource_config_for_mysql_json)
             info_msg = "Created datasource config for mysql"
             dqt_logger.info(info_msg)
             JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
             return datasource_config_for_mysql_yaml
 
-        def __get_postgres_datasource_config():
+        def __get_postgres_datasource_config(self) -> yaml:
+            """
+            Creates a JSON file with the predefined configurations for great_expectations library for postgres.
+
+            :return datasource_config_for_postgres_yaml (yaml): The config file for postgres converted to YAML
+            """
+            datasource_config_for_postgres_json = {
+                "name": self.datasource_name,
+                "class_name": "Datasource",
+                "execution_engine": {
+                    "class_name": "SqlAlchemyExecutionEngine",
+                    "credentials": {
+                    "host": self.host,
+                    "port": self.port,
+                    "username": self.username,
+                    "password": self.password,
+                    "database": self.database,
+                    "drivername": "postgresql"
+                    }
+                },
+                "data_connectors": {
+                    "default_runtime_data_connector_name": {
+                    "class_name": "RuntimeDataConnector",
+                    "batch_identifiers": ["default_identifier_name"]
+                    },
+                        "default_inferred_data_connector_name": {
+                        "class_name": "InferredAssetSqlDataConnector",
+                        "include_schema_name": True,
+                        "introspection_directives": {
+                            "schema_name": self.schema_name
+                        }
+                    },
+                        "default_configured_data_connector_name": {
+                            "class_name": "ConfiguredAssetSqlDataConnector",
+                            "assets": {
+                                self.table_name: {
+                                "class_name": "Asset",
+                                "schema_name": self.schema_name
+                                }
+                            }
+                        }
+                    }
+                }
+
+            datasource_config_for_postgres_yaml = yaml.dump(datasource_config_for_postgres_json)
+            info_msg = "Created datasource config for postgres"
+            dqt_logger.info(info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            return datasource_config_for_postgres_yaml
+
+        def __get_redshift_datasource_config(self) -> yaml:
             pass
 
-        def __get_redshift_datasource_config():
+        def __get_snowflake_datasource_config(self) -> yaml:
             pass
 
-        def __get_snowflake_datasource_config():
+        def __get_bigquery_datasource_config(self) -> yaml:
             pass
 
-        def __get_bigquery_datasource_config():
+        def __get_trino_database_config(self) -> yaml:
             pass
 
-        def __get_trino_database_config():
+        def __get_athena_database_config(self) -> yaml:
             pass
 
-        def __get_athena_database_config():
+        def __get_clickhouse_database_config(self) -> yaml:
             pass
 
-        def __get_clickhouse_database_config():
-            pass
-
-        def __get_other_database_config():
+        def __get_other_database_config(self) -> yaml:
             pass
 
 
