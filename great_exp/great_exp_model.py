@@ -181,9 +181,195 @@ class GreatExpectationsModel:
             return datasource_config_for_postgres_yaml
 
         def __get_redshift_datasource_config(self) -> yaml:
-            pass
+            """
+            Creates a JSON file with the predefined configurations for great_expectations library for mysql.
+
+            :return datasource_config_for_mysql_yaml (yaml): The config file for mysql converted to YAML
+            """
+            datasource_config_for_redshift_json = {
+                "name": self.datasource_name,
+                "class_name": "Datasource",
+                "execution_engine": {
+                    "class_name": "SqlAlchemyExecutionEngine",
+                    "credentials": {
+                    "host": self.host,
+                    "port": self.port,
+                    "username": self.username,
+                    "password": self.password,
+                    "database": self.database,
+                    "query": {
+                        "sslmode": "prefer"
+                    },
+                    "drivername": "postgresql+psycopg2"
+                    }
+                },
+                "data_connectors": {
+                        "default_runtime_data_connector_name": {
+                        "class_name": "RuntimeDataConnector",
+                        "batch_identifiers": ["default_identifier_name"]
+                        },
+                        "default_inferred_data_connector_name": {
+                        "class_name": "InferredAssetSqlDataConnector",
+                        "include_schema_name": True,
+                            "introspection_directives": {
+                                "schema_name": self.schema_name}
+                            }
+                        },
+                        "default_configured_data_connector_name": {
+                        "class_name": "ConfiguredAssetSqlDataConnector",
+                        "assets": {
+                            self.table_name: {
+                            "class_name": "Asset",
+                            "schema_name": self.schema_name
+                            }
+                        }
+                    }
+                }
+            
+            datasource_config_for_redshift_yaml = yaml.dump(datasource_config_for_redshift_json)
+            info_msg = "Created datasource config for postgres"
+            dqt_logger.info(info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            return datasource_config_for_redshift_yaml 
 
         def __get_snowflake_datasource_config(self) -> yaml:
+            """FUTURE: Make changes in input params to implement for all three mechanisms of snowflake:
+            1. User and Password
+            2. Single sign-on (SSO)
+            3. Key pair authentication
+            Also include an if condition
+            """
+            
+            datasource_config_for_snowflake_user_and_password_json = {
+                "name": self.datasource_name,
+                "class_name": "Datasource",
+                    "execution_engine": {
+                        "class_name": "SqlAlchemyExecutionEngine",
+                        "credentials": {
+                        "host": self.host,
+                        "username": self.username,
+                        "database": self.database,
+                        "query": {
+                            "schema": self.schema_name,
+                            "warehouse": "{warehouse}",
+                            "role": "{role}"
+                        },
+                        "password": self.password,
+                        "drivername": "snowflake"
+                        }
+                    },
+                    "data_connectors": {
+                        "default_runtime_data_connector_name": {
+                        "class_name": "RuntimeDataConnector",
+                        "batch_identifiers": ["default_identifier_name"]
+                        },
+                        "default_inferred_data_connector_name": {
+                        "class_name": "InferredAssetSqlDataConnector",
+                        "include_schema_name": True,
+                            "introspection_directives": {
+                                "schema_name": self.schema_name
+                            }
+                        },
+                        "default_configured_data_connector_name": {
+                        "class_name": "ConfiguredAssetSqlDataConnector",
+                        "assets": {
+                            self.table_name: {
+                            "class_name": "Asset",
+                            "schema_name": self.schema_name
+                            }
+                        }
+                        }
+                    }
+                }
+        
+
+            datasource_config_for_snowflake_sso_json = {
+                "name": self.datasource_name,
+                "class_name": "Datasource",
+                    "execution_engine": {
+                        "class_name": "SqlAlchemyExecutionEngine",
+                        "credentials": {
+                        "host": self.host,
+                        "username": self.username,
+                        "database": self.database,
+                        "query": {
+                            "schema": self.schema_name,
+                            "warehouse": "{warehouse}",
+                            "role": "{role}"
+                        },
+                        "connect_args": {
+                            "authenticator": "{authenticator_url}"
+                        },
+                        "drivername": "snowflake"
+                        }
+                    },
+                    "data_connectors": {
+                        "default_runtime_data_connector_name": {
+                        "class_name": "RuntimeDataConnector",
+                        "batch_identifiers": ["default_identifier_name"]
+                        },
+                        "default_inferred_data_connector_name": {
+                        "class_name": "InferredAssetSqlDataConnector",
+                        "include_schema_name": True,
+                            "introspection_directives": {
+                                "schema_name": self.schema_name
+                            }
+                        },
+                        "default_configured_data_connector_name": {
+                        "class_name": "ConfiguredAssetSqlDataConnector",
+                            "assets": {
+                                self.table_name: {
+                                "class_name": "Asset",
+                                "schema_name": self.schema_name
+                                }
+                            }
+                        }
+                    }
+                }
+            
+            datasource_config_for_snowflake_key_pair_auth_json = {
+                "name": self.datasource_name,
+                "class_name": "Datasource",
+                    "execution_engine": {
+                        "class_name": "SqlAlchemyExecutionEngine",
+                        "credentials": {
+                        "host": self.host,
+                        "username": self.username,
+                        "database": self.database,
+                        "query": {
+                            "schema": self.schema_name,
+                            "warehouse": "{warehouse}",
+                            "role": "{role}"
+                        },
+                        "private_key_path": "{private_key_path}",
+                        "private_key_passphrase": "{private_key_passphrase}",
+                        "drivername": "snowflake"
+                        }
+                    },
+                    "data_connectors": {
+                        "default_runtime_data_connector_name": {
+                        "class_name": "RuntimeDataConnector",
+                        "batch_identifiers": ["default_identifier_name"]
+                        },
+                        "default_inferred_data_connector_name": {
+                        "class_name": "InferredAssetSqlDataConnector",
+                        "include_schema_name": True,
+                            "introspection_directives": {
+                                "schema_name": self.schema_name
+                            }
+                        },
+                        "default_configured_data_connector_name": {
+                        "class_name": "ConfiguredAssetSqlDataConnector",
+                            "assets": {
+                                self.table_name: {
+                                "class_name": "Asset",
+                                "schema_name": self.schema_name
+                                }
+                            }
+                        }
+                    }
+                }
+            
             pass
 
         def __get_bigquery_datasource_config(self) -> yaml:

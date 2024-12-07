@@ -9,3 +9,5 @@ fastavro==1.9.7
 pyorc==0.9.0
 pyspark==3.5.3
 psycopg2-binary==2.9.10
+sqlalchemy-redshift==0.8.14
+snowflake-sqlalchemy==1.7.1
