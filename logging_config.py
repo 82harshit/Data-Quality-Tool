@@ -58,4 +58,3 @@ logging_config = {
 logging.config.dictConfig(logging_config)
 
 dqt_logger = logging.getLogger('dqt_logger')
-ge_logger = logging.getLogger('dqt_logger')
