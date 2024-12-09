@@ -1,15 +1,15 @@
 import pymysql
 from fastapi import HTTPException 
+
 from logging_config import dqt_logger
 from utils import get_cred_db_connection_config
 
 
-@staticmethod
 def get_app_db_connection_object():
     """
     Connects to MySQL database using the login credentials from 'database_config.ini'
 
-    :return obj: Connection object of MySQL database
+    :return pymysql.connections.Connection: Connection object of MySQL database
     """
 
     # app user logging in user_credentials database
@@ -32,10 +32,9 @@ def get_app_db_connection_object():
         dqt_logger.info("Successfully connected to app db")
         return mysql_connection_object_for_app
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"Error connecting to database: {str(e)}")
+        dqt_logger.error(f"App database connection error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to connect to app database")
 
-
-@staticmethod
 def get_connection_object_for_db(database: str):
     """
     Connects to MySQL database using the login credentials from 'database_config.ini'
@@ -43,7 +42,7 @@ def get_connection_object_for_db(database: str):
 
     :param database (str): Name of the database to connect to
     
-    :return obj: Connection object of MySQL database
+    :return pymysql.connections.Connection: Connection object of MySQL database
     """
     
     # app user logging in user_credentials database
@@ -65,5 +64,6 @@ def get_connection_object_for_db(database: str):
         dqt_logger.info(f"Successfully connected to db: {database}")
         return mysql_connection_object_for_db
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"Error connecting to database: {str(e)}")
+        dqt_logger.error(f"Database connection error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to connect to database")
     

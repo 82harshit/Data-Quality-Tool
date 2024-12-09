@@ -1,20 +1,22 @@
-from typing import List, Optional
-import yaml
 import json
 import os
 import random
+from typing import Dict, List, Optional, Union
+import uuid
+import yaml
 
 import great_expectations as gx
 from great_expectations.cli.datasource import sanitize_yaml_and_save_datasource
 from great_expectations.core.batch import BatchRequest
 from great_expectations.checkpoint import SimpleCheckpoint
 from great_expectations.exceptions import DataContextError
+from great_expectations.validator.validator import Validator
 
+from database.db_models.job_run_status import Job_Run_Status_Enum
+from job_state_singleton import JobStateSingleton
+from logging_config import dqt_logger
 from request_models import connection_enum_and_metadata as conn_enum
 from utils import find_validation_result
-from job_state_singleton import JobStateSingleton
-from database.db_models.job_run_status import Job_Run_Status_Enum
-from logging_config import dqt_logger
 
 
 class GreatExpectationsModel:
@@ -24,14 +26,21 @@ class GreatExpectationsModel:
         """
         self.ge_context = gx.get_context()
 
-    class GE_SQL_Datasource:
-        def __init__(self, datasource_type: str, datasource_name: str, host: str, 
-                     port: int, username: str, password: str, database: str, 
-                     schema_name: str, table_name: str):
+    class GESQLDatasource:
+        def __init__(self, 
+                     datasource_type: str, 
+                     datasource_name: str, 
+                     host: str, 
+                     port: int, 
+                     username: str, 
+                     password: str, 
+                     database: str, 
+                     schema_name: str, 
+                     table_name: str
+            ):
             """
             Initializes instance variables
 
-            
             :param datasource_type (str): The type of the datasource (mysql, postgres, redshift, etc.)
             :param datasource_name (str): The name of the datasource
             :param host (str): The address of the host
@@ -57,6 +66,8 @@ class GreatExpectationsModel:
         def get_database_config(self) -> yaml:
             """
             Returns the correct YAML config based on the datasource type
+            
+            :return: A YAML configuration for the datasource
             """
             if self.datasource_type == conn_enum.Database_Datasource_Enum.MYSQL:
                 return self.__get_mysql_datasource_config()
@@ -75,8 +86,8 @@ class GreatExpectationsModel:
             elif self.datasource_type == conn_enum.Database_Datasource_Enum.CLICKHOUSE:
                 return self.__get_clickhouse_database_config()
             else:
+                dqt_logger.warning(f"Unhandled datasource type: {self.datasource_type}")
                 return self.__get_other_database_config()
-
 
         def __get_mysql_datasource_config(self) -> yaml:
             """
@@ -370,50 +381,51 @@ class GreatExpectationsModel:
                     }
                 }
             
-            pass
+            raise NotImplementedError("Snowflake datasource configuration is not yet implemented.")
 
         def __get_bigquery_datasource_config(self) -> yaml:
-            pass
+            raise NotImplementedError("BigQuery datasource configuration is not yet implemented.")
 
         def __get_trino_database_config(self) -> yaml:
-            pass
+            raise NotImplementedError("Trino datasource configuration is not yet implemented.")
 
         def __get_athena_database_config(self) -> yaml:
-            pass
+            raise NotImplementedError("Athena datasource configuration is not yet implemented.")
 
         def __get_clickhouse_database_config(self) -> yaml:
-            pass
+            raise NotImplementedError("Clickhouse datasource configuration is not yet implemented.")
 
         def __get_other_database_config(self) -> yaml:
-            pass
+            raise NotImplementedError("Other datasource configuration is not yet implemented.")
 
 
-    class GE_File_Datasource:
+    class GEFileDatasource:
         def __init__(self, datasource_name: str, dir_name: str, datasource_type: str):
             self.datasource_name = datasource_name
             self.dir_name = dir_name
             self.datasource_type = datasource_type
 
         def get_file_config(self) -> yaml:
-            if self.datasource_type in conn_enum.File_Datasource_Enum.__members__.values():
+            if self.datasource_type in [item.value for item in conn_enum.File_Datasource_Enum]:
                 return self.__get_pandas_datasource_config()
             elif self.datasource_type == "pyspark": # TODO: Change when pyspark config is added
                 return self.__get_pyspark_datasource_config()
+            else:
+                error_msg = f"Unsupported datasource type: {self.datasource_type}"
+                dqt_logger.error(error_msg)
+                raise ValueError(error_msg)
             
-
-        def __get_pandas_datasource_config(self) -> yaml:
+        def __create_file_datasource_config(self, execution_engine_class: str) -> yaml:
             """
-            Creates a JSON file with the predefined configurations for great_expectations library for pandas.
+            Creates a JSON file with the predefined configurations for great_expectations library for pandas or pyspark.
 
-            :return datasource_config_for_pandas_yaml (yaml): The config file for pandas converted to YAML
+            :return datasource_config_for_file_yaml (yaml): The config file for pandas pr pyspark converted to YAML
             """
             
-            datasource_config_for_pandas_json = {
+            datasource_config_for_file_json = {
                 "name": self.datasource_name,
                 "class_name": "Datasource",
-                "execution_engine": {
-                    "class_name": "PandasExecutionEngine"
-                },
+                "execution_engine": {"class_name": execution_engine_class},
                 "data_connectors": {
                     "default_inferred_data_connector_name": {
                         "class_name": "InferredAssetFilesystemDataConnector",
@@ -426,59 +438,37 @@ class GreatExpectationsModel:
                     "default_runtime_data_connector_name": {
                         "class_name": "RuntimeDataConnector",
                         "assets": {
-                            "my_runtime_asset_name": {
-                                "batch_identifiers": ["runtime_batch_identifier_name"]
-                            }
+                            "my_runtime_asset_name": {"batch_identifiers": ["runtime_batch_identifier_name"]}
                         }
                     }
                 }
             }
 
-            datasource_config_for_pandas_yaml = yaml.dump(datasource_config_for_pandas_json)
-            info_msg = "Created datasource config for pandas"
+            datasource_config_for_file_yaml = yaml.dump(datasource_config_for_file_json)
+            info_msg = f"Created datasource config using {execution_engine_class}"
             dqt_logger.info(info_msg)
             JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
-            return datasource_config_for_pandas_yaml
+            return datasource_config_for_file_yaml
 
+        def __get_pandas_datasource_config(self) -> yaml:
+            """
+            Creates a JSON file with the predefined configurations for great_expectations library for pandas.
+
+            :return datasource_config_for_pandas_yaml (yaml): The config file for pandas converted to YAML
+            """
+            
+            return self.__create_file_datasource_config(execution_engine_class="PandasExecutionEngine")
+            
         def __get_pyspark_datasource_config(self) -> yaml:
             """
             Creates a JSON file with the predefined configurations for great_expectations library for pyspark.
 
             :return datasource_config_for_pyspark_yaml (yaml): The config file for pyspark converted to YAML
             """
-            datasource_config_for_pyspark_json = {
-            "name": self.datasource_name,
-            "class_name": "Datasource",
-            "execution_engine": {
-                "class_name": "SparkDFExecutionEngine"
-            },
-            "data_connectors": {
-                "default_inferred_data_connector_name": {
-                "class_name": "InferredAssetFilesystemDataConnector",
-                "base_directory": self.dir_name,
-                "default_regex": {
-                    "group_names": ["data_asset_name"],
-                    "pattern": "(.*)"
-                    }
-                },
-                "default_runtime_data_connector_name": {
-                    "class_name": "RuntimeDataConnector",
-                    "assets": {
-                        "my_runtime_asset_name": {
-                            "batch_identifiers": ["runtime_batch_identifier_name"]
-                            }
-                        }
-                    }
-                }
-            }
-
-            datasource_config_for_pyspark_yaml = yaml.dump(datasource_config_for_pyspark_json)
-            info_msg = "Created datasource config for pyspark"
-            dqt_logger.info(info_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
-            return datasource_config_for_pyspark_yaml
-
-
+            return self.__create_file_datasource_config(execution_engine_class="SparkDFExecutionEngine")
+          
+          
+          
     def create_datasource(self, config_yaml: yaml) -> None:
         """
         Tests the provided yaml config file for the great_expectations library
@@ -486,6 +476,8 @@ class GreatExpectationsModel:
         :param config_yaml (yaml): The configuration YAML file that needs to be added in the great_expectations.yml file
 
         :return: None
+        
+        :raises Exception: If the datasource could not be created or saved.
         """
         try:
             self.ge_context.test_yaml_config(yaml_config=config_yaml)
@@ -494,14 +486,45 @@ class GreatExpectationsModel:
             JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
             dqt_logger.info(info_msg)
         except Exception as e:
-            error_msg = f"Datasource could not be created\n{str(e)}"
+            error_msg = f"Failed to create datasource. Error: {str(e)}"
             dqt_logger.error(error_msg)
             JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
             raise Exception(error_msg)
-        
+     
+    def __create_batch_request_json_for_datasource(self, 
+                                                   datasource_name: str, 
+                                                   data_asset_name: str, 
+                                                   data_connector_name: str, 
+                                                   limit: Optional[int] = 0
+                                                   ) -> dict:
+        """
+        Creates a batch request json for the given datasource
 
-    def create_batch_request_json_for_db(self, datasource_name: str, data_asset_name: str, 
-                                           limit: Optional[int] = 0) -> dict:
+        :param datasource_name (str): Name of datasource
+        :param data_asset_name (str): Name of table
+        :param data_connector_name (str): Type of the data connector used
+        :param limit (int) [default = 0]: Number of validation batches to be returned
+
+        :return batch_request_json (dict): A dict containing the params required to generate a batch of data
+        """
+        batch_request_json = {'datasource_name': datasource_name, 
+                            'data_connector_name': data_connector_name, 
+                            'data_asset_name': data_asset_name}
+        
+        if limit > 0:
+            batch_request_json['limit'] = limit
+            
+        dqt_logger.debug(f"Created batch request JSON for database:\n{str(batch_request_json)}")
+        info_msg = "Created batch request for JSON for database"
+        dqt_logger.info(info_msg)
+        JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+        return batch_request_json
+
+    def create_batch_request_json_for_db(self, 
+                                         datasource_name: str, 
+                                         data_asset_name: str, 
+                                         limit: Optional[int] = 0
+                                        ) -> dict:
         """
         Creates a batch request json for database
 
@@ -511,27 +534,15 @@ class GreatExpectationsModel:
 
         :return batch_request_json (dict): A dict containing the params required to generate a batch of data
         """
-        batch_request_json = {}
-        
-        if limit == 0:
-            batch_request_json = {'datasource_name': datasource_name, 
-                            'data_connector_name': 'default_configured_data_connector_name', 
-                            'data_asset_name': data_asset_name}
-        else:
-            batch_request_json = {'datasource_name': datasource_name, 
-                            'data_connector_name': 'default_configured_data_connector_name', 
-                            'data_asset_name': data_asset_name, 
-                            'limit': limit}
-            
-        dqt_logger.debug(f"Created batch request JSON for database:\n{str(batch_request_json)}")
-        info_msg = "Created batch request for JSON for database"
-        dqt_logger.info(info_msg)
-        JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
-        return batch_request_json
+        return self.__create_batch_request_json_for_datasource(datasource_name=datasource_name,
+                                                               data_asset_name=data_asset_name,
+                                                               data_connector_name="default_configured_data_connector_name",
+                                                               limit=limit)
     
-
-    def create_batch_request_json_for_file(self, datasource_name: str, data_asset_name: str,
-                                                limit: Optional[int] = 0) -> dict:
+    def create_batch_request_json_for_file(self, datasource_name: str, 
+                                           data_asset_name: str,
+                                           limit: Optional[int] = 0
+                                           ) -> dict:
         """
         Creates a batch request json for file
 
@@ -541,24 +552,10 @@ class GreatExpectationsModel:
 
         :return batch_request_json (dict): A dict containing the params required to generate a batch of data
         """
-        batch_request_json = {}
-
-        if limit == 0:
-            batch_request_json = {'datasource_name': datasource_name, 
-                            'data_connector_name': 'default_inferred_data_connector_name', 
-                            'data_asset_name': data_asset_name}
-        else:
-            batch_request_json = {'datasource_name': datasource_name, 
-                            'data_connector_name': 'default_inferred_data_connector_name', 
-                            'data_asset_name': data_asset_name, 
-                            'limit': limit}
-            
-        dqt_logger.debug(f"Created batch request JSON for file:\n{str(batch_request_json)}")
-        info_msg = "Created batch request JSON for file"
-        dqt_logger.info(info_msg)
-        JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
-        return batch_request_json
-    
+        return self.__create_batch_request_json_for_datasource(datasource_name=datasource_name,
+                                                               data_asset_name=data_asset_name,
+                                                               data_connector_name="default_inferred_data_connector_name",
+                                                               limit=limit)
 
     def create_or_load_expectation_suite(self, expectation_suite_name: str) -> None:
         """
@@ -580,8 +577,7 @@ class GreatExpectationsModel:
             dqt_logger.info(info_msg)
             JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
 
-
-    def create_validator(self, expectation_suite_name: str, batch_request: json):
+    def create_validator(self, expectation_suite_name: str, batch_request: json) -> Optional[Validator]:
         """
         This function creates a validator using a batch request and expectation suite
 
@@ -591,11 +587,11 @@ class GreatExpectationsModel:
         :return validator: A validator used to execute expectations checks
         """
         try:
+            batch_request_obj = BatchRequest(**batch_request)
             validator = self.ge_context.get_validator(
-                batch_request=BatchRequest(**batch_request),
+                batch_request=batch_request_obj,
                 expectation_suite_name=expectation_suite_name
             )
-
             validator.save_expectation_suite(discard_failed_expectations=False)
             info_msg = "Validator created and expectation suite added"
             dqt_logger.info(info_msg)
@@ -607,38 +603,48 @@ class GreatExpectationsModel:
             JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
             raise Exception(error_msg)
 
-    def add_expectations_to_validator(self, validator, expectations: List[dict]) -> None:
+    def add_expectations_to_validator(self, validator, expectations: List[Dict]) -> None:
         """
-        This function adds the provided expectations to the validation suite
+        This function adds the provided expectations to the validation suite.
 
-        :param validator: Validator object
-        :param expectations (List[dict]): List of expectations
+        :param validator: Validator object.
+        :param expectations (List[dict]): List of expectations.
 
         :return: None
         """
-        
-        if len(expectations) == 0:
+        if not expectations:
             error_msg = "An error occured while adding expectations to expectation_suite: No expectations provided"
             dqt_logger.error(error_msg)
             JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
-            raise Exception(error_msg)
+            raise ValueError(error_msg)
         
-        # adding expectations to the validator
+        # Add expectations to the validator
         for expectation in expectations:
-            expectation_type = expectation.expectation_type
-            kwargs = expectation.kwargs
-
-            expectation_func = getattr(validator, expectation_type)
-            expectation_func(**kwargs)
+            try:
+                expectation_type = expectation.expectation_type
+                kwargs = expectation.kwargs
+                if not expectation_type or not isinstance(kwargs, dict):
+                    raise ValueError(f"Invalid expectation format: {expectation}")
+                
+                # Dynamically call the appropriate expectation method
+                expectation_func = getattr(validator, expectation_type, None)
+                if not expectation_func:
+                    raise AttributeError(f"Expectation type '{expectation_type}' is not supported.")
+                
+                expectation_func(**kwargs)
+            except Exception as e:
+                error_msg = f"Error adding expectation: {expectation}\n{str(e)}"
+                JobStateSingleton.update_state_of_job_id(Job_Run_Status_Enum.ERROR, error_msg)
+                raise ValueError(error_msg)
             
-        # saving expectation suite
+        # Save the updated expectation suite
         validator.save_expectation_suite(discard_failed_expectations=False)
         info_msg = "Successfully added expectations"
         dqt_logger.info(info_msg)
         JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
 
 
-    def create_and_execute_checkpoint(self, expectation_suite_name: str, validator, batch_request: json) -> json:
+    def create_and_execute_checkpoint(self, expectation_suite_name: str, validator: Validator, batch_request: json) -> json:
         """
         This function creates a new checkpoint and executes it.
         A great_expectations checkpoint includes a batch of data that needs to be validated,
@@ -680,6 +686,97 @@ class GreatExpectationsModel:
             raise Exception(error_msg)
 
 
+def __run_quality_checks(
+    datasource_type: str,
+    datasource_name: str,
+    quality_checks: List[dict],
+    config: Dict[str, Union[str, int]],
+    batch_limit: Optional[int] = 0,
+    is_file: bool = True,
+) -> Dict:
+    """
+    Generic function to execute quality checks using Great Expectations.
+
+    :param datasource_type (str): Type of datasource (e.g., file, mysql).
+    :param datasource_name (str): Name of the datasource.
+    :param quality_checks (List[dict]): List of checks to perform.
+    :param config (Dict): Configuration parameters (e.g., hostname, dir_path).
+    :param batch_limit (int): Number of batches to validate.
+    :param is_file (bool): True for file-based data; False for database.
+
+    :return: Validation results.
+    """
+    
+    # Generate a unique name for the expectation suite
+    unique_id = uuid.uuid4().hex
+    expectation_suite_name = (
+        f"{datasource_name}_{config.get('dir_name', config.get('table_name'))}_{datasource_type}_{unique_id}"
+    )
+    
+    try:
+        ge = GreatExpectationsModel()
+        
+        if is_file:
+            datasource = ge.GEFileDatasource(
+                datasource_name=datasource_name,
+                datasource_type=datasource_type,
+                dir_name=config["dir_path"],
+            )
+            config_yaml = datasource.get_file_config()
+        else:
+            datasource = ge.GESQLDatasource(
+                datasource_type=datasource_type,
+                host=config["hostname"],
+                password=config["password"],
+                username=config["username"],
+                database=config["database"],
+                schema_name=config["schema_name"],
+                datasource_name=datasource_name,
+                port=config["port"],
+                table_name=config["table_name"],
+            )
+            config_yaml = datasource.get_database_config()
+
+        ge.create_datasource(config_yaml=config_yaml)
+        
+        # Create or load the expectation suite
+        ge.create_or_load_expectation_suite(expectation_suite_name=expectation_suite_name)
+        
+        # Generate batch request
+        if is_file:
+            batch_request = ge.create_batch_request_json_for_file(
+                datasource_name=datasource_name,
+                data_asset_name=config["file_name"],
+                limit=batch_limit,
+            )
+        else:
+            batch_request = ge.create_batch_request_json_for_db(
+                datasource_name=datasource_name,
+                data_asset_name=config["table_name"],
+                limit=batch_limit,
+            )
+        
+        # Create a validator and add expectations
+        validator = ge.create_validator(
+            expectation_suite_name=expectation_suite_name, batch_request=batch_request
+        )
+        ge.add_expectations_to_validator(validator=validator, expectations=quality_checks)
+        
+        # Execute the checkpoint
+        checkpoint_results = ge.create_and_execute_checkpoint(
+            expectation_suite_name=expectation_suite_name,
+            batch_request=batch_request,
+            validator=validator,
+        )
+        
+        # Process validation results
+        return find_validation_result(data=checkpoint_results)
+
+    except Exception as e:
+        error_msg = f"Failed to run quality checks: {str(e)}"
+        dqt_logger.error(error_msg)
+        raise RuntimeError(error_msg) 
+
 def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str, username: str, 
                                 port: int, datasource_name: str, schema_name: str, database: str, 
                                 table_name: str, quality_checks: List[dict], batch_limit: Optional[int] = 0) -> json:
@@ -700,30 +797,23 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
     
     :return checkpoint_results (json): The generated validation results
     """
-    rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
-
-    expectation_suite_name_db = f"{datasource_name}_{username}_{table_name}_{port}_{rand_int}" # expectation suite name format for db
-    
-    ge = GreatExpectationsModel()
-    ge_sql = ge.GE_SQL_Datasource(datasource_type=datasource_type, host=hostname, password=password, 
-                                    username=username, database=database, schema_name=schema_name, 
-                                    datasource_name=datasource_name, port=port, table_name=table_name)
-    
-    database_config_yaml = ge_sql.get_database_config()
-    ge.create_datasource(config_yaml=database_config_yaml)
-    ge.create_or_load_expectation_suite(expectation_suite_name=expectation_suite_name_db)
-    batch_request_json = ge.create_batch_request_json_for_db(datasource_name=datasource_name,
-                                                            data_asset_name=table_name,
-                                                            limit=batch_limit)
-    db_validator = ge.create_validator(expectation_suite_name=expectation_suite_name_db, 
-                                        batch_request=batch_request_json)
-    ge.add_expectations_to_validator(validator=db_validator, expectations=quality_checks)
-    checkpoint_results = ge.create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name_db,
-                                                            batch_request=batch_request_json,
-                                                            validator=db_validator)
-    validation_results = find_validation_result(data=checkpoint_results)
-    return validation_results
-
+    db_config = {
+        "hostname": hostname,
+        "password": password,
+        "username": username,
+        "port": port,
+        "database": database,
+        "schema_name": schema_name,
+        "table_name": table_name,
+    }
+    return __run_quality_checks(
+        datasource_type=datasource_type,
+        datasource_name=datasource_name,
+        quality_checks=quality_checks,
+        config=db_config,
+        batch_limit=batch_limit,
+        is_file=False,
+    )
 
 def run_quality_checks_for_file(datasource_type: str, datasource_name: str, dir_path: str, quality_checks: List[dict], 
                             file_name: str, batch_limit: Optional[int] = 0) -> json:
@@ -740,25 +830,13 @@ def run_quality_checks_for_file(datasource_type: str, datasource_name: str, dir_
 
     :return checkpoint_results (json): The generated validation results
     """
-    dir_name = os.path.basename(dir_path) # extract name of dir from dir_path to create expectation_suite_name
-    rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
+    file_config = {"dir_path": dir_path, "file_name": file_name, "dir_name": os.path.basename(dir_path)}
+    return __run_quality_checks(
+        datasource_type=datasource_type,
+        datasource_name=datasource_name,
+        quality_checks=quality_checks,
+        config=file_config,
+        batch_limit=batch_limit,
+        is_file=True,
+    )
     
-    expectation_suite_name_file = f"{datasource_name}_{dir_name}_{datasource_type}_{file_name}_{rand_int}" # expectation suite name format for file
-    
-    ge = GreatExpectationsModel()
-    ge_file = ge.GE_File_Datasource(datasource_name=datasource_name, datasource_type=datasource_type, dir_name=dir_path)
-    
-    file_config_yaml = ge_file.get_file_config()
-    ge.create_datasource(config_yaml=file_config_yaml)
-    ge.create_or_load_expectation_suite(expectation_suite_name=expectation_suite_name_file)
-    batch_request_json = ge.create_batch_request_json_for_file(datasource_name=datasource_name, 
-                                                                data_asset_name=file_name,
-                                                                limit=batch_limit)
-    file_validator = ge.create_validator(expectation_suite_name=expectation_suite_name_file,
-                                         batch_request=batch_request_json)
-    ge.add_expectations_to_validator(validator=file_validator, expectations=quality_checks)
-    checkpoint_results = ge.create_and_execute_checkpoint(expectation_suite_name=expectation_suite_name_file,
-                                                            batch_request=batch_request_json,
-                                                            validator=file_validator)
-    validation_results = find_validation_result(data=checkpoint_results)
-    return validation_results
