@@ -21,13 +21,13 @@ and generates a unique `connection name` for the user
 
 from fastapi import FastAPI, Body, HTTPException
 
-from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
-from logging_config import dqt_logger
-from ge_fast_api_class import GE_Fast_API
-from save_validation_results import DataQuality
-from utils import generate_job_id
-from job_state_singleton import JobStateSingleton
 from database.db_models.job_run_status import Job_Run_Status_Enum
+from ge_fast_api_class import GEFastAPI
+from job_state_singleton import JobStateSingleton
+from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
+from save_validation_results import DataQuality
+from logging_config import dqt_logger
+from utils import generate_job_id
 
 
 def get_job_id_and_initialize_job_state_singleton() -> str:
@@ -87,20 +87,34 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         dqt_logger.error(error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
     
-    ge_fast_interface = GE_Fast_API() # interface object
-    ge_fast_interface.create_connection_based_on_type(connection=connection) # create connection to the user_credentials db
-
-    # insert credentials based on connection_type
-    if connection_type in conn_enum.File_Datasource_Enum.__members__.values():
-        unique_connection_name = await ge_fast_interface.insert_user_credentials(connection=connection, 
-                                                                                 expected_extension=connection_type)
-    elif connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
-        unique_connection_name = await ge_fast_interface.insert_user_credentials(connection=connection)
+    try:
+      ge_fast_interface = GEFastAPI()
+      ge_fast_interface.create_connection_based_on_type(connection=connection) # create connection to the user_credentials db
+    except Exception as e:
+      error_msg = f"Error creating connection: {str(e)}"
+      dqt_logger.error(error_msg)
+      raise HTTPException(status_code=503, detail={"error": error_msg})
+    
+    try:
+      # insert credentials based on connection_type
+      if connection_type in conn_enum.File_Datasource_Enum.__members__.values():
+          unique_connection_name = await ge_fast_interface.insert_user_credentials(connection=connection, 
+                                                                                  expected_extension=connection_type)
+      elif connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
+          unique_connection_name = await ge_fast_interface.insert_user_credentials(connection=connection)
+      else:
+          error_msg = f"Unsupported connection type: {connection_type}"
+          dqt_logger.error(error_msg)
+          raise HTTPException(status_code=400, detail={"error": error_msg})
+    except Exception as e:
+        error_msg = f"Error inserting credentials: {str(e)}"
+        dqt_logger.error(error_msg)
+        raise HTTPException(status_code=503, detail={"error": error_msg})
 
     if unique_connection_name:
         return {"status": "connected", "connection_name": unique_connection_name}
-    else:
-        return {"status": "could not connect, an error occurred", "connection_name": None}
+    
+    raise HTTPException(status_code=503, detail="Could not connect, an error occurred")
 
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests")
@@ -276,27 +290,32 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
         JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
-    ge_fast_api = GE_Fast_API()
+    ge_fast_api = GEFastAPI()
     
     JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.STARTED)
     validation_results = await ge_fast_api.validation_check_request(job=job)
     dqt_logger.debug(f"Validation results:\n{validation_results}")
 
-    if validation_results: 
-        try:
-            info_msg = "Saving validation results in database"
-            dqt_logger.info(info_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
-            DataQuality().fetch_and_process_data(validation_results, job_id=job_id) # FIXME: argument of type 'coroutine' is not iterable 
-            return {'job_id': job_id}
-        except Exception as saving_validation_error:
-            error_msg = f"An error occurred, failed to save validation results in database\nError:{str(saving_validation_error)}"
-            dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
-            return {'job_id': job_id}
-    else:
-        error_msg = "Missing validation results"
-        dqt_logger.error(error_msg)
-        JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+    try:
+      if validation_results: 
+          try:
+              info_msg = "Saving validation results in database"
+              dqt_logger.info(info_msg)
+              JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+              DataQuality().fetch_and_process_data(validation_results, job_id=job_id) 
+              return {'job_id': job_id}
+          except Exception as saving_validation_error:
+              error_msg = f"An error occurred, failed to save validation results in database\nError:{str(saving_validation_error)}"
+              dqt_logger.error(error_msg)
+              JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+              return {'job_id': job_id}
+      else:
+          error_msg = "Missing validation results"
+          dqt_logger.error(error_msg)
+          JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+          return {'job_id': job_id}
+    except Exception as saving_validation_error:
+        error_msg = f"An error occurred, failed to save validation results in database. Error: {str(saving_validation_error)}"
+        JobStateSingleton.update_state_of_job_id(job_id, Job_Run_Status_Enum.ERROR, error_msg)
         return {'job_id': job_id}
-    
+      
