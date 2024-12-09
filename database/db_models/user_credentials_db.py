@@ -1,27 +1,33 @@
 import json
 from typing import Optional
    
-from utils import get_cred_db_connection_config, get_cred_db_table_config
 from database import sql_queries as query_template, app_connection
 from database.db_models import sql_query
 from interfaces import database_interface
 from request_models import connection_enum_and_metadata as conn_enum
+from utils import get_cred_db_connection_config, get_cred_db_table_config
 
 
 class UserCredentialsDatabase(database_interface.DatabaseInterface):
-    def __init__(self, hostname: str, username: str, password: str, port: int, connection_type: str, database: Optional[str] = None):
+    """
+    A class to handle operations related to storing and retrieving user credentials
+    from a database.
+
+    Inherits from `DatabaseInterface` to perform common database operations.
+    """
+    def __init__(self, hostname: str, username: str, password: str, port: int, connection_type: str, 
+                 database: Optional[str] = None):
         """
         Initializes the UserCredentialsDatabase with the given parameters.
         These parameters are the user login credentials
 
-        :param hostname: The hostname of the database server.
-        :param username: The username for database authentication.
-        :param password: The password for database authentication.
-        :param port: The port number on which the database server is listening.
-        :param database: The name of the database to connect to.
-        :param connection_type: The type of connection (e.g., 'mysql', 'postgresql').
+        :param hostname (str): The hostname of the database server.
+        :param username (str): The username for database authentication.
+        :param password (str): The password for database authentication.
+        :param port (int): The port number on which the database server is listening.
+        :param database (Optionals[str]): The name of the database to connect to.
+        :param connection_type (str): The type of connection (e.g., 'mysql', 'postgresql').
         """
-
         self.hostname = hostname
         self.username = username
         self.port = port
@@ -30,14 +36,13 @@ class UserCredentialsDatabase(database_interface.DatabaseInterface):
         self.connection_type = connection_type
         self.db_connection = None
 
-
     def connect_to_db(self) -> None:
         """
-        Initializes instance variable 'db_connection' with app credentials 
+        Establishes a connection to the user credentials database.
+        This method initializes the `db_connection` instance variable with the app credentials. 
         
         :return: None
         """
-        
         self.db_connection = app_connection.get_app_db_connection_object()
         
     
@@ -50,7 +55,6 @@ class UserCredentialsDatabase(database_interface.DatabaseInterface):
 
         :return: None
         """
-        
         db_conn_details = get_cred_db_connection_config()  
         app_table = db_conn_details.get('app_table')
 
@@ -76,7 +80,7 @@ class UserCredentialsDatabase(database_interface.DatabaseInterface):
 
         :param unique_connection_name (str): Generated unique connection name
 
-        :return (str): Search results 
+        :return (str): The search result as a string indicating if the connection exists
         """
 
         db_details = get_cred_db_connection_config()
@@ -92,21 +96,50 @@ class UserCredentialsDatabase(database_interface.DatabaseInterface):
                                      query=search_query,
                                      query_params=search_params)
         search_result = cred_db.execute_query()
-        search_result = str(search_result[0][0]) # decoding tuple to get result and casting to string
-        return search_result
+        return str(search_result[0][0]) # decoding tuple to get result and casting to string
 
+    def close_db_connection(self) -> None:
+        """
+        Closes the database connection.
 
-    def close_db_connection(self):
+        This method ensures the connection to the database is closed after operations 
+        are completed, freeing up resources.
+
+        :return: None
+        """
         self.db_connection.close()
 
+    def update_in_db(self) -> None:
+        """
+        Updates records in the user credentials database.
 
-    def update_in_db(self):
+        This method calls the `update_in_db` method of the parent `DatabaseInterface` 
+        class to handle the update operation.
+
+        :return: None
+        """
         return super().update_in_db()
      
     def get_from_db(self):
+        """
+        Retrieves data from the user credentials database.
+
+        This method calls the `get_from_db` method of the parent `DatabaseInterface` 
+        class to handle the retrieval operation.
+
+        :return: The retrieved data from the database.
+        """
         return super().get_from_db()
 
     def get_user_credentials(self, unique_connection_name: str) -> json:
+        """
+        Retrieves the user credentials associated with the unique connection name.
+
+        :param unique_connection_name (str): The unique connection name for which the 
+                                           credentials are to be retrieved.
+
+        :return json: A JSON object containing the user credentials for the connection.
+        """
         db_details = get_cred_db_connection_config()
         table_details = get_cred_db_table_config()  
 

@@ -6,16 +6,48 @@ import fastavro
 import pyorc
 
 from database.db_models import user_credentials_db
+from database.db_models.job_run_status import JobRunStatusEnum
+from job_state_singleton import JobStateSingleton
 from logging_config import dqt_logger
 
 
 class FileDatabase(user_credentials_db.UserCredentialsDatabase):
-    def __init__(self, hostname: str, username: str, password: str, port: int, database: str, connection_type: str, file_name: str, dir_path: str):
-        super().__init__(hostname=hostname, username=username, password=password, port=port, database=database, connection_type=connection_type)
+    """
+    A class to manage interactions with a database and file handling operations over SSH.
+    Inherits from UserCredentialsDatabase for database connection functionality.
+    
+    Attributes:
+        file_name (str): The name of the file to be processed.
+        dir_path (str): The directory path where the file is located.
+    """
+    def __init__(self, hostname: str, username: str, password: str, port: int, database: str, connection_type: str, 
+                 file_name: str, dir_path: str):
+        """
+        Initializes the FileDatabase instance with the given connection and file details.
+        
+        
+        :param hostname (str): Hostname of the database server.
+        :param username (str): Username for database connection.
+        :param password (str): Password for database connection.
+        :param port (int): Port for database connection.
+        :param database (str): Name of the database to connect to.
+        :param connection_type (str): Type of connection (e.g., SSH).
+        :param file_name (str): Name of the file to be processed.
+        :param dir_path (str): Path to the directory containing the file.
+        """
+        super().__init__(hostname=hostname, username=username, password=password, port=port, database=database, 
+                         connection_type=connection_type)
         self.file_name = file_name
         self.dir_path = dir_path
 
     async def connect_to_server_SSH(self):
+        """
+        Establishes an SSH connection to the remote server.
+        
+        :return asyncssh.SSHClientConnection: The SSH connection object if successful.
+        
+        :raises Exception: If there is an error while connecting to the server.
+        """
         try:
             connection = await asyncssh.connect(
                 host=self.hostname,
@@ -26,16 +58,23 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
             )
             info_msg = "SSH connection established..."
             dqt_logger.info(info_msg)
-            # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
             return connection
         except Exception as ssh_conn_error:
             error_msg = f"An error occurred while connecting to the server using SSH:\n{str(ssh_conn_error)}"
             dqt_logger.error(error_msg)
-            # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
             raise Exception(error_msg)
 
 
     async def search_file_on_server(self):
+        """
+        Searches for the specified file on the remote server via SSH.
+        
+        :return dict: A dictionary indicating whether the file was found and its path(s), or an error message.
+        
+        :raises HTTPException: If there is a permission error or an invalid configuration.
+        """
         try:
           # Establish SSH connection using asyncssh
             async with asyncssh.connect(
@@ -47,7 +86,7 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
             ) as conn:
                 info_msg = "SSH connection established..."
                 dqt_logger.info(info_msg)
-                # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
 
                 # Extract connection details
                 file_name = self.file_name
@@ -102,24 +141,34 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
 
                 # Case 3: Invalid configuration (fallback from `ConnectionCredentials` validation)
                 else:
-                    error_msg = "Invalid connection configuration. Please provide either 'dir_path' with 'file_name', or just 'file_name'."
+                    error_msg = """Invalid connection configuration. 
+                    Please provide either 'dir_path' with 'file_name', or just 'file_name'."""
                     dqt_logger.error(error_msg)
-                    # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
                     raise ValueError(error_msg)
 
         except asyncssh.PermissionDenied:
             error_msg = "SSH permission denied. Check your credentials."
             dqt_logger.error(error_msg)
-            # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
             raise HTTPException(status_code=403, detail=error_msg)
         except Exception as e:
             error_msg = f"An error occurred: {str(e)}"
             dqt_logger.error(error_msg)
-            # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
             raise HTTPException(status_code=500, detail=error_msg)
 
 
     async def read_file_columns(self, conn):
+        """
+        Reads the columns of a file from the remote server based on its file extension.
+        
+        :param conn (asyncssh.SSHClientConnection): The SSH connection to the server.
+        
+        :return list: A list of column names from the file, or an error message if the file format is unsupported.
+        
+        :raises HTTPException: If there is an error processing the file or if the file format is unsupported.
+        """
         file_path = f"{self.dir_path}/{self.file_name}"
         try:
                 
@@ -185,7 +234,7 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
             else:
                 error_msg = "Unsupported file format"
                 dqt_logger.error(error_msg)
-                # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
+                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
                 raise HTTPException(status_code=400, detail=error_msg)
 
             # Return the column names
@@ -193,90 +242,5 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
         except Exception as e:
             error_msg = f"Error processing file: {str(e)}"
             dqt_logger.error(error_msg)
-            # job_status_db.update_in_db(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
             raise HTTPException(status_code=500, detail=error_msg)
-
-
-    # async def handle_file_connection(self, unique_connection_name: str, connection_string: str, expected_extension: str) -> json:
-    #     """
-    #     Generalized function to handle file-based connections.
-
-    #     :param connection_string (str): Generated connection string 
-    #     :param unique_connection_name (str): Generated connection string
-    #     :param expected_extension (str): The file extension to validate (e.g., '.json', '.csv')
-
-    #     :return (json): Response with connection details
-    #     """
-    #     try:
-    #         # Validate the file type
-    #         if not self.file_name.endswith(expected_extension):
-    #             error_msg = f"The provided file is not a {expected_extension.upper()} file."
-    #             dqt_logger.error(error_msg)
-    #             raise HTTPException(status_code=400, detail=error_msg)
-
-    #         # Search for the file on the server
-    #         result = await self.search_file_on_server()
-    #         if not result["file_found"]:
-    #             error_msg = f"{expected_extension.upper()} file not found on server."
-    #             dqt_logger.error(error_msg)
-    #             raise HTTPException(status_code=404, detail=error_msg)
-
-    #         user_cred_db = user_credentials_db.UserCredentialsDatabase() # user credentials db object
-            
-    #         user_cred_db.connect_to_db()
-    #         user_cred_db.insert_in_db(unique_connection_name=unique_connection_name, 
-    #                                                                  connection_string=connection_string)
-
-    #         # Extract connection details
-    #         # file_name = connection.connection_credentials.file_name
-    #         # file_path = result["file_path"]
-    #         # hostname = connection.connection_credentials.server
-    #         # username = connection.user_credentials.username
-    #         # password = connection.user_credentials.password
-    #         # port = connection.connection_credentials.port
-
-    #         # Generate unique connection name and string
-    #         # unique_connection_name = generate_connection_name(connection=connection)
-    #         # connection_string = generate_connection_string(connection=connection)
-
-    #         # dqt_logger.debug(f"Unique connection name: {unique_connection_name}")
-    #         # dqt_logger.debug(f"Connection string: {connection_string}")
-
-    #         # # Store connection details in the database
-    #         # conn = get_mysql_db(
-    #         #     hostname=db_constants.APP_HOSTNAME,
-    #         #     username=db_constants.APP_USERNAME,
-    #         #     password=db_constants.APP_PASSWORD,
-    #         #     port=db_constants.APP_PORT,
-    #         #     database=db_constants.USER_CREDENTIALS_DATABASE
-    #         # )
-    #         # cursor = conn.cursor()
-
-    #         # INSERT_CONN_DETAILS_QUERY = f"INSERT INTO {db_constants.USER_LOGIN_TABLE} VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
-    #         # cursor.execute(INSERT_CONN_DETAILS_QUERY, (
-    #         #     unique_connection_name,
-    #         #     connection_string,
-    #         #     username,
-    #         #     connection.connection_credentials.connection_type,
-    #         #     password,
-    #         #     hostname,
-    #         #     port,
-    #         #     None
-    #         # ))
-    #         # conn.commit()
-    #         dqt_logger.debug(f"{expected_extension.upper()} connection details insertion completed.")
-
-    #         # # Close the database connection
-    #         # cursor.close()
-    #         # conn.close()
-
-    #         return {
-    #             "status": "connected",
-    #             "connection_name": unique_connection_name
-    #         }
-
-    #     except Exception as e:
-    #         error_msg = f"Error processing {expected_extension.upper()} connection: {str(e)}"
-    #         dqt_logger.error(error_msg)
-    #         raise HTTPException(status_code=500, detail=error_msg)
-            

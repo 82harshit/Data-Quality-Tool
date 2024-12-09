@@ -21,7 +21,7 @@ and generates a unique `connection name` for the user
 
 from fastapi import FastAPI, Body, HTTPException
 
-from database.db_models.job_run_status import Job_Run_Status_Enum
+from database.db_models.job_run_status import JobRunStatusEnum
 from ge_fast_api_class import GEFastAPI
 from job_state_singleton import JobStateSingleton
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
@@ -275,24 +275,24 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     if not job.connection_name:
         error_msg = "Incorrect JSON provided, missing connection name"
         dqt_logger.error(error_msg)
-        JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
+        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
         raise HTTPException(status_code=400, detail={"error": error_msg})
     
     if not job.data_source:
         error_msg = "Incorrect JSON provided, missing data source"
         dqt_logger.error(error_msg)
-        JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
     if not job.quality_checks:
         error_msg = "Incorrect JSON provided, missing quality checks"
         dqt_logger.error(error_msg)
-        JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg) 
+        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
     ge_fast_api = GEFastAPI()
     
-    JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.STARTED)
+    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.STARTED)
     validation_results = await ge_fast_api.validation_check_request(job=job)
     dqt_logger.debug(f"Validation results:\n{validation_results}")
 
@@ -301,21 +301,21 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
           try:
               info_msg = "Saving validation results in database"
               dqt_logger.info(info_msg)
-              JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+              JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
               DataQuality().fetch_and_process_data(validation_results, job_id=job_id) 
               return {'job_id': job_id}
           except Exception as saving_validation_error:
               error_msg = f"An error occurred, failed to save validation results in database\nError:{str(saving_validation_error)}"
               dqt_logger.error(error_msg)
-              JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+              JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
               return {'job_id': job_id}
       else:
           error_msg = "Missing validation results"
           dqt_logger.error(error_msg)
-          JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+          JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
           return {'job_id': job_id}
     except Exception as saving_validation_error:
         error_msg = f"An error occurred, failed to save validation results in database. Error: {str(saving_validation_error)}"
-        JobStateSingleton.update_state_of_job_id(job_id, Job_Run_Status_Enum.ERROR, error_msg)
+        JobStateSingleton.update_state_of_job_id(job_id, JobRunStatusEnum.ERROR, error_msg)
         return {'job_id': job_id}
       

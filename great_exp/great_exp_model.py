@@ -12,7 +12,7 @@ from great_expectations.checkpoint import SimpleCheckpoint
 from great_expectations.exceptions import DataContextError
 from great_expectations.validator.validator import Validator
 
-from database.db_models.job_run_status import Job_Run_Status_Enum
+from database.db_models.job_run_status import JobRunStatusEnum
 from job_state_singleton import JobStateSingleton
 from logging_config import dqt_logger
 from request_models import connection_enum_and_metadata as conn_enum
@@ -138,7 +138,7 @@ class GreatExpectationsModel:
             datasource_config_for_mysql_yaml = yaml.dump(datasource_config_for_mysql_json)
             info_msg = "Created datasource config for mysql"
             dqt_logger.info(info_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
             return datasource_config_for_mysql_yaml
 
         def __get_postgres_datasource_config(self) -> yaml:
@@ -188,7 +188,7 @@ class GreatExpectationsModel:
             datasource_config_for_postgres_yaml = yaml.dump(datasource_config_for_postgres_json)
             info_msg = "Created datasource config for postgres"
             dqt_logger.info(info_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
             return datasource_config_for_postgres_yaml
 
         def __get_redshift_datasource_config(self) -> yaml:
@@ -240,7 +240,7 @@ class GreatExpectationsModel:
             datasource_config_for_redshift_yaml = yaml.dump(datasource_config_for_redshift_json)
             info_msg = "Created datasource config for postgres"
             dqt_logger.info(info_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
             return datasource_config_for_redshift_yaml 
 
         def __get_snowflake_datasource_config(self) -> yaml:
@@ -447,7 +447,7 @@ class GreatExpectationsModel:
             datasource_config_for_file_yaml = yaml.dump(datasource_config_for_file_json)
             info_msg = f"Created datasource config using {execution_engine_class}"
             dqt_logger.info(info_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
             return datasource_config_for_file_yaml
 
         def __get_pandas_datasource_config(self) -> yaml:
@@ -483,12 +483,12 @@ class GreatExpectationsModel:
             self.ge_context.test_yaml_config(yaml_config=config_yaml)
             sanitize_yaml_and_save_datasource(self.ge_context, config_yaml, overwrite_existing=True)
             info_msg = "Tested and saved datasource config"
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
             dqt_logger.info(info_msg)
         except Exception as e:
             error_msg = f"Failed to create datasource. Error: {str(e)}"
             dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
             raise Exception(error_msg)
      
     def __create_batch_request_json_for_datasource(self, 
@@ -517,7 +517,7 @@ class GreatExpectationsModel:
         dqt_logger.debug(f"Created batch request JSON for database:\n{str(batch_request_json)}")
         info_msg = "Created batch request for JSON for database"
         dqt_logger.info(info_msg)
-        JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
         return batch_request_json
 
     def create_batch_request_json_for_db(self, 
@@ -570,12 +570,12 @@ class GreatExpectationsModel:
             info_msg = f"""Loaded ExpectationSuite "{suite.expectation_suite_name}" 
                 containing {len(suite.expectations)} expectations."""
             dqt_logger.info(info_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
         except DataContextError:
             suite = self.ge_context.add_expectation_suite(expectation_suite_name=expectation_suite_name)
             info_msg = f'Created ExpectationSuite "{suite.expectation_suite_name}".'
             dqt_logger.info(info_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
 
     def create_validator(self, expectation_suite_name: str, batch_request: json) -> Optional[Validator]:
         """
@@ -595,12 +595,12 @@ class GreatExpectationsModel:
             validator.save_expectation_suite(discard_failed_expectations=False)
             info_msg = "Validator created and expectation suite added"
             dqt_logger.info(info_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
             return validator
         except Exception as validator_error:
             error_msg = f"An error occured while creating validator:\n{str(validator_error)}"
             dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
             raise Exception(error_msg)
 
     def add_expectations_to_validator(self, validator, expectations: List[Dict]) -> None:
@@ -615,7 +615,7 @@ class GreatExpectationsModel:
         if not expectations:
             error_msg = "An error occured while adding expectations to expectation_suite: No expectations provided"
             dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
             raise ValueError(error_msg)
         
         # Add expectations to the validator
@@ -634,14 +634,14 @@ class GreatExpectationsModel:
                 expectation_func(**kwargs)
             except Exception as e:
                 error_msg = f"Error adding expectation: {expectation}\n{str(e)}"
-                JobStateSingleton.update_state_of_job_id(Job_Run_Status_Enum.ERROR, error_msg)
+                JobStateSingleton.update_state_of_job_id(JobRunStatusEnum.ERROR, error_msg)
                 raise ValueError(error_msg)
             
         # Save the updated expectation suite
         validator.save_expectation_suite(discard_failed_expectations=False)
         info_msg = "Successfully added expectations"
         dqt_logger.info(info_msg)
-        JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
 
 
     def create_and_execute_checkpoint(self, expectation_suite_name: str, validator: Validator, batch_request: json) -> json:
@@ -677,12 +677,12 @@ class GreatExpectationsModel:
             checkpoint_result = checkpoint.run()
             info_msg = "Successfully created and executed checkpoint, returning validation results"
             dqt_logger.info(info_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.INPROGRESS, status_message=info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
             return checkpoint_result
         except Exception as checkpoint_error:
             error_msg = f"An error occured while creating or executing checkpoint:\n{str(checkpoint_error)}"
             dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=Job_Run_Status_Enum.ERROR, status_message=error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
             raise Exception(error_msg)
 
 

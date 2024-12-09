@@ -1,6 +1,6 @@
 from typing import Optional
 
-from database.db_models import job_run_status
+from database.db_models.job_run_status import JobRunStatus
 from logging_config import dqt_logger
 
 
@@ -39,7 +39,7 @@ class JobStateSingleton:
             dqt_logger.error(error_msg)
             return Exception(error_msg)
         
-        _job_run_status = job_run_status.Job_Run_Status(job_id=_job_id)
+        _job_run_status = JobRunStatus(job_id=_job_id)
         _job_run_status.connect_to_db()
         dqt_logger.info(f"Updating state for {_job_id} to: status = {job_status}, logs = {status_message}")
         _job_run_status.update_in_db(job_status=job_status, status_message=status_message)
@@ -54,7 +54,7 @@ class JobStateSingleton:
         
         :return: Current job status from the database
         """
-        _job_run_status = job_run_status.Job_Run_Status(job_id=job_id)
+        _job_run_status = JobRunStatus(job_id=job_id)
         _job_run_status.connect_to_db()
         current_job_status = _job_run_status.get_from_db()
         _job_run_status.close_db_connection()
