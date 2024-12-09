@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, model_validator
 from typing import Optional
+
 from request_models import connection_enum_and_metadata as conn_enum
 from logging_config import dqt_logger
 
@@ -23,7 +24,7 @@ class ConnectionCredentials(BaseModel):
     server: str = Field("0.0.0.0", description="Name of the server to connect to")
     port: int = Field(5432, description="Port to connect to", gt=9, lt=10000)
     file_name: Optional[str] = Field(None, description="Name of the file to connect to", min_length=1)
-    dir_path: Optional[str] = Field(None, description="Path to the directory")
+    dir_path: Optional[str] = Field(None, description="Path to the directory", min_length=10)
 
     @model_validator(mode='before')
     def validate_connection_priority(cls, values):
@@ -44,7 +45,7 @@ class ConnectionCredentials(BaseModel):
                     dqt_logger.error(error_msg)
                     raise ValueError(error_msg)
             else:
-                error_msg = f"Invalid request JSON, 'database' key and value must be provided"
+                error_msg = "'database' field is required for database connections."
                 dqt_logger.error(error_msg)
                 raise ValueError(error_msg)
 

@@ -19,7 +19,6 @@ def remove_special_characters(input_string) -> str:
     """
     return re.sub(r'[^a-zA-Z0-9]', '', str(input_string))
 
-
 def generate_connection_name(connection: connection_model.Connection) -> str:
     """
     Generates a unique connection name using timestamp, connection credentials, and a random integer.
@@ -29,33 +28,26 @@ def generate_connection_name(connection: connection_model.Connection) -> str:
 
     :param connection: Connection object
 
-    :return: Unique connection name
+    :return (str): Unique connection name
     """
-    hostname = connection.connection_credentials.server
-    username = connection.user_credentials.username
-    port = connection.connection_credentials.port
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    rand_int = random.randint(1000, 9999)  # Random integer in the range of 1000 to 9999
-
+    hostname = remove_special_characters(connection.connection_credentials.server)
+    username = remove_special_characters(connection.user_credentials.username)
+    port = remove_special_characters(connection.connection_credentials.port)
     # Extract the connection type correctly
     connection_type = connection.connection_credentials.connection_type
 
     # Determine whether to use database or file_name
-    if connection_type in conn_enum.File_Datasource_Enum.__members__.values():
-        target = connection.connection_credentials.file_name
-    else:
-        target = connection.connection_credentials.database
-
-    # Remove special characters from all components
-    hostname = remove_special_characters(hostname)
-    username = remove_special_characters(username)
-    port = remove_special_characters(port)
-    target = remove_special_characters(target)
-
+    target = (
+        remove_special_characters(connection.connection_credentials.file_name)
+        if connection_type in conn_enum.File_Datasource_Enum.__members__.values()
+        else remove_special_characters(connection.connection_credentials.database)
+    )
+    
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    rand_int = random.randint(1000, 9999)  # Random integer in the range of 1000 to 9999
+    
     # Generate the unique connection name
-    unique_connection_name = f"{timestamp}_{username}_{hostname}_{port}_{target}_{rand_int}"
-    return unique_connection_name
-
+    return f"{timestamp}_{username}_{hostname}_{port}_{target}_{rand_int}"
 
 def generate_connection_string(connection: connection_model.Connection) -> str:
     """
@@ -65,7 +57,7 @@ def generate_connection_string(connection: connection_model.Connection) -> str:
 
     :param connection: Connection object
 
-    :return: Generated connection string
+    :return (str): Generated connection string
     """
     hostname = connection.connection_credentials.server
     username = connection.user_credentials.username
@@ -74,15 +66,14 @@ def generate_connection_string(connection: connection_model.Connection) -> str:
     connection_type = connection.connection_credentials.connection_type
 
     # Determine whether to use database or file_name for connection string
-    if connection_type in conn_enum.File_Datasource_Enum.__members__.values():
-        target = connection.connection_credentials.file_name  # Use file name for file-based connections
-    else:
-        target = connection.connection_credentials.database  # Use database for database connections
-
+    target = (
+        connection.connection_credentials.file_name
+        if connection_type in conn_enum.File_Datasource_Enum.__members__.values()
+        else connection.connection_credentials.database
+    ) # Use file name for file-based connections and database for database connections
+    
     # Generate connection string
-    generated_connection_string = f"{connection_type}://{username}:{password}@{hostname}:{port}/{target}"
-    return generated_connection_string
-
+    return f"{connection_type}://{username}:{password}@{hostname}:{port}/{target}"
 
 def find_validation_result(data):
     """
@@ -107,13 +98,12 @@ def find_validation_result(data):
         dqt_logger.error(f"Error extracting validation result: {e}")
         return None
     
-    
 def get_cred_db_connection_config() -> json:
     """
     This function reads the contents under the 'Database' section of 
     the configuration file: 'database_config.ini'
 
-    :return db_connection_details (json): A JSON containing the connection credentials to the MySQL 
+    :return (json): A JSON containing the connection credentials to the MySQL 
     database that contains user login credentials
     """
 
@@ -125,31 +115,21 @@ def get_cred_db_connection_config() -> json:
         dqt_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
         raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
 
-    app_database = config.get('Database', 'app_database')
-    app_table = config.get('Database', 'app_table')
-    app_port = config.get('Database', 'app_port')
-    app_hostname = config.get('Database', 'app_hostname')
-    app_username = config.get('Database', 'app_username')
-    app_password = config.get('Database', 'app_password')
-
-    db_connection_details = {
-        'app_database': app_database,
-        'app_table': app_table,
-        'app_port': int(app_port), # port must be of type 'int'
-        'app_hostname': app_hostname,
-        'app_username': app_username,
-        'app_password': app_password
+    return {
+        'app_database': config.get('Database', 'app_database'),
+        'app_table': config.get('Database', 'app_table'),
+        'app_port': int(config.get('Database', 'app_port')), # port must be of type 'int'
+        'app_hostname': config.get('Database', 'app_hostname'),
+        'app_username': config.get('Database', 'app_username'),
+        'app_password': config.get('Database', 'app_password')
     }
-
-    return db_connection_details
-
 
 def get_cred_db_table_config() -> json:
     """
     This function reads the contents under the 'Login Credentails Table' section of 
     the configuration file: 'database_config.ini'
 
-    :return login_cred_columns (json): A JSON containing the name of columns as defined
+    :return (json): A JSON containing the name of columns as defined
     in `login_credentials` table
     """
 
@@ -161,26 +141,15 @@ def get_cred_db_table_config() -> json:
         dqt_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
         raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
 
-    connection_name = config.get('Login Credentials Table', 'connection_name')
-    user_name = config.get('Login Credentials Table', 'user_name')
-    source_type = config.get('Login Credentials Table', 'source_type')
-    password = config.get('Login Credentials Table', 'password')
-    port = config.get('Login Credentials Table', 'port')
-    database_name = config.get('Login Credentials Table', 'database_name')
-    host_name =  config.get('Login Credentials Table', 'hostname')
-
-    login_cred_columns = {
-        'connection_name': connection_name,
-        'user_name': user_name,
-        'source_type': source_type,
-        'password': password,
-        'port': port,
-        'database_name': database_name,
-        'hostname': host_name
+    return {
+        'connection_name': config.get('Login Credentials Table', 'connection_name'),
+        'user_name': config.get('Login Credentials Table', 'user_name'),
+        'source_type': config.get('Login Credentials Table', 'source_type'),
+        'password': config.get('Login Credentials Table', 'password'),
+        'port': config.get('Login Credentials Table', 'port'),
+        'database_name': config.get('Login Credentials Table', 'database_name'),
+        'hostname': config.get('Login Credentials Table', 'hostname')
     }
-
-    return login_cred_columns
-
 
 def get_job_run_status_table_config() -> json:
     """
@@ -199,13 +168,12 @@ def get_job_run_status_table_config() -> json:
         dqt_logger.error(f"{str(file_not_found)}\n `database_config.ini` file not found")
         raise FileNotFoundError(f"{str(file_not_found)}\n `database_config.ini` file not found")
 
-    job_id = config.get('Job Run Status Table','job_id')
-    job_status = config.get('Job Run Status Table','job_status')
-    status_message = config.get('Job Run Status Table','status_message')
-    job_status_table = config.get('Job Run Status Table','job_status_table')
-
-    return {'job_id': job_id, 'job_status': job_status, 'status_message': status_message, 'job_status_table': job_status_table}
-
+    return {
+        'job_id': config.get('Job Run Status Table','job_id'), 
+        'job_status': config.get('Job Run Status Table','job_status'), 
+        'status_message': config.get('Job Run Status Table','status_message'), 
+        'job_status_table': config.get('Job Run Status Table','job_status_table')
+    }
 
 def generate_job_id() -> str:
     """
@@ -214,5 +182,4 @@ def generate_job_id() -> str:
     """
     rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    new_job_id =  f"Job_{rand_int}{timestamp}"
-    return new_job_id
+    return f"Job_{rand_int}{timestamp}"
