@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-class GE_API_Interface(ABC):
+class GEAPIInterface(ABC):
     """
     Abstract base class that defines the interface for interacting with the GE API.
     """

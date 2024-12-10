@@ -15,7 +15,7 @@ from request_models import connection_enum_and_metadata as conn_enum, connection
 from utils import generate_connection_name, generate_connection_string
 
 
-class GEFastAPI(ge_api_interface.GE_API_Interface): 
+class GEFastAPI(ge_api_interface.GEAPIInterface): 
     def __init__(self):
         self.connection_type = None
         self.db_instance = None
