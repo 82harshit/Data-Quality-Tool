@@ -392,6 +392,13 @@ class GreatExpectationsModel:
             raise NotImplementedError("Clickhouse datasource configuration is not yet implemented.")
 
         def __get_other_database_config(self) -> yaml:
+            """
+            Creates a JSON file with the predefined configurations for great_expectations library for other databases.
+            E.g.: MSSQL.
+            This connection is created using a connection string.
+
+            :return datasource_config_for_postgres_yaml (yaml): The config file for postgres converted to YAML
+            """
             datasource_config_for_other_json = {
                 "name": self.datasource_name,
                 "class_name": "Datasource",
