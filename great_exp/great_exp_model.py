@@ -85,7 +85,6 @@ class GreatExpectationsModel:
             elif self.datasource_type == conn_enum.Database_Datasource_Enum.CLICKHOUSE:
                 return self.__get_clickhouse_database_config()
             else:
-                dqt_logger.warning(f"Unhandled datasource type: {self.datasource_type}")
                 return self.__get_other_database_config()
 
         def __get_mysql_datasource_config(self) -> yaml:
@@ -111,9 +110,7 @@ class GreatExpectationsModel:
                 "data_connectors": {
                     "default_runtime_data_connector_name": {
                     "class_name": "RuntimeDataConnector",
-                        "batch_identifiers": [
-                            "default_identifier_name"
-                        ]
+                        "batch_identifiers": ["default_identifier_name"]
                     },
                         "default_inferred_data_connector_name": {
                         "class_name": "InferredAssetSqlDataConnector",
@@ -395,7 +392,42 @@ class GreatExpectationsModel:
             raise NotImplementedError("Clickhouse datasource configuration is not yet implemented.")
 
         def __get_other_database_config(self) -> yaml:
-            raise NotImplementedError("Other datasource configuration is not yet implemented.")
+            datasource_config_for_other_json = {
+                "name": self.datasource_name,
+                "class_name": "Datasource",
+                "execution_engine": {
+                    "class_name": "SqlAlchemyExecutionEngine",
+                    "connection_string": "{connection_string}"
+                    },
+                    "data_connectors": {
+                        "default_runtime_data_connector_name": {
+                        "class_name": "RuntimeDataConnector",
+                        "batch_identifiers": ["default_identifier_name"]
+                        },
+                        "default_inferred_data_connector_name": {
+                        "class_name": "InferredAssetSqlDataConnector",
+                        "include_schema_name": True,
+                            "introspection_directives": {
+                                "schema_name": self.schema_name
+                            }
+                        },
+                        "default_configured_data_connector_name": {
+                        "class_name": "ConfiguredAssetSqlDataConnector",
+                            "assets": {
+                                self.table_name: {
+                                "class_name": "Asset",
+                                "schema_name": self.schema_name
+                                }
+                            }
+                        }
+                    }
+                }
+
+            datasource_config_for_other_yaml = yaml.dump(datasource_config_for_other_json)
+            info_msg = f"Created datasource config for {self.datasource_type}"
+            dqt_logger.info(info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
+            return datasource_config_for_other_yaml
 
 
     class GEFileDatasource:

@@ -5,7 +5,7 @@ from logging_config import dqt_logger
 
 class TableDatabase(user_credentials_db.UserCredentialsDatabase):
     """
-    Class for managing database operations related to user credentials.
+    Class for managing database operations related to user credentials, and modifying user privileges.
     Inherits from `UserCredentialsDatabase` to leverage existing database connection functionalities.
     """
     def __init__(self, hostname: str, username: str, password: str, port: int, database: str, connection_type: str):
