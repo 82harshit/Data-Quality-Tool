@@ -6,7 +6,7 @@ from logging_config import dqt_logger
 
 
 class UserCredentials(BaseModel):
-    username: str = Field("test", description="Name of the user connecting", min_length=1)
+    username: str = Field(None, description="Name of the user connecting", min_length=1)
     password: Optional[str] = Field(None, description="Password for the user", min_length=8)
     access_token: Optional[str] = Field(None, description="Access token for authentication", min_length=10)
 
@@ -16,6 +16,17 @@ class UserCredentials(BaseModel):
             'password': {'exclude': True},  # This will exclude password field in the response
             'access_token' : {'exclude': True}
         } 
+
+    @model_validator(mode='before')
+    def validate_connection_priority(cls, values):
+        username = values.get("username")
+        if not username:
+                error_msg = "Username must be specified."
+                dqt_logger.error(error_msg)
+                raise ValueError(error_msg)
+        
+        return values
+        
 
 
 class ConnectionCredentials(BaseModel):
@@ -37,6 +48,7 @@ class ConnectionCredentials(BaseModel):
         dir_path = values.get("dir_path")
         database = values.get("database")
         connection_type = values.get("connection_type")
+        port = values.get("port")
 
         if connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
             if database:
@@ -46,6 +58,11 @@ class ConnectionCredentials(BaseModel):
                     raise ValueError(error_msg)
             else:
                 error_msg = "'database' field is required for database connections."
+                dqt_logger.error(error_msg)
+                raise ValueError(error_msg)
+            
+            if port != 3306:
+                error_msg = f"Invalid port {port} for database connection. Expected port: 3306."
                 dqt_logger.error(error_msg)
                 raise ValueError(error_msg)
 
@@ -81,7 +98,12 @@ class ConnectionCredentials(BaseModel):
                         Must be one of {list(conn_enum.File_Datasource_Enum.__members__.values())}"""
                         dqt_logger.error(error_msg)
                         raise ValueError(error_msg)
-
+                    
+            if port != 22:
+                error_msg = f"Invalid port {port} for file connection. Expected port: 22."
+                dqt_logger.error(error_msg)
+                raise ValueError(error_msg)
+        
         return values
     
 
