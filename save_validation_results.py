@@ -85,7 +85,7 @@ class DataQuality:
             db_session.rollback()
             error_msg = f"Error in upserting batch: {e}"
             dqt_logger.error(error_msg)
-            self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
+            self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Error in upserting batch.")
             
             
     def insert_expectation(self, expectation_data: dict, db_session: Session) -> None:
@@ -106,7 +106,7 @@ class DataQuality:
             db_session.rollback()
             error_msg = f"Error in inserting expectation: {e}"
             dqt_logger.error(error_msg)
-            self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
+            self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Error in inserting expectation.")
 
  
     def fetch_and_process_data(self, json_response: json, job_id: str) -> None:
@@ -175,7 +175,7 @@ class DataQuality:
                 # Log the expectation data
                 info_msg = f"Inserting expectation:{expectation}"
                 dqt_logger.info(info_msg)
-                self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
+                self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message="Inserting expectation")
  
                 # Insert expectation into the database
                 self.insert_expectation(expectation, db_session)
@@ -188,7 +188,7 @@ class DataQuality:
             db_session.rollback()
             error_msg = f"Error processing data: {e}"
             dqt_logger.error(error_msg)
-            self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
+            self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Error processing data.")
         finally:
             db_session.close()
             

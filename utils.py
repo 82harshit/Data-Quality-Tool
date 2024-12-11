@@ -7,6 +7,7 @@ import os
 
 from request_models import connection_enum_and_metadata as conn_enum, connection_model
 from logging_config import dqt_logger
+from tabulate import tabulate
 
 
 def remove_special_characters(input_string) -> str:
@@ -183,3 +184,36 @@ def generate_job_id() -> str:
     rand_int = random.randint(10000000, 99999999)  # Random integer in the range of 10000000 to 99999999
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     return f"Job_{rand_int}{timestamp}"
+
+def log_validation_results(validation_result):
+    """
+    Parse and log validation results in a tabular format.
+    """
+    # Extract results and statistics
+    results = validation_result.get("results", [])
+    stats = validation_result.get("statistics", {})
+
+    # Prepare table data
+    table_data = []
+    for result in results:
+        expectation = result["expectation_config"]
+        table_data.append([
+            expectation["expectation_type"],  # Type of expectation
+            expectation["kwargs"].get("column", "N/A"),  # Column name
+            result["success"],  # Success status
+        ])
+
+    # Add statistics summary rows
+    table_data.extend([
+        ["Success Percent", "N/A", stats.get("success_percent", "N/A")],
+        ["Successful Expectations", "N/A", stats.get("successful_expectations", "N/A")],
+        ["Unsuccessful Expectations", "N/A", stats.get("unsuccessful_expectations", "N/A")]
+    ])
+
+    # Generate and log the table
+    table = tabulate(
+        table_data,
+        headers=["Expectation Type", "Column", "Success"],
+        tablefmt="grid",
+    )
+    dqt_logger.info("\nValidation Results:\n%s", table)
