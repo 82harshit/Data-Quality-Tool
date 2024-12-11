@@ -9,6 +9,7 @@ class DataSource(BaseModel):
     dir_path: Optional[str] = Field(None, description="Path of dir in which files need to be validated")
     file_name: Optional[str] = Field(None, description="Name of file to be validated")
     table_name: Optional[str] = Field(None, description="Name of table, data of which needs to be validated")
+    schema_name: Optional[str] = Field(None, description="Schema name of the table provided")
 
     @model_validator(mode='before')
     def validate_data_source(cls, values):
@@ -20,9 +21,25 @@ class DataSource(BaseModel):
         dir_path = values.get('dir_path')
         file_name = values.get('file_name')
         table_name = values.get('table_name')
+        schema_name = values.get('schema_name')
 
-        if table_name and (dir_path or file_name):
+        if table_name:
+            if (dir_path or file_name):
                 error_msg = "If 'table_name' is given 'file_name' and 'dir_path' must not be specified."
+                dqt_logger.error(error_msg)
+                raise ValueError(error_msg)
+            if not schema_name:
+                error_msg = "If 'table_name is given 'schema_name' must be specified."
+                dqt_logger.error(error_msg)
+                raise ValueError(error_msg)
+            
+        if schema_name:
+            if (dir_path or file_name):
+                error_msg = "If 'schema_name' is given 'file_name' and 'dir_path' must not be specified."
+                dqt_logger.error(error_msg)
+                raise ValueError(error_msg)
+            if not table_name:
+                error_msg = "If 'schema_name' is given 'table_name' must be specified."
                 dqt_logger.error(error_msg)
                 raise ValueError(error_msg)
             

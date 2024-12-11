@@ -227,6 +227,7 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
         Handle validation checks for a database data source.
         """
         table_name = job.data_source.table_name
+        schema_name = job.data_source.schema_name
         database = user_conn_creds.get('database')
 
         rand_int = random.randint(1000, 9999)  # random 4-digit integer
@@ -244,7 +245,7 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
                 table_name=table_name,
                 datasource_name=datasource_name,
                 datasource_type=user_conn_creds.get('source_type'),
-                schema_name=database
+                schema_name=schema_name
             )
             return json.loads(str(validation_results))  # Convert result to JSON format
         except Exception as ge_exception:

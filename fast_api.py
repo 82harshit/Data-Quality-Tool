@@ -123,7 +123,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
   "data_source": {
       "dir_path": "C:/user/Desktop",
       "file_name": "sample_file",
-      "table_name": "test_table"
+      "table_name": "test_table",
+      "schema_name": "test_schema"
   },
   "quality_checks": [
    {
