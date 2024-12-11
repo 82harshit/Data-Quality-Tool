@@ -316,6 +316,6 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
           return {'job_id': job_id}
     except Exception as saving_validation_error:
         error_msg = f"An error occurred, failed to save validation results in database. Error: {str(saving_validation_error)}"
-        JobStateSingleton.update_state_of_job_id(job_id, JobRunStatusEnum.ERROR, status_message=error_msg)
+        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
         return {'job_id': job_id}
       
