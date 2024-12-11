@@ -216,4 +216,6 @@ def log_validation_results(validation_result):
         headers=["Expectation Type", "Column", "Success"],
         tablefmt="grid",
     )
+    
     dqt_logger.info("\nValidation Results:\n%s", table)
+    
