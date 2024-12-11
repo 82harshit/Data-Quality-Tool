@@ -1,7 +1,7 @@
 import json
 from typing import Optional
    
-from database import sql_queries as query_template, app_connection
+from database import sql_queries as query_template, database_connection
 from database.db_models import sql_query
 from interfaces import database_interface
 from request_models import connection_enum_and_metadata as conn_enum
@@ -43,7 +43,7 @@ class UserCredentialsDatabase(database_interface.DatabaseInterface):
         
         :return: None
         """
-        self.db_connection = app_connection.get_app_db_connection_object()
+        self.db_connection = database_connection.get_app_db_connection_object()
         
     
     def insert_in_db(self, unique_connection_name: str, connection_string: str) -> None:

@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import HTTPException
 
 from database import sql_queries as query_template
-from database.app_connection import get_connection_object_for_db
+from database.database_connection import get_connection_object_for_db
 from database.db_models.sql_query import SQLQuery
 from database.db_models import table_db, file_db
 from great_exp.great_exp_model import run_quality_checks_for_file, run_quality_checks_for_db

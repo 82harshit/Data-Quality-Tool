@@ -1,5 +1,5 @@
 from database.db_models import user_credentials_db, sql_query
-from database import app_connection, sql_queries as query_template
+from database import database_connection, sql_queries as query_template
 from logging_config import dqt_logger
 
 
@@ -59,7 +59,7 @@ class TableDatabase(user_credentials_db.UserCredentialsDatabase):
         :param password: The password for the new user.
         :raises Exception: If an error occurs during user creation or granting access.
         """
-        db_connection = app_connection.get_connection_object_for_db(database=database_name)
+        db_connection = database_connection.get_connection_object_for_db(database=database_name)
         user_exists = TableDatabase.__check_if_user_exists(hostname=hostname, username=username, db_connection=db_connection)
         
         if not user_exists:
@@ -104,7 +104,7 @@ class TableDatabase(user_credentials_db.UserCredentialsDatabase):
         :param table_name: The name of the table from which read access is revoked.
         :raises Exception: If an error occurs during revoking access or deleting the user.
         """
-        db_connection = app_connection.get_connection_object_for_db(database=database_name)
+        db_connection = database_connection.get_connection_object_for_db(database=database_name)
         try:
             revoke_read_access_for_user_query = query_template.REVOKE_ACCESS_TO_USER.format(database_name, table_name,
                                                                                                  username, hostname)

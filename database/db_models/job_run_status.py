@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import HTTPException
 
 from database.db_models import sql_query
-from database import sql_queries as query_template, app_connection
+from database import sql_queries as query_template, database_connection
 from interfaces import database_interface
 from logging_config import dqt_logger
 from utils import get_job_run_status_table_config
@@ -41,7 +41,7 @@ class JobRunStatus(database_interface.DatabaseInterface):
         This method initializes the `db_instance` attribute with a 
         database connection object.
         """
-        self.db_instance = app_connection.get_app_db_connection_object()
+        self.db_instance = database_connection.get_app_db_connection_object()
     
     def insert_in_db(self) -> None:
         """
