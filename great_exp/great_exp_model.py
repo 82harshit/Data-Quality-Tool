@@ -150,7 +150,7 @@ class GreatExpectationsModel:
                     "class_name": "SqlAlchemyExecutionEngine",
                     "credentials": {
                     "host": self.host,
-                    "port": self.port,
+                    "port": str(self.port),
                     "username": self.username,
                     "password": self.password,
                     "database": self.database,

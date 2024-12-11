@@ -160,14 +160,15 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
         :return json: A json containing user credentials
         """
         try:
-            user_exists = self.db_instance.search_in_db(unique_connection_name=self.unique_connection_name) # search for user in login_credentials database
+            # search for user in login_credentials database
+            user_exists = self.db_instance.search_in_db(unique_connection_name=self.unique_connection_name) 
         
             if not user_exists:
                 error_msg = {"error": "User not found", "connection_name": self.unique_connection_name}
                 dqt_logger.error(f"User not found for connection name: {self.unique_connection_name}")
                 raise HTTPException(status_code=404, detail=error_msg)
     
-            user_conn_creds = self.db_instance.get_user_credentials(unique_connection_name=self.unique_connection_name)
+            user_conn_creds = self.db_instance.get_from_db(unique_connection_name=self.unique_connection_name)
             
             if not user_conn_creds:
                 error_msg = f"No user connection credentials retrieved for connection name: {self.unique_connection_name}"

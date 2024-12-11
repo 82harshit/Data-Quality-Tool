@@ -120,18 +120,7 @@ class UserCredentialsDatabase(database_interface.DatabaseInterface):
         """
         return super().update_in_db()
      
-    def get_from_db(self):
-        """
-        Retrieves data from the user credentials database.
-
-        This method calls the `get_from_db` method of the parent `DatabaseInterface` 
-        class to handle the retrieval operation.
-
-        :return: The retrieved data from the database.
-        """
-        return super().get_from_db()
-
-    def get_user_credentials(self, unique_connection_name: str) -> json:
+    def get_from_db(self, unique_connection_name: str) -> json:
         """
         Retrieves the user credentials associated with the unique connection name.
 

@@ -43,14 +43,25 @@ class JobRunStatus(database_interface.DatabaseInterface):
         """
         self.db_instance = app_connection.get_app_db_connection_object()
     
-    def insert_in_db(self):
+    def insert_in_db(self) -> None:
         """
-        Inserts the job status details into the database.
+        Inserts the job id and its details into the database.
 
-        This method calls the parent `insert_in_db` method from the 
-        `database_interface.DatabaseInterface` to perform the insert operation.
+        :param job_id (str): Job ID to be inserted in the table
+        
+        :return: None
         """
-        return super().insert_in_db()
+        job_run_status_details = get_job_run_status_table_config()
+
+        job_status_table = job_run_status_details.get('job_status_table')
+        
+        query_params = (self.job_id, None, None) # add job_id in job_run_status table with status message and logs as `None`
+        
+        insert_job_id_query = sql_query.SQLQuery(db_connection=self.db_instance,
+                                                 query=query_template.INSERT_JOB_STATUS_QUERY.format(job_status_table),
+                                                 query_params=query_params
+                                                 )
+        insert_job_id_query.execute_query()
     
     def update_in_db(self, job_status: str, status_message: Optional[str] = None) -> None:
         """
@@ -81,7 +92,8 @@ class JobRunStatus(database_interface.DatabaseInterface):
                             query=query_template.UPDATE_JOB_STATUS_QUERY.format(
                                job_status_table, set_clause, col_job_id
                             ),
-                           query_params=(job_status, status_message, self.job_id))
+                            query_params=(job_status, status_message, self.job_id)
+                           )
         update_job_status_for_job_id_query.execute_query()
         
     def search_in_db(self):

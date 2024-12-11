@@ -14,14 +14,38 @@ class JobStateSingleton:
         return cls._instance
 
     @classmethod
-    def set_job_id(cls, job_id):
+    def set_job_id(cls, job_id) -> None:
         """Set the job ID in the singleton instance."""
         cls._job_id = job_id
+        cls.add_job_id()
 
     @classmethod
-    def get_job_id(cls):
-        """Retrieve the job ID from the singleton instance."""
+    def get_job_id(cls) -> str:
+        """
+        Retrieve the job ID from the singleton instance.
+        
+        :return (str): Retrieved job_id
+        """
         return cls._job_id
+    
+    @classmethod
+    def add_job_id(cls) -> None:
+        """
+        Adds the job id the table that holds the state of all job ids
+
+        :return: None
+        """
+        _job_id = cls.get_job_id()
+        if _job_id == None:
+            error_msg = "Job ID not initialized in singleton"
+            dqt_logger.error(error_msg)
+            return Exception(error_msg)  
+        
+        _job_run_status = JobRunStatus(job_id=_job_id)
+        _job_run_status.connect_to_db()
+        dqt_logger.info(f"Adding Job ID:{_job_id} in table")
+        _job_run_status.insert_in_db()
+        _job_run_status.close_db_connection()
     
     @classmethod
     def update_state_of_job_id(cls, job_status: str, status_message: Optional[str] = None) -> None:
