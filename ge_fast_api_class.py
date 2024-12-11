@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import HTTPException
 
 from database import sql_queries as query_template
-from database.app_connection import get_app_db_connection_object
+from database.app_connection import get_connection_object_for_db
 from database.db_models.sql_query import SQLQuery
 from database.db_models import table_db, file_db
 from great_exp.great_exp_model import run_quality_checks_for_file, run_quality_checks_for_db
@@ -78,6 +78,42 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
             dqt_logger.error(error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
 
+    @staticmethod
+    def __check_if_db_exists(connection: connection_model.Connection) -> str:
+        """
+        Executes a SQL query to check if the provided database exists on the server
+
+        :param connection (object): An object of class connection_model
+        containing the connection credentials
+        
+        :return str: Returns 1 if database exists else None
+        """
+        connection_type=connection.connection_credentials.connection_type
+        database_name=connection.connection_credentials.database
+        
+        # creates a connection to the database provided in the connection (model)
+        db_conn = get_connection_object_for_db(username=connection.user_credentials.username, 
+                                     password=connection.user_credentials.password, 
+                                     hostname=connection.connection_credentials.server, 
+                                     port=connection.connection_credentials.port, 
+                                     connection_type=connection_type,
+                                     database=database_name
+                                     )
+        
+        if connection_type == conn_enum.Database_Datasource_Enum.MYSQL:
+            db_exists_mysql_query = query_template.CHECK_IF_DB_EXISTS_MYSQL.format(database_name)
+            return SQLQuery(db_connection=db_conn, 
+                            query=db_exists_mysql_query
+                            ).execute_query()
+        
+        elif connection_type == conn_enum.Database_Datasource_Enum.POSTGRES:
+            db_exists_postgres_query = query_template.CHECK_IF_DB_EXISTS_POSTGRES
+            query_params = (database_name,)
+            return SQLQuery(db_connection=db_conn, 
+                            query=db_exists_postgres_query,
+                            query_params=query_params
+                            ).execute_query()
+        
     # for /create-connection endpoint
     async def insert_user_credentials(self, connection: connection_model.Connection, expected_extension: Optional[str] = None) -> str:
         """
@@ -125,8 +161,7 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
             
             # Check if database exists
             try:
-                check_if_db_exists_query = query_template.CHECK_IF_DB_EXISTS.format(database_name)
-                db_exists = SQLQuery(db_connection=get_app_db_connection_object(), query=check_if_db_exists_query).execute_query()
+                db_exists = self.__check_if_db_exists(connection=connection)
                 if not db_exists:
                     error_msg = "Trying to connect to a database that does not exist on the given server"
                     dqt_logger.error(error_msg)
