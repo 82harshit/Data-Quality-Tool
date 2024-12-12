@@ -25,7 +25,7 @@ from database.db_models.job_run_status import JobRunStatusEnum
 from ge_fast_api_class import GEFastAPI
 from job_state_singleton import JobStateSingleton
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
-from save_validation_results import DataQuality
+from save_validation_results import ValidationResult
 from logging_config import dqt_logger
 from utils import generate_job_id,log_validation_results
 
@@ -310,7 +310,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
             info_msg = "Saving validation results in database"
             dqt_logger.info(info_msg)
             JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
-            DataQuality().fetch_and_process_data(validation_results, job_id=job_id) 
+            ValidationResult().save_result_for_job_id(validation_results, job_id=job_id) 
             return {'job_id': job_id}
         except Exception as saving_validation_error:
             error_msg = f"An error occurred, failed to save validation results in database\nError:{str(saving_validation_error)}"

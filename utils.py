@@ -200,7 +200,7 @@ def log_validation_results(validation_result):
         table_data.append([
             expectation["expectation_type"],  # Type of expectation
             expectation["kwargs"].get("column", "N/A"),  # Column name
-            result["success"],  # Success status
+            "Yes" if result["success"] == 1 else "No",  # Success status
         ])
 
     # Add statistics summary rows
