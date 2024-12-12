@@ -261,6 +261,12 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
     async def __handle_database_validation(self, job: job_model.SubmitJob, user_conn_creds: dict, quality_checks: list) -> dict:
         """
         Handle validation checks for a database data source.
+        
+        :param job (object): An object of job model
+        :param user_conn_creds (dict): A dictionary containing the connection credentials of user
+        :param quality_checks (list): A list of checks that are to be applied on the data
+        
+        :return (dict): A JSON containing validation results
         """
         table_name = job.data_source.table_name
         schema_name = job.data_source.schema_name
@@ -294,6 +300,12 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
     async def __handle_file_validation(self, job: job_model.SubmitJob, quality_checks: list, datasource_type: str) -> dict:
         """
         Handle validation checks for a file data source.
+           
+        :param job (object): An object of job model
+        :param quality_checks (list): A list of checks that are to be applied on the data
+        :param datasource_type (str): The type of file datasource -- csv, excel, json, etc.
+        
+        :return (dict): A JSON containing validation results
         """
         dir_path = job.data_source.dir_path
         file_name = job.data_source.file_name
