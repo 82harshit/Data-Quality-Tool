@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 import json
 from dotenv import load_dotenv  # Load environment variables from .env file
+from retry import retry
 
 from logging_config import dqt_logger
 from job_state_singleton import JobStateSingleton
@@ -54,7 +55,8 @@ class DataQuality:
         self.engine = engine
         self.SessionLocal = SessionLocal
         self.job_state = JobStateSingleton
- 
+        self.retry_attempts = {}
+    @retry(tries=3, delay=2, backoff=2, jitter=(1, 3),logger=dqt_logger)
     def upsert_batch(self, batch_id: str, job_id: str, batch_date, data_quality_score: float, db_session: Session) -> None:
         """
         Inserts or updates a batch record.
@@ -67,6 +69,11 @@ class DataQuality:
         
         :return: None
         """
+        function_name = "upsert_batch"
+        self.retry_attempts[function_name] = self.retry_attempts.get(function_name, 0) + 1  # Increment retry count
+        current_attempt = self.retry_attempts[function_name]
+        max_attempts = 3  # Matches the `tries` parameter
+
         try:
             existing_batch = db_session.query(Batch).filter(Batch.batch_id == batch_id).first()
             if existing_batch:
@@ -83,11 +90,12 @@ class DataQuality:
             db_session.commit()
         except Exception as e:
             db_session.rollback()
-            error_msg = f"Error in upserting batch: {e}"
+            # Access retry attempt number
+            error_msg = f"Error in upserting batch on attempt {current_attempt}/{max_attempts}: {e}"
             dqt_logger.error(error_msg)
             self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Error in upserting batch.")
-            
-            
+            raise Exception(error_msg)
+    @retry(tries=3, delay=2, backoff=2, jitter=(1, 3),logger=dqt_logger)        
     def insert_expectation(self, expectation_data: dict, db_session: Session) -> None:
         """
         Inserts a new expectation record.
@@ -97,6 +105,11 @@ class DataQuality:
         
         :return: None
         """
+        function_name = "insert_expectation"
+        self.retry_attempts[function_name] = self.retry_attempts.get(function_name, 0) + 1  # Increment retry count
+        current_attempt = self.retry_attempts[function_name]
+        max_attempts = 3  # Matches the `tries` parameter
+
         try:
             expectation = Expectation(**expectation_data)
             db_session.add(expectation)
@@ -104,10 +117,10 @@ class DataQuality:
             dqt_logger.info(f"Inserted expectation: {expectation_data['expectation_type']}")
         except Exception as e:
             db_session.rollback()
-            error_msg = f"Error in inserting expectation: {e}"
+            error_msg = f"Error in inserting batch on attempt {current_attempt}/{max_attempts}: {e}"
             dqt_logger.error(error_msg)
             self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Error in inserting expectation.")
-
+            raise Exception(error_msg)
  
     def fetch_and_process_data(self, json_response: json, job_id: str) -> None:
         """
