@@ -27,7 +27,7 @@ from job_state_singleton import JobStateSingleton
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
 from save_validation_results import ValidationResult
 from logging_config import dqt_logger
-from utils import generate_job_id,log_validation_results
+from utils import generate_job_id, log_validation_results, clear_datasources
 
 
 def get_job_id_and_initialize_job_state_singleton() -> str:
@@ -306,6 +306,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
   
     if validation_results: 
         try:
+            clear_datasources()
             log_validation_results(validation_results)
             info_msg = "Saving validation results in database"
             dqt_logger.info(info_msg)

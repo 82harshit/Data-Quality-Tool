@@ -4,6 +4,7 @@ import random
 import re
 import json
 import os
+import yaml
 
 from request_models import connection_enum_and_metadata as conn_enum, connection_model
 from logging_config import dqt_logger
@@ -219,3 +220,19 @@ def log_validation_results(validation_result):
     
     dqt_logger.info("\nValidation Results:\n%s", table)
     
+def clear_datasources():
+    """
+    This function clears all the datasources defined unded the `datasources` key in `great_expectations.yml` file
+    """
+    file_path = os.path.join('gx', 'great_expectations.yml') # relative path to 'great_expectations.yml'
+    # Load the YAML file
+    with open(file_path, 'r') as file:
+        yaml_content = yaml.safe_load(file)
+    
+    # Clear the datasources key
+    if 'datasources' in yaml_content:
+        yaml_content['datasources'] = {}
+    
+    # Write the updated YAML back to the file
+    with open(file_path, 'w') as file:
+        yaml.safe_dump(yaml_content, file, default_flow_style=False)
