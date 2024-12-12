@@ -1,9 +1,10 @@
 import configparser
 from datetime import datetime
-import random
-import re
 import json
 import os
+import random
+import re
+import shutil
 import yaml
 
 from request_models import connection_enum_and_metadata as conn_enum, connection_model
@@ -220,11 +221,12 @@ def log_validation_results(validation_result):
     
     dqt_logger.info("\nValidation Results:\n%s", table)
     
-def clear_datasources():
+def clear_datasources(file_path) -> None:
     """
     This function clears all the datasources defined unded the `datasources` key in `great_expectations.yml` file
+    
+    :return: None
     """
-    file_path = os.path.join('gx', 'great_expectations.yml') # relative path to 'great_expectations.yml'
     # Load the YAML file
     with open(file_path, 'r') as file:
         yaml_content = yaml.safe_load(file)
@@ -236,3 +238,30 @@ def clear_datasources():
     # Write the updated YAML back to the file
     with open(file_path, 'w') as file:
         yaml.safe_dump(yaml_content, file, default_flow_style=False)
+        
+    dqt_logger.info(f"All 'datasources' have been deleted.")
+
+def delete_all_under_folder(folder_path) -> None:
+    """
+    Deletes all files and folders under the given folder path.
+    
+    :param folder_path (str): The path of the folder whose contents need to be deleted.
+    
+    :return: None
+    """
+    if not os.path.exists(folder_path):
+        dqt_logger.warning(f"The folder '{folder_path}' does not exist.")
+        return
+
+    # List all files and folders in the directory
+    for item in os.listdir(folder_path):
+        item_path = os.path.join(folder_path, item)
+        
+        # Remove file or directory
+        if os.path.isfile(item_path) or os.path.islink(item_path):  # Check for file or symbolic link
+            os.remove(item_path)
+        elif os.path.isdir(item_path):  # Check for directory
+            shutil.rmtree(item_path)
+    
+    dqt_logger.info(f"All files and folders under '{folder_path}' have been deleted.")
+    

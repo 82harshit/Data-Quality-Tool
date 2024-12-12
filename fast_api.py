@@ -20,6 +20,7 @@ and generates a unique `connection name` for the user
 """
 
 from fastapi import FastAPI, Body, HTTPException
+import os
 
 from database.db_models.job_run_status import JobRunStatusEnum
 from ge_fast_api_class import GEFastAPI
@@ -27,7 +28,7 @@ from job_state_singleton import JobStateSingleton
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
 from save_validation_results import ValidationResult
 from logging_config import dqt_logger
-from utils import generate_job_id, log_validation_results, clear_datasources
+from utils import generate_job_id, log_validation_results, clear_datasources, delete_all_under_folder
 
 
 def get_job_id_and_initialize_job_state_singleton() -> str:
@@ -41,16 +42,34 @@ def get_job_id_and_initialize_job_state_singleton() -> str:
     JobStateSingleton.set_job_id(job_id=job_id) # sets the job_id in singleton object
     return job_id
 
+
+def cleanup() -> None:
+  """
+  Clean all the datasources, expectations and validations 
+  
+  :return: None
+  """
+  great_exp_yaml_path = os.path.join('gx', 'great_expectations.yml') # relative path to 'great_expectations.yml'
+  clear_datasources(file_path=great_exp_yaml_path)
+  expectations_folder = os.path.join('gx', 'expectations') 
+  delete_all_under_folder(expectations_folder)
+  validations_folder = os.path.join('gx', 'uncommitted', 'validations')
+  delete_all_under_folder(validations_folder)
+  
+
 app = FastAPI()
+
 
 @app.get("/", description='This is the root route')
 async def root():
     return {"message": "Welcome to Data Quality Tool"}
 
+
 @app.get("/submit-job-status", description="This endpoint returns the application state for 'submit-job' endpoint")
 async def submit_job_status(job_id: str):
     current_job_state = JobStateSingleton.get_state_of_job_id(job_id=job_id)
     return current_job_state
+
 
 @app.post("/create-connection", description="This endpoint allows connection to the provided connection type")
 async def create_connection(connection: connection_model.Connection = Body(...,
@@ -306,7 +325,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
   
     if validation_results: 
         try:
-            clear_datasources()
+            cleanup()
             log_validation_results(validation_results)
             info_msg = "Saving validation results in database"
             dqt_logger.info(info_msg)
