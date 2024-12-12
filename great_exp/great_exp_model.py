@@ -191,7 +191,7 @@ class GreatExpectationsModel:
             """
             Creates a JSON file with the predefined configurations for great_expectations library for mysql.
 
-            :return datasource_config_for_mysql_yaml (yaml): The config file for mysql converted to YAML
+            :return datasource_config_for_redshift_yaml (yaml): The config file for Amazon Redshift converted to YAML
             """
             datasource_config_for_redshift_json = {
                 "name": self.datasource_name,
@@ -397,7 +397,7 @@ class GreatExpectationsModel:
             E.g.: MSSQL.
             This connection is created using a connection string.
 
-            :return datasource_config_for_postgres_yaml (yaml): The config file for postgres converted to YAML
+            :return datasource_config_for_other_yaml (yaml): The config file for other database converted to YAML
             """
             datasource_config_for_other_json = {
                 "name": self.datasource_name,
