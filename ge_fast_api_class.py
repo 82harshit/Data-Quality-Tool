@@ -251,10 +251,12 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
         # Reraise HTTP exceptions to preserve status code and message
             raise http_error
         except Exception as conn_cred_retrieval_error:
-            error_msg = f"An unexpected error occurred while retrieving user connection credentials: {str(conn_cred_retrieval_error)}"
+            error_msg = f"""An unexpected error occurred while retrieving user connection credentials: 
+                            {str(conn_cred_retrieval_error)}"""
             dqt_logger.error(error_msg)
             JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
-                                                     status_message=error_msg)
+                                                     status_message="""An unexpected error occurred while 
+                                                     retrieving user connection credentials""")
             raise HTTPException(status_code=500, detail=error_msg)
 
     
