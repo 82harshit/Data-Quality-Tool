@@ -293,32 +293,34 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
 
     ge_fast_api = GEFastAPI()
     
-    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.STARTED)
-    validation_results = await ge_fast_api.validation_check_request(job=job)
-    dqt_logger.debug(f"Validation results:\n{validation_results}")
-
     try:
-      if validation_results: 
-          try:
-              log_validation_results(validation_results)
-              info_msg = "Saving validation results in database"
-              dqt_logger.info(info_msg)
-              JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
-              DataQuality().fetch_and_process_data(validation_results, job_id=job_id) 
-              return {'job_id': job_id}
-          except Exception as saving_validation_error:
-              error_msg = f"An error occurred, failed to save validation results in database\nError:{str(saving_validation_error)}"
-              dqt_logger.error(error_msg)
-              JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
-              return {'job_id': job_id}
-      else:
-          error_msg = "Missing validation results"
-          dqt_logger.error(error_msg)
-          JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
-          return {'job_id': job_id}
-    except Exception as saving_validation_error:
-        error_msg = f"An error occurred, failed to save validation results in database. Error: {str(saving_validation_error)}"
+      JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.STARTED)
+      validation_results = await ge_fast_api.validation_check_request(job=job)
+      dqt_logger.debug(f"Validation results:\n{validation_results}")
+    except Exception as validation_check_error:
+      error_msg = f"An error occurred while validating data.\nError:{str(validation_check_error)}"
+      dqt_logger.error(error_msg)
+      JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, 
+                                               status_message="An error occurred while validating data.")
+      return {"job_id": job_id}
+  
+    if validation_results: 
+        try:
+            log_validation_results(validation_results)
+            info_msg = "Saving validation results in database"
+            dqt_logger.info(info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
+            DataQuality().fetch_and_process_data(validation_results, job_id=job_id) 
+            return {'job_id': job_id}
+        except Exception as saving_validation_error:
+            error_msg = f"An error occurred, failed to save validation results in database\nError:{str(saving_validation_error)}"
+            dqt_logger.error(error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, 
+                                                      status_message="An error occurred, failed to save validation results in database")
+            return {'job_id': job_id}
+    else:
+        error_msg = "Missing validation results"
         dqt_logger.error(error_msg)
         JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
         return {'job_id': job_id}
-      
+  

@@ -638,7 +638,8 @@ class GreatExpectationsModel:
         except Exception as validator_error:
             error_msg = f"An error occured while creating validator:\n{str(validator_error)}"
             dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, 
+                                                     status_message="An error occured while creating validator.")
             raise Exception(error_msg)
 
     def add_expectations_to_validator(self, validator, expectations: List[Dict]) -> None:
@@ -661,18 +662,26 @@ class GreatExpectationsModel:
             try:
                 expectation_type = expectation.expectation_type
                 kwargs = expectation.kwargs
+                
                 if not expectation_type or not isinstance(kwargs, dict):
-                    raise ValueError(f"Invalid expectation format: {expectation}")
+                    error_msg = f"Invalid expectation format: {expectation}"
+                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                             status_message=error_msg)
+                    raise ValueError(error_msg)
                 
                 # Dynamically call the appropriate expectation method
                 expectation_func = getattr(validator, expectation_type, None)
                 if not expectation_func:
-                    raise AttributeError(f"Expectation type '{expectation_type}' is not supported.")
+                    error_msg = f"Expectation type '{expectation_type}' is not supported."
+                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, 
+                                                             status_message=error_msg)
+                    raise AttributeError(error_msg)
                 
                 expectation_func(**kwargs)
             except Exception as e:
                 error_msg = f"Error adding expectation: {expectation}\n{str(e)}"
-                JobStateSingleton.update_state_of_job_id(JobRunStatusEnum.ERROR, error_msg)
+                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, 
+                                                         status_message=error_msg)
                 raise ValueError(error_msg)
             
         # Save the updated expectation suite

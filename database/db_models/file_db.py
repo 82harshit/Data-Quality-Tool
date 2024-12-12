@@ -63,7 +63,8 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
         except Exception as ssh_conn_error:
             error_msg = f"An error occurred while connecting to the server using SSH:\n{str(ssh_conn_error)}"
             dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="An error occurred while connecting to the server using SSH")
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, 
+                                                     status_message="An error occurred while connecting to the server using SSH")
             raise Exception(error_msg)
 
 

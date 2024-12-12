@@ -8,8 +8,10 @@ from database import sql_queries as query_template
 from database.database_connection import get_connection_object_for_db
 from database.db_models.sql_query import SQLQuery
 from database.db_models import table_db, file_db
+from database.db_models.job_run_status import JobRunStatusEnum
 from great_exp.great_exp_model import run_quality_checks_for_file, run_quality_checks_for_db
 from interfaces import ge_api_interface
+from job_state_singleton import JobStateSingleton
 from logging_config import dqt_logger
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
 from utils import generate_connection_name, generate_connection_string
@@ -76,6 +78,8 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
                 "request_json": connection.model_dump_json()
             }
             dqt_logger.error(error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
 
     @staticmethod
@@ -115,7 +119,8 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
                             ).execute_query()
         
     # for /create-connection endpoint
-    async def insert_user_credentials(self, connection: connection_model.Connection, expected_extension: Optional[str] = None) -> str:
+    async def insert_user_credentials(self, connection: connection_model.Connection, 
+                                      expected_extension: Optional[str] = None) -> str:
         """
         Insert user credentials from connection model to the user_credentials database
 
@@ -126,6 +131,8 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
        
         if self.db_instance is None:
             warning_msg = "File object not initialized before establising connection"
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=warning_msg)
             dqt_logger.warning(warning_msg)
             raise Exception(warning_msg) 
         
@@ -143,6 +150,8 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
                 if not file_name.endswith(expected_extension):
                     error_msg = f"The provided file is not a {expected_extension.upper()} file."
                     dqt_logger.error(error_msg)
+                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
                     raise HTTPException(status_code=400, detail=error_msg)
 
                 # Search for the file on the server
@@ -151,10 +160,14 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
                 if not search_result["file_found"]:
                     error_msg = f"{file_name} file not found on server."
                     dqt_logger.error(error_msg)
+                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
                     raise HTTPException(status_code=404, detail=error_msg)
             except Exception as e:
                 error_msg = f"Error processing {file_name} connection: {str(e)}"
                 dqt_logger.error(error_msg)
+                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
         else: # Handle database-related connection
             database_name = connection.connection_credentials.database
@@ -165,17 +178,26 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
                 if not db_exists:
                     error_msg = "Trying to connect to a database that does not exist on the given server"
                     dqt_logger.error(error_msg)
+                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
                     raise HTTPException(status_code=500, detail=error_msg)
             except Exception as e:
                 error_msg = f"Error checking database existence for {database_name}: {str(e)}"
                 dqt_logger.error(error_msg)
+                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
 
         # Insert connection details into the database      
         try:              
             self.db_instance.insert_in_db(unique_connection_name=unique_connection_name,connection_string=connection_string)
-            dqt_logger.info("Connection details insertion completed")
+            info_msg = "Connection details insertion completed"
+            dqt_logger.info(info_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS,
+                                                     status_message=info_msg)
         except Exception as e:
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
             error_msg = f"Error inserting connection details into database: {str(e)}"
             dqt_logger.error(error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
@@ -199,8 +221,10 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
             user_exists = self.db_instance.search_in_db(unique_connection_name=self.unique_connection_name) 
         
             if not user_exists:
-                error_msg = {"error": "User not found", "connection_name": self.unique_connection_name}
-                dqt_logger.error(f"User not found for connection name: {self.unique_connection_name}")
+                error_msg = f"User not found for connection name: {self.unique_connection_name}"
+                dqt_logger.error(error_msg)
+                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
                 raise HTTPException(status_code=404, detail=error_msg)
     
             user_conn_creds = self.db_instance.get_from_db(unique_connection_name=self.unique_connection_name)
@@ -208,6 +232,8 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
             if not user_conn_creds:
                 error_msg = f"No user connection credentials retrieved for connection name: {self.unique_connection_name}"
                 dqt_logger.error(error_msg)
+                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)  
             
             dqt_logger.debug(f"Retrieved user connection credentials for {self.unique_connection_name}: {user_conn_creds}")
@@ -218,7 +244,9 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
             raise http_error
         except Exception as conn_cred_retrieval_error:
             error_msg = f"An unexpected error occurred while retrieving user connection credentials: {str(conn_cred_retrieval_error)}"
-            dqt_logger.error(f"Error retrieving credentials for {self.unique_connection_name}: {str(conn_cred_retrieval_error)}")
+            dqt_logger.error(error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
 
     
@@ -251,6 +279,8 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
         except Exception as ge_exception:
             error_msg = f"An error occurred while validating data for database {database}: {str(ge_exception)}"
             dqt_logger.error(error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
 
     async def __handle_file_validation(self, job: job_model.SubmitJob, quality_checks: list, datasource_type: str) -> dict:
@@ -276,6 +306,8 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
         except Exception as ge_exception:
             error_msg = f"An error occurred while validating data for file {file_name}: {str(ge_exception)}"
             dqt_logger.error(error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
 
 
@@ -299,9 +331,12 @@ class GEFastAPI(ge_api_interface.GEAPIInterface):
         # Get user credentials
         try:
             user_conn_creds = self.__get_user_conn_creds()  # retrieving user credentials from login_credentials table
-        except HTTPException as e:
-            dqt_logger.error(f"Failed to retrieve user credentials: {e.detail}")
-            raise e
+        except Exception as e:
+            error_msg = f"Failed to retrieve user credentials: {e}"
+            dqt_logger.error(error_msg)
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
+                                                     status_message=error_msg)
+            raise HTTPException(status_code=500, detail=error_msg)
         finally:
             self.db_instance.close_db_connection()
 
