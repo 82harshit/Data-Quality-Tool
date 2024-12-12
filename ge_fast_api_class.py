@@ -18,6 +18,14 @@ from utils import generate_connection_name, generate_connection_string
 
 
 class GEFastAPI(ge_api_interface.GEAPIInterface): 
+    """
+    GEFastAPI class provides an interface for handling and managing connections to various data sources, 
+    such as databases and files, as well as executing data quality checks through Great Expectations.
+
+    It inherits from the `GEAPIInterface` and implements several methods for connection creation, 
+    user credential management, and data source validation. The class supports multiple connection 
+    types, including databases (e.g., MySQL, PostgreSQL) and files.
+    """
     def __init__(self):
         self.connection_type = None
         self.db_instance = None

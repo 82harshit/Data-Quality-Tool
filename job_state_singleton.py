@@ -5,17 +5,31 @@ from logging_config import dqt_logger
 
 
 class JobStateSingleton:
-    _instance = None
-    _job_id = None
+    """
+    A Singleton class for managing the state of a single job across its lifecycle. 
 
-    def __new__(cls):
+    This class is designed to:
+    - Store and retrieve the current job ID.
+    - Persist the job's state to a database.
+    - Update the job's state and log associated messages.
+    - Retrieve the state of a job by its ID.
+    """
+    _instance = None # Holds the singleton instance of the class.
+    _job_id = None # Stores the current job ID managed by the singleton.
+
+    def __new__(cls): 
+        """Ensures that only one instance of the class exists (singleton behavior)."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
     @classmethod
     def set_job_id(cls, job_id) -> None:
-        """Set the job ID in the singleton instance."""
+        """
+        Set the job ID in the singleton instance.
+        
+        :return: None
+        """
         cls._job_id = job_id
         cls.add_job_id()
 
@@ -76,7 +90,7 @@ class JobStateSingleton:
 
         :param job_id: Job ID to retrieve the state for
         
-        :return: Current job status from the database
+        :return (dict): Current job status from the database
         """
         _job_run_status = JobRunStatus(job_id=job_id)
         _job_run_status.connect_to_db()

@@ -2464,10 +2464,82 @@ datasources:
         username: merit
     data_connectors:
       default_configured_data_connector_name:
+        name: default_configured_data_connector_name
         class_name: ConfiguredAssetSqlDataConnector
         module_name: great_expectations.datasource.data_connector
         assets:
           house_price:
+            class_name: Asset
+            module_name: great_expectations.datasource.data_connector.asset
+            schema_name: validation
+      default_inferred_data_connector_name:
+        name: default_inferred_data_connector_name
+        class_name: InferredAssetSqlDataConnector
+        module_name: great_expectations.datasource.data_connector
+        include_schema_name: true
+        introspection_directives:
+          schema_name: validation
+      default_runtime_data_connector_name:
+        name: default_runtime_data_connector_name
+        class_name: RuntimeDataConnector
+        module_name: great_expectations.datasource.data_connector
+        batch_identifiers:
+          - default_identifier_name
+  weather_table_8106:
+    class_name: Datasource
+    module_name: great_expectations.datasource
+    execution_engine:
+      class_name: SqlAlchemyExecutionEngine
+      module_name: great_expectations.execution_engine
+      credentials:
+        database: data_validation_test
+        drivername: postgresql
+        host: 32.33.34.8
+        password: July$2018
+        port: '5432'
+        username: merit
+    data_connectors:
+      default_configured_data_connector_name:
+        name: default_configured_data_connector_name
+        class_name: ConfiguredAssetSqlDataConnector
+        module_name: great_expectations.datasource.data_connector
+        assets:
+          weather:
+            class_name: Asset
+            module_name: great_expectations.datasource.data_connector.asset
+            schema_name: validation
+      default_inferred_data_connector_name:
+        name: default_inferred_data_connector_name
+        class_name: InferredAssetSqlDataConnector
+        module_name: great_expectations.datasource.data_connector
+        include_schema_name: true
+        introspection_directives:
+          schema_name: validation
+      default_runtime_data_connector_name:
+        name: default_runtime_data_connector_name
+        class_name: RuntimeDataConnector
+        module_name: great_expectations.datasource.data_connector
+        batch_identifiers:
+          - default_identifier_name
+  weather_table_1929:
+    class_name: Datasource
+    module_name: great_expectations.datasource
+    execution_engine:
+      class_name: SqlAlchemyExecutionEngine
+      module_name: great_expectations.execution_engine
+      credentials:
+        database: data_validation_test
+        drivername: postgresql
+        host: 32.33.34.8
+        password: July$2018
+        port: '5432'
+        username: merit
+    data_connectors:
+      default_configured_data_connector_name:
+        class_name: ConfiguredAssetSqlDataConnector
+        module_name: great_expectations.datasource.data_connector
+        assets:
+          weather:
             class_name: Asset
             module_name: great_expectations.datasource.data_connector.asset
             schema_name: validation
