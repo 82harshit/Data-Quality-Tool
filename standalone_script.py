@@ -1,0 +1,1 @@
+print("Standalone script executed")
