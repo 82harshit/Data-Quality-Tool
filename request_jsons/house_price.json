@@ -1,0 +1,83 @@
+{
+    "connection_name": "20241211202703_merit_3233348_5432_datavalidationtest_6357",
+    "data_source": {
+        "table_name": "house_price",
+        "schema_name": "validation"
+    },
+    "quality_checks": [
+        {
+            "expectation_type": "expect_column_distinct_values_to_be_in_set",
+            "kwargs": {
+                "column": "furnishingstatus",
+                "value_set": [
+                    "furnished",
+                    "semi-furnished",
+                    "unfurnished"
+                ]
+            }
+        },
+        {
+            "expectation_type": "expect_column_values_to_not_be_null",
+            "kwargs": {
+                "column": "mainroad"
+            }
+        },
+        {
+            "expectation_type": "expect_column_values_to_not_be_null",
+            "kwargs": {
+                "column": "basement"
+            }
+        },
+        {
+            "expectation_type": "expect_column_values_to_not_be_null",
+            "kwargs": {
+                "column": "guestroom"
+            }
+        },
+        {
+            "expectation_type": "expect_column_mean_to_be_between",
+            "kwargs": {
+                "column": "bathrooms",
+                "min_value": 2,
+                "max_value": 3
+            }
+        },
+        {
+            "expectation_type": "expect_column_min_to_be_between",
+            "kwargs": {
+                "column": "bathrooms",
+                "min_value": 2,
+                "max_value": 3
+            }
+        },
+        {
+            "expectation_type": "expect_column_max_to_be_between",
+            "kwargs": {
+                "column": "bathrooms",
+                "min_value": 2,
+                "max_value": 3
+            }
+        },
+        {
+            "expectation_type": "expect_column_median_to_be_between",
+            "kwargs": {
+                "column": "area",
+                "min_value": 2300,
+                "max_value": 3550
+            }
+        },
+        {
+            "expectation_type": "expect_column_median_to_be_between",
+            "kwargs": {
+                "column": "price",
+                "min_value": 12250000,
+                "max_value": 6405000
+            }
+        }
+    ],
+    "metadata": {
+        "requested_by": "user@example.com",
+        "execution_time": "2024-10-16T15:11:18.483Z",
+        "description": "This is a test description"
+    }
+}
