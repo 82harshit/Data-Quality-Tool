@@ -7,12 +7,13 @@ from dotenv import load_dotenv
 
 from logging_config import dqt_logger
 
+
 def execute_api_request(host: str, port: int):
     """Function to handle Fast API request."""
     dqt_logger.info(f"Running Fast API on host: {host} on port: {port}")
     subprocess.run(f"uvicorn fast_api:app --host {host} --port {port}")
 
-def execute_standalone_script(endpoint:str,request_json:Optional[dict]=None,job_id:Optional[str]=None):
+def execute_standalone_script(endpoint:str, request_json:Optional[dict]=None, job_id:Optional[str]=None):
     """Function to execute standalone Python script logic."""
     dqt_logger.info("Running standalone Python script...")
     load_dotenv()
@@ -21,17 +22,6 @@ def execute_standalone_script(endpoint:str,request_json:Optional[dict]=None,job_
         subprocess.run([python_executable, "standalone_script.py",endpoint,job_id])
     else:
         subprocess.run([python_executable, "standalone_script.py",endpoint,request_json])
-
-# def main():
-#     """Determine execution path based on input."""
-#     if len(sys.argv) > 1 and sys.argv[1] == "api":
-#         host = sys.argv[2]
-#         port = int(sys.argv[3])
-#         execute_api_request(host=host, port=port)
-#     else:
-#         endpoint = sys.argv[2]
-#         request_json = sys.argv[3]
-#         execute_standalone_script()
 
 def main():
     """Determine execution path based on input."""
@@ -62,13 +52,14 @@ def main():
             try:
                 # Check if the JSON in request_json is valid by re-parsing it
                 request_json = json.dumps(request_json)  # If it raises no error, it's valid
-                print("The JSON is valid.")
+                dqt_logger.debug("The JSON is valid.")
             except (TypeError, ValueError) as e:
-                print(f"Error: Invalid JSON format - {e}")
+                dqt_logger.error(f"Error: Invalid JSON format - {e}")
         except FileNotFoundError:
             # Fallback to treating it as a JSON string
             request_json = args.request_json
             
         execute_standalone_script(endpoint=args.endpoint, request_json=request_json)
+        
 if __name__ == "__main__":
     main()

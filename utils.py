@@ -264,4 +264,17 @@ def delete_all_under_folder(folder_path) -> None:
             shutil.rmtree(item_path)
     
     dqt_logger.info(f"All files and folders under '{folder_path}' have been deleted.")
-    
+        
+def cleanup() -> None:
+  """
+  Clean all the datasources, expectations and validations 
+  
+  :return: None
+  """
+  great_exp_yaml_path = os.path.join('gx', 'great_expectations.yml') # relative path to 'great_expectations.yml'
+  clear_datasources(file_path=great_exp_yaml_path)
+  expectations_folder = os.path.join('gx', 'expectations') 
+  delete_all_under_folder(expectations_folder)
+  validations_folder = os.path.join('gx', 'uncommitted', 'validations')
+  delete_all_under_folder(validations_folder)
+  

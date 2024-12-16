@@ -20,42 +20,16 @@ and generates a unique `connection name` for the user
 """
 
 from fastapi import FastAPI, Body, HTTPException
-import os
 
 from database.db_models.job_run_status import JobRunStatusEnum
 from ge_fast_api_class import GEFastAPI
+from helper import get_job_id_and_initialize_job_state_singleton
 from job_state_singleton import JobStateSingleton
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
 from save_validation_results import ValidationResult
 from logging_config import dqt_logger
-from utils import generate_job_id, log_validation_results, clear_datasources, delete_all_under_folder
+from utils import log_validation_results, cleanup
 
-
-def get_job_id_and_initialize_job_state_singleton() -> str:
-    """
-    Creates a new job id and sets it up in the singleton object
-    
-    :return job_id(str): Generated job_id
-    """
-    job_id = generate_job_id() # creates a new job id
-    dqt_logger.info(f"Job_ID: {job_id}") # logs the job id
-    JobStateSingleton.set_job_id(job_id=job_id) # sets the job_id in singleton object
-    return job_id
-
-
-def cleanup() -> None:
-  """
-  Clean all the datasources, expectations and validations 
-  
-  :return: None
-  """
-  great_exp_yaml_path = os.path.join('gx', 'great_expectations.yml') # relative path to 'great_expectations.yml'
-  clear_datasources(file_path=great_exp_yaml_path)
-  expectations_folder = os.path.join('gx', 'expectations') 
-  delete_all_under_folder(expectations_folder)
-  validations_folder = os.path.join('gx', 'uncommitted', 'validations')
-  delete_all_under_folder(validations_folder)
-  
 
 app = FastAPI()
 
@@ -325,7 +299,6 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
   
     if validation_results: 
         try:
-            # cleanup()
             log_validation_results(validation_results)
             info_msg = "Saving validation results in database"
             dqt_logger.info(info_msg)
@@ -338,6 +311,8 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
             JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, 
                                                       status_message="An error occurred, failed to save validation results in database")
             return {"job_id": job_id}
+        finally:
+          cleanup()
     else:
         error_msg = "Missing validation results"
         dqt_logger.error(error_msg)
