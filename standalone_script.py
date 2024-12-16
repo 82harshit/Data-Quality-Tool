@@ -13,21 +13,29 @@ from logging_config import dqt_logger
 from utils import log_validation_results, cleanup
 
 
-def request_json_parser(endpoint:str,request_json:Optional[dict]=None,job_id:Optional[str]=None):
-    if endpoint=="create_connection":
+def request_json_parser(endpoint:str, request_json: Optional[dict]=None, job_id: Optional[str]=None) -> None:
+    """
+    This is an orchestrator function that executes the exepcted function based on the endpoint name.
+
+    :param endpoint (str): Name of the endpoint that needs to be executed
+    :param request_json (Optional[dict], optional): The request JSON that contains validation checks. Defaults to None.
+    :param job_id (Optional[str], optional): The job ID for which the state needs to be found. Defaults to None.
+    
+    :return: None
+    """
+    if endpoint == "create_connection":
         connection = connection_model.Connection(**request_json)
         create_connection_result = asyncio.run(CreateConnection(connection=connection).establish_connection())
         dqt_logger.info(create_connection_result)
-
-    elif endpoint=="submit_job":
+    elif endpoint == "submit_job":
         job = job_model.SubmitJob(**request_json)
         submit_job_result = asyncio.run(Submit_Job(job=job).execute_job())
         dqt_logger.info(submit_job_result)
-
-    elif endpoint=="submit_job_status":
-        # The request json of submit_job_status must be in the form of {'job_id':'Job_1234554321'}
+    elif endpoint == "submit_job_status":
         submit_job_status_result = asyncio.run(SubmitJobStatus(job_id=job_id).retrieve_job_status())
         dqt_logger.info(submit_job_status_result)
+    else:
+        raise ValueError(f"Endpoint {endpoint} not found")
 
 class CreateConnection:
     def __init__(self,connection: connection_model.Connection):

@@ -8,13 +8,28 @@ from dotenv import load_dotenv
 from logging_config import dqt_logger
 
 
-def execute_api_request(host: str, port: int):
-    """Function to handle Fast API request."""
+def execute_api_request(host: str, port: int) -> None:
+    """
+    Function to handle Fast API request.
+    
+    :param host: IP of the host to connect to
+    :param port: The port of the server to connect to
+    
+    :return: None
+    """
     dqt_logger.info(f"Running Fast API on host: {host} on port: {port}")
     subprocess.run(f"uvicorn fast_api:app --host {host} --port {port}")
 
-def execute_standalone_script(endpoint:str, request_json:Optional[dict]=None, job_id:Optional[str]=None):
-    """Function to execute standalone Python script logic."""
+def execute_standalone_script(endpoint:str, request_json: Optional[dict]=None, job_id: Optional[str]=None) -> None:
+    """
+    Function to execute standalone Python script logic.
+    
+    :param endpoint(str): The name of the endpoint to execute
+    :param request_json(dict): The dictionary containing the request
+    :param job_id (str): The job ID for which the state of validation job needs to be found
+    
+    :return: None
+    """
     dqt_logger.info("Running standalone Python script...")
     load_dotenv()
     python_executable = os.getenv('PYTHON_EXECUTABLE')
