@@ -51,7 +51,18 @@ def main():
     # Subparser for standalone mode
     standalone_parser = subparsers.add_parser("standalone", help="Run standalone script.")
     standalone_parser.add_argument("endpoint", type=str, help="The endpoint URL.")
-    standalone_parser.add_argument("request_json", type=str, help="The request JSON as a string.")
+    standalone_parser.add_argument(
+    "request_json_or_job_id",
+    nargs="?",
+    type=str,
+    help="The request JSON as a string or file path, or a job ID for 'submit_job_status'."
+)
+    standalone_parser.add_argument(
+        "--db", type=str, help="The name of the database (for 'generate_suggestions' endpoint only)."
+    )
+    standalone_parser.add_argument(
+        "--table", type=str, help="The name of the table (for 'generate_suggestions' endpoint only)."
+    )
 
     # Parse arguments
     args = parser.parse_args()
@@ -60,21 +71,41 @@ def main():
         # Handle API execution
         execute_api_request(host=args.host, port=args.port)
     elif args.mode == "standalone":
-        # Check if request_json is a file path
-        try:
-            with open(args.request_json, 'r') as f:
-                request_json = json.load(f)
-            try:
-                # Check if the JSON in request_json is valid by re-parsing it
-                request_json = json.dumps(request_json)  # If it raises no error, it's valid
-                dqt_logger.debug("The JSON is valid.")
-            except (TypeError, ValueError) as e:
-                dqt_logger.error(f"Error: Invalid JSON format - {e}")
-        except FileNotFoundError:
-            # Fallback to treating it as a JSON string
-            request_json = args.request_json
+        if args.endpoint == "generate_suggestions":
+            # Handle generate_suggestions with --db and --table arguments
+            if not args.db or not args.table:
+                raise ValueError("Both --db and --table are required for 'generate_suggestions' endpoint.")
             
-        execute_standalone_script(endpoint=args.endpoint, request_json=request_json)
+            # Construct the request JSON for generate_suggestions
+            request_json = json.dumps({
+                "database": args.db,
+                "table_name": args.table
+            })
+            execute_standalone_script(endpoint=args.endpoint, request_json=request_json)
+        elif args.endpoint == "submit_job_status":
+        # Handle submit_job_status with a job_id
+            if not args.request_json_or_job_id:
+                raise ValueError("A job ID is required for 'submit_job_status'.")
+            execute_standalone_script(endpoint=args.endpoint, job_id=args.request_json_or_job_id)
+        else:
+            # Handle other endpoints that use request_json
+            if not args.request_json_or_job_id:
+                raise ValueError("A request JSON is required for this endpoint.")
+            try:
+                # Check if request_json_or_job_id is a file path
+                with open(args.request_json_or_job_id, 'r') as f:
+                    request_json = json.load(f)
+                try:
+                    # Validate JSON format
+                    request_json = json.dumps(request_json)  # Re-parse to ensure it's valid
+                    dqt_logger.debug("The JSON is valid.")
+                except (TypeError, ValueError) as e:
+                    dqt_logger.error(f"Error: Invalid JSON format - {e}")
+            except FileNotFoundError:
+                # Fallback to treating it as a JSON string
+                request_json = args.request_json_or_job_id
+
+            execute_standalone_script(endpoint=args.endpoint, request_json=request_json)
         
 if __name__ == "__main__":
     main()

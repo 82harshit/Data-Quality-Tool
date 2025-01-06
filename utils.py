@@ -278,3 +278,16 @@ def cleanup() -> None:
   validations_folder = os.path.join('gx', 'uncommitted', 'validations')
   delete_all_under_folder(validations_folder)
   
+def clean_json_string(json_string: str) -> str:
+    """Cleans unwanted keywords like 'JSON' and backticks from a JSON string."""
+    cleaned_string = re.sub(r"`|JSON", "", json_string, flags=re.IGNORECASE)
+    return cleaned_string
+
+
+def convert_to_json(cleaned_json_string: str):
+    """Converts a cleaned JSON string into a Python object."""
+    try:
+        return json.loads(cleaned_json_string)
+    except json.JSONDecodeError as e:
+        dqt_logger.error("Error decoding JSON: %s", e)
+        raise

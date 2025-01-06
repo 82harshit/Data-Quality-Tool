@@ -19,6 +19,7 @@ and generates a unique `connection name` for the user
 3. /submit-job-status: This endpoint returns the execution status of the given job_id
 """
 
+import configparser
 from fastapi import FastAPI, Body, HTTPException
 
 from database.db_models.job_run_status import JobRunStatusEnum
@@ -29,6 +30,7 @@ from request_models import connection_enum_and_metadata as conn_enum, connection
 from save_validation_results import ValidationResult
 from logging_config import dqt_logger
 from utils import log_validation_results, cleanup
+from suggestion import SuggestionBI
 
 
 app = FastAPI()
@@ -108,6 +110,41 @@ async def create_connection(connection: connection_model.Connection = Body(...,
         return {"status": "connected", "connection_name": unique_connection_name}
     
     raise HTTPException(status_code=503, detail="Could not connect, an error occurred")
+
+
+@app.post("/generate-suggestions", description="Generate AI-based data quality suggestions")
+async def generate_suggestions(
+    connection: connection_model.GenerateSuggestion = Body(
+        ...,
+        example={
+            "database": "quality_tool",
+            "table_name": "customers"
+        }
+    )
+):
+    try:
+        config = configparser.ConfigParser()
+        config.read('database/database_config.ini')
+
+        db_username = config.get('Database', 'app_username')
+        db_password = config.get('Database', 'app_password')
+        db_host = config.get('Database', 'app_hostname')
+        # db_name = config.get('Database','test_database')
+
+        # Build the database URI dynamically
+        db_uri = f"mysql+pymysql://{db_username}:{db_password}@{db_host}/{connection.database}"
+
+        # Initialize the SuggestionBI instance
+        suggestion_bi = SuggestionBI(db_uri=db_uri, table=connection.table_name)
+
+        # Generate suggestions
+        suggestions = suggestion_bi.run_prompt(table_name=connection.table_name)
+        return suggestions
+
+    except Exception as e:
+        error_msg = f"Error generating AI suggestions: {str(e)}"
+        dqt_logger.error(error_msg)
+        raise HTTPException(status_code=500, detail={"error": error_msg})
 
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests")

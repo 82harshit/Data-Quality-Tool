@@ -114,3 +114,7 @@ class Connection(BaseModel):
     user_credentials: UserCredentials
     connection_credentials: ConnectionCredentials
     metadata: conn_enum.Metadata
+
+class GenerateSuggestion(BaseModel):
+    database: str = Field(None, description="Name of the database"),
+    table_name: str = Field(None, description="Name of the table to analyze")

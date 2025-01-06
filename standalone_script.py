@@ -1,3 +1,4 @@
+import configparser
 import json
 import sys
 import asyncio
@@ -10,6 +11,7 @@ from job_state_singleton import JobStateSingleton
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
 from save_validation_results import ValidationResult
 from logging_config import dqt_logger
+from suggestion import SuggestionBI
 from utils import log_validation_results, cleanup
 
 
@@ -34,6 +36,10 @@ def request_json_parser(endpoint:str, request_json: Optional[dict]=None, job_id:
     elif endpoint == "submit_job_status":
         submit_job_status_result = asyncio.run(SubmitJobStatus(job_id=job_id).retrieve_job_status())
         dqt_logger.info(submit_job_status_result)
+    elif endpoint == "generate_suggestions":
+        connection = connection_model.GenerateSuggestion(**request_json)
+        suggestions = asyncio.run(GenerateSuggestions(connection=connection).generate())
+        dqt_logger.info(suggestions)
     else:
         raise ValueError(f"Endpoint {endpoint} not found")
 
@@ -83,6 +89,36 @@ class CreateConnection:
         
         raise Exception("Could not connect, an error occurred")
 
+
+class GenerateSuggestions:
+    def __init__(self, connection: connection_model.GenerateSuggestion):
+        self.connection = connection
+
+    async def generate(self):
+        try:
+            # Read database configuration
+            config = configparser.ConfigParser()
+            config.read('database/database_config.ini')
+
+            db_username = config.get('Database', 'app_username')
+            db_password = config.get('Database', 'app_password')
+            db_host = config.get('Database', 'app_hostname')
+
+            # Build the database URI dynamically
+            db_uri = f"mysql+pymysql://{db_username}:{db_password}@{db_host}/{self.connection.database}"
+
+            # Initialize the SuggestionBI instance
+            suggestion_bi = SuggestionBI(db_uri=db_uri, table=self.connection.table_name)
+
+            # Generate suggestions
+            suggestions = suggestion_bi.run_prompt(table_name=self.connection.table_name)
+            return suggestions
+        
+        except Exception as e:
+            error_msg = f"Error generating AI suggestions: {str(e)}"
+            dqt_logger.error(error_msg)
+            raise Exception(error_msg)
+        
 
 class Submit_Job:
     def __init__(self,job: job_model.SubmitJob):
