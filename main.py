@@ -41,24 +41,16 @@ def main():
 
     # Subparser for API mode
     api_parser = subparsers.add_parser("api", help="Run API request.")
-    api_parser.add_argument("host", type=str, help="Host for the API.")
-    api_parser.add_argument("port", type=int, help="Port for the API.")
+    api_parser.add_argument("--host", type=str, help="Host for the API.")
+    api_parser.add_argument("--port", type=int, help="Port for the API.")
 
     # Subparser for standalone mode
     standalone_parser = subparsers.add_parser("standalone", help="Run standalone script.")
     standalone_parser.add_argument("endpoint", type=str, help="The endpoint URL.")
-    standalone_parser.add_argument(
-    "request_json_or_job_id",
-    nargs="?",
-    type=str,
-    help="The request JSON as a string or file path, or a job ID for 'submit_job_status'."
-)
-    standalone_parser.add_argument(
-        "--db", type=str, help="The name of the database (for 'generate_suggestions' endpoint only)."
-    )
-    standalone_parser.add_argument(
-        "--table", type=str, help="The name of the table (for 'generate_suggestions' endpoint only)."
-    )
+    standalone_parser.add_argument("request_json_or_job_id", nargs="?", type=str,
+                                    help="The request JSON as a string or file path, or a job ID for 'submit_job_status'.")
+    standalone_parser.add_argument("--db", type=str, help="The name of the database (for 'generate_suggestions' endpoint only).")
+    standalone_parser.add_argument("--table", type=str, help="The name of the table (for 'generate_suggestions' endpoint only).")
 
     # Parse arguments
     args = parser.parse_args()
