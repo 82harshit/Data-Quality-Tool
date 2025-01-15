@@ -4,6 +4,7 @@ import sys
 import subprocess
 from typing import Optional
 
+from endpoint_enums import EndpointEnum
 from logging_config import dqt_logger
 
 
@@ -59,7 +60,7 @@ def main():
         # Handle API execution
         execute_api_request(host=args.host, port=args.port)
     elif args.mode == "standalone":
-        if args.endpoint == "generate_suggestions":
+        if args.endpoint == EndpointEnum.GENERATE_SUGGESTIONS:
             # Handle generate_suggestions with --db and --table arguments
             if not args.db or not args.table:
                 raise ValueError("Both --db and --table are required for 'generate_suggestions' endpoint.")
@@ -70,7 +71,7 @@ def main():
                 "table_name": args.table
             })
             execute_standalone_script(endpoint=args.endpoint, request_json=request_json)
-        elif args.endpoint == "submit_job_status":
+        elif args.endpoint == EndpointEnum.SUBMIT_JOB_STATUS:
         # Handle submit_job_status with a job_id
             if not args.request_json_or_job_id:
                 raise ValueError("A job ID is required for 'submit_job_status'.")

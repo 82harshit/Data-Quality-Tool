@@ -1,11 +1,13 @@
 from langchain.prompts import PromptTemplate
 from langchain.output_parsers import PydanticOutputParser
 
+
 def generate_expectation_prompt(table: str, table_schema: str, metric: str, k: int, expectation_parser: PydanticOutputParser) -> str:
     system_prompt = """You are an AI assistant expert at mapping columns to expectation checks. 
-Do not include any comments or code from your side."""
+                        Do not include any comments or code from your side."""
 
-    user_prompt = """You are tasked with analyzing a database table. Below, the table name and its schema are provided within triple backticks (```).
+    user_prompt = """You are tasked with analyzing a database table. Below, the table name and its schema are provided 
+    within triple backticks (```).
 
     1. Map each column in the schema to the most appropriate expectations.
     2. For each expectation, return the results as a unique list of column names.

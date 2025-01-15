@@ -5,6 +5,7 @@ import asyncio
 from typing import Optional
 
 from database.db_models.job_run_status import JobRunStatusEnum
+from endpoint_enums import EndpointEnum
 from ge_fast_api_class import GEFastAPI
 from helper import get_job_id_and_initialize_job_state_singleton
 from job_state_singleton import JobStateSingleton
@@ -25,18 +26,18 @@ def request_json_parser(endpoint:str, request_json: Optional[dict]=None, job_id:
     
     :return: None
     """
-    if endpoint == "create_connection":
+    if endpoint == EndpointEnum.CREATE_CONNECTION:
         connection = connection_model.Connection(**request_json)
         create_connection_result = asyncio.run(CreateConnection(connection=connection).establish_connection())
         dqt_logger.info(create_connection_result)
-    elif endpoint == "submit_job":
+    elif endpoint == EndpointEnum.SUBMIT_JOB:
         job = job_model.SubmitJob(**request_json)
         submit_job_result = asyncio.run(Submit_Job(job=job).execute_job())
         dqt_logger.info(submit_job_result)
-    elif endpoint == "submit_job_status":
+    elif endpoint == EndpointEnum.SUBMIT_JOB_STATUS:
         submit_job_status_result = asyncio.run(SubmitJobStatus(job_id=job_id).retrieve_job_status())
         dqt_logger.info(submit_job_status_result)
-    elif endpoint == "generate_suggestions":
+    elif endpoint == EndpointEnum.GENERATE_SUGGESTIONS:
         connection = connection_model.GenerateSuggestion(**request_json)
         suggestions = asyncio.run(GenerateSuggestions(connection=connection).generate())
         dqt_logger.info(suggestions)

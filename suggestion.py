@@ -9,6 +9,7 @@ from prompts import generate_expectation_prompt
 from utils import clean_json_string, convert_to_json
 from logging_config import dqt_logger
 
+
 class SuggestionBI:
     def __init__(self, api_key_env_var="OPENAI_API_KEY", db_uri=None, table=None):
         self.api_key_env_var = api_key_env_var
@@ -67,25 +68,3 @@ class SuggestionBI:
         except Exception as e:
             dqt_logger.error("Error in processing the prompt: %s", e)
             raise
-
-# def main():
-#     """Main function to get database name and table name from user input and run the process."""
-#     # Prompt user for database name and table name
-#     db_name = 'quality_tool'
-#     table_name = 'customers'
-
-#     # Construct the database URI from user input (assuming default username and password for simplicity)
-#     db_uri = f"mysql+pymysql://root:July$2018@32.33.34.7/{db_name}"
-    
-#     # Create an instance of the SuggestionBI class
-#     suggestion_bi = SuggestionBI(db_uri=db_uri, table=table_name)
-
-#     # Run the prompt to get suggestions
-#     try:
-#         result = suggestion_bi.run_prompt()
-#         print(result)
-#     except Exception as e:
-#         logging.error(f"An error occurred: {e}")
-
-# if __name__ == "__main__":
-#     main()
