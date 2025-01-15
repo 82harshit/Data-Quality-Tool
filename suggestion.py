@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from sqlalchemy import create_engine
 from langchain_community.utilities import SQLDatabase
 from langchain.output_parsers import PydanticOutputParser
@@ -10,7 +10,7 @@ from utils import clean_json_string, convert_to_json
 from logging_config import dqt_logger
 
 class SuggestionBI:
-    def __init__(self, api_key_env_var="GROQ_API_KEY", db_uri=None, table=None):
+    def __init__(self, api_key_env_var="OPENAI_API_KEY", db_uri=None, table=None):
         self.api_key_env_var = api_key_env_var
         self.db_uri = db_uri
         self.table = table
@@ -29,7 +29,7 @@ class SuggestionBI:
 
     def _initialize_llm(self):
         """Initialize the language model."""
-        self.llm = ChatGroq(model="llama-3.3-70b-versatile")
+        self.llm = ChatOpenAI(model="gpt-4o-mini")
 
     def _initialize_database(self, db_uri):
         """Initialize the SQL database connection."""

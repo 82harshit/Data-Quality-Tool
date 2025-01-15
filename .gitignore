@@ -9,3 +9,5 @@ __pycache__
 .idea
 create_db_config.py
 logs
+.env
+request_jsons

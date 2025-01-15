@@ -1,9 +1,8 @@
 import argparse
 import json
-import os
+import sys
 import subprocess
 from typing import Optional
-from dotenv import load_dotenv
 
 from logging_config import dqt_logger
 
@@ -31,12 +30,9 @@ def execute_standalone_script(endpoint:str, request_json: Optional[dict]=None, j
     :return: None
     """
     dqt_logger.info("Running standalone Python script...")
-    load_dotenv()
-    python_executable = os.getenv('PYTHON_EXECUTABLE')
     if not request_json:
-        subprocess.run([python_executable, "standalone_script.py",endpoint,job_id])
-    else:
-        subprocess.run([python_executable, "standalone_script.py",endpoint,request_json])
+        subprocess.run([sys.executable, "standalone_script.py", endpoint, job_id])
+    subprocess.run([sys.executable, "standalone_script.py", endpoint, request_json])
 
 def main():
     """Determine execution path based on input."""
