@@ -18,7 +18,7 @@ def execute_api_request(host: str, port: int) -> None:
     :return: None
     """
     dqt_logger.info(f"Running Fast API on host: {host} on port: {port}")
-    subprocess.run(f"uvicorn fast_api:app --host {host} --port {port}")
+    subprocess.run(f"uvicorn fast_api:app --host {host} --port {port}", shell=True)
 
 def execute_standalone_script(endpoint:str, request_json: Optional[dict]=None, job_id: Optional[str]=None) -> None:
     """
