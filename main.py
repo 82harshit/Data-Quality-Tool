@@ -52,7 +52,9 @@ def main():
                                     help="The request JSON as a string or file path, or a job ID for 'submit_job_status'.")
     standalone_parser.add_argument("--db", type=str, help="The name of the database (for 'generate_suggestions' endpoint only).")
     standalone_parser.add_argument("--table", type=str, help="The name of the table (for 'generate_suggestions' endpoint only).")
-
+    standalone_parser.add_argument("--metric", type=str, 
+                                   help="The data metric to be focused on (for 'generate_suggestions' endpoint only).")
+    
     # Parse arguments
     args = parser.parse_args()
 
@@ -61,14 +63,15 @@ def main():
         execute_api_request(host=args.host, port=args.port)
     elif args.mode == "standalone":
         if args.endpoint == EndpointEnum.GENERATE_SUGGESTIONS:
-            # Handle generate_suggestions with --db and --table arguments
-            if not args.db or not args.table:
-                raise ValueError("Both --db and --table are required for 'generate_suggestions' endpoint.")
+            # Handle generate_suggestions with --db, --table and --metric arguments
+            if not args.db or not args.table or not args.metric:
+                raise ValueError("--db, --table and --metric are required for 'generate_suggestions' endpoint.")
             
             # Construct the request JSON for generate_suggestions
             request_json = json.dumps({
                 "database": args.db,
-                "table_name": args.table
+                "table_name": args.table,
+                "metric": args.metric
             })
             execute_standalone_script(endpoint=args.endpoint, request_json=request_json)
         elif args.endpoint == EndpointEnum.SUBMIT_JOB_STATUS:

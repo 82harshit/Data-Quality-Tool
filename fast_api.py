@@ -114,11 +114,11 @@ async def create_connection(connection: connection_model.Connection = Body(...,
 
 @app.post("/generate-suggestions", description="Generate AI-based data quality suggestions")
 async def generate_suggestions(
-    connection: connection_model.GenerateSuggestion = Body(
-        ...,
+    connection: connection_model.GenerateSuggestion = Body(...,
         example={
             "database": "quality_tool",
-            "table_name": "customers"
+            "table_name": "customers",
+            "metric": "correctness"
         }
     )
 ):
@@ -129,18 +129,11 @@ async def generate_suggestions(
         db_username = config.get('Database', 'app_username')
         db_password = config.get('Database', 'app_password')
         db_host = config.get('Database', 'app_hostname')
-        # db_name = config.get('Database','test_database')
 
         # Build the database URI dynamically
         db_uri = f"mysql+pymysql://{db_username}:{db_password}@{db_host}/{connection.database}"
 
-        # Initialize the SuggestionBI instance
-        suggestion_bi = SuggestionBI(db_uri=db_uri, table=connection.table_name)
-
-        # Generate suggestions
-        suggestions = suggestion_bi.run_prompt(table_name=connection.table_name)
-        return suggestions
-
+        return SuggestionBI(db_uri=db_uri, table=connection.table_name).run_prompt(metric=connection.metric)
     except Exception as e:
         error_msg = f"Error generating AI suggestions: {str(e)}"
         dqt_logger.error(error_msg)

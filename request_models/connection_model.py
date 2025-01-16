@@ -25,8 +25,7 @@ class UserCredentials(BaseModel):
                 dqt_logger.error(error_msg)
                 raise ValueError(error_msg)
         
-        return values
-        
+        return values        
 
 
 class ConnectionCredentials(BaseModel):
@@ -115,6 +114,12 @@ class Connection(BaseModel):
     connection_credentials: ConnectionCredentials
     metadata: conn_enum.Metadata
 
+
 class GenerateSuggestion(BaseModel):
+    """
+    This is the request body for API POST request for 'generate-connection' endpoint
+    """
     database: str = Field(None, description="Name of the database"),
     table_name: str = Field(None, description="Name of the table to analyze")
+    metric: Optional[str] = Field(None, description="Name of the metric that needs to be focused on")
+    

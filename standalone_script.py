@@ -107,13 +107,8 @@ class GenerateSuggestions:
 
             # Build the database URI dynamically
             db_uri = f"mysql+pymysql://{db_username}:{db_password}@{db_host}/{self.connection.database}"
-
-            # Initialize the SuggestionBI instance
-            suggestion_bi = SuggestionBI(db_uri=db_uri, table=self.connection.table_name)
-
-            # Generate suggestions
-            suggestions = suggestion_bi.run_prompt(table_name=self.connection.table_name)
-            return suggestions
+            
+            return SuggestionBI(db_uri=db_uri, table=self.connection.table_name).run_prompt(metric=self.connection.metric)
         
         except Exception as e:
             error_msg = f"Error generating AI suggestions: {str(e)}"

@@ -8,6 +8,7 @@ from request_models.expectations import AllExpectations
 from prompts import generate_expectation_prompt
 from utils import clean_json_string, convert_to_json
 from logging_config import dqt_logger
+from typing import Optional
 
 
 class SuggestionBI:
@@ -37,25 +38,25 @@ class SuggestionBI:
         self.db = SQLDatabase.from_uri(db_uri)
         self.engine = create_engine(db_uri)
 
-    def run_prompt(self, table_name: str) -> dict:
+    def run_prompt(self, metric: Optional[str] = "correctness") -> dict:
         """
         Generate AI-based suggestions for the specified table and schema.
 
-        :param table_name: Name of the table to analyze.
-        :param schema_name: Schema name of the table (currently unused, but reserved for future use).
+        :param metric (str): The metric to focus on.
+        
         :return: List of suggestions as a Python dictionary.
         """
         if not self.db:
             raise ValueError("Database not initialized.")
         
-        if not table_name:
+        if not self.table:
             raise ValueError("Table name not provided.")
 
         expectation_parser = PydanticOutputParser(pydantic_object=AllExpectations)
         prompt = generate_expectation_prompt(
-            table=table_name,
-            table_schema=self.db.get_table_info(table_names=[table_name]),
-            metric="correctness",
+            table=self.table,
+            table_schema=self.db.get_table_info(table_names=[self.table]),
+            metric=metric,
             k=6,
             expectation_parser=expectation_parser
         )
@@ -67,4 +68,4 @@ class SuggestionBI:
             return final_answer  # Return as a Python dictionary
         except Exception as e:
             dqt_logger.error("Error in processing the prompt: %s", e)
-            raise
+            raise e
