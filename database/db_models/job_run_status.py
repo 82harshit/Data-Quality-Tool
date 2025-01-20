@@ -139,9 +139,7 @@ class JobRunStatus(database_interface.DatabaseInterface):
             status_message = job_status_response[0][1]
             return {job_status_col: job_status, status_message_col: status_message}
         
-        error_msg = "Empty status response recieved"
-        dqt_logger.error(error_msg)
-        raise HTTPException(status_code=502, detail=error_msg)
+        return {job_status_col: f"Empty status response recieved for Job ID: {self.job_id}"}
         
     def close_db_connection(self) -> None:
         """
