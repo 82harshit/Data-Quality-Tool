@@ -11,4 +11,4 @@ create_db_config.py
 logs
 .env
 request_jsons
-database_config.ini
+database/database_config.ini
