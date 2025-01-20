@@ -33,7 +33,8 @@ def execute_standalone_script(endpoint:str, request_json: Optional[dict]=None, j
     dqt_logger.info("Running standalone Python script...")
     if not request_json:
         subprocess.run([sys.executable, "standalone_script.py", endpoint, job_id])
-    subprocess.run([sys.executable, "standalone_script.py", endpoint, request_json])
+    else:
+        subprocess.run([sys.executable, "standalone_script.py", endpoint, request_json])
 
 def main():
     """Determine execution path based on input."""
