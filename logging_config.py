@@ -51,6 +51,11 @@ logging_config = {
             'level': 'WARNING',
             'handlers': [],
             'propogate': False,
+        },
+        'soda': {
+            'level': 'WARNING',
+            'handlers': [],
+            'propogate': False,
         }
     },
 }

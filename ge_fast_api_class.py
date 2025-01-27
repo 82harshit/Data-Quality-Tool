@@ -9,7 +9,7 @@ from database.database_connection import get_connection_object_for_db
 from database.db_models.sql_query import SQLQuery
 from database.db_models import table_db, file_db
 from database.db_models.job_run_status import JobRunStatusEnum
-from great_exp.great_exp_model import run_quality_checks_for_file, run_quality_checks_for_db
+from Soda.soda_model import run_quality_checks_for_file, run_quality_checks_for_db
 from interfaces import ge_api_interface
 from job_state_singleton import JobStateSingleton
 from logging_config import dqt_logger

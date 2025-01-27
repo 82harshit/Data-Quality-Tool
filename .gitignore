@@ -11,3 +11,6 @@ create_db_config.py
 logs
 .env
 request_jsons
+venv
+.venv
+test

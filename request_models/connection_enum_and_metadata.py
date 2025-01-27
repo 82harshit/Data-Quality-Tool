@@ -29,6 +29,8 @@ class Database_Datasource_Enum(str, Enum):
     ATHENA = "athena"
     TRINO = "trino"
     CLICKHOUSE = "clickhouse"
+    MSSQL = "sqlserver"
+    AZURE_SYNAPSE = "sqlserver"
 
 
 class Other_Datasources_Enum(str, Enum):
