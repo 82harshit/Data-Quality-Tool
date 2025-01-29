@@ -6,7 +6,7 @@ from typing import Optional
 
 from database.db_models.job_run_status import JobRunStatusEnum
 from endpoint_enums import EndpointEnum
-from ge_fast_api_class import GEFastAPI
+from validation_fast_api_class import ValidationFastAPI
 from helper import get_job_id_and_initialize_job_state_singleton
 from job_state_singleton import JobStateSingleton
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
@@ -62,8 +62,8 @@ class CreateConnection:
             raise Exception(error_msg)
         
         try:
-            ge_fast_interface = GEFastAPI()
-            ge_fast_interface.create_connection_based_on_type(connection=self.connection) # create connection to the user_credentials db
+            validation_api = ValidationFastAPI()
+            validation_api.create_connection_based_on_type(connection=self.connection) # create connection to the user_credentials db
         except Exception as e:
             error_msg = f"Error creating connection: {str(e)}"
             dqt_logger.error(error_msg)
@@ -72,10 +72,10 @@ class CreateConnection:
         try:
             # insert credentials based on connection_type
             if connection_type in conn_enum.File_Datasource_Enum.__members__.values():
-                unique_connection_name = await ge_fast_interface.insert_user_credentials(connection=self.connection, 
+                unique_connection_name = await validation_api.insert_user_credentials(connection=self.connection, 
                                                                                         expected_extension=connection_type)
             elif connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
-                unique_connection_name = await ge_fast_interface.insert_user_credentials(connection=self.connection)
+                unique_connection_name = await validation_api.insert_user_credentials(connection=self.connection)
             else:
                 error_msg = f"Unsupported connection type: {connection_type}"
                 dqt_logger.error(error_msg)
@@ -141,11 +141,11 @@ class Submit_Job:
             JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
             raise Exception(error_msg)
 
-        ge_fast_api = GEFastAPI()
+        validation_api = ValidationFastAPI()
         
         try:
             JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.STARTED)
-            validation_results = await ge_fast_api.validation_check_request(job=self.job)
+            validation_results = await validation_api.validation_check_request(job=self.job)
             dqt_logger.debug(f"Validation results:\n{validation_results}")
         except Exception as validation_check_error:
             error_msg = f"An error occurred while validating data.\nError:{str(validation_check_error)}"

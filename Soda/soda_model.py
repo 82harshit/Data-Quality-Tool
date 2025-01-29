@@ -241,6 +241,9 @@ class SodaModel:
             self.datasource_type = datasource_type
         
         def __is_valid_json(self, filepath: str):
+            """
+            Verifies if the file at the provided filepath is a valid JSON file.
+            """
             # Try to open and load the file as JSON
             try:
                 with open(filepath, 'r') as file:
@@ -255,6 +258,9 @@ class SodaModel:
                 raise Exception(f"Error while reading file {filepath}: {e}")
             
         def __is_valid_orc(self, file_path: str):
+            """
+            Verifies if the file at the provided filepath is a valid ORC file.
+            """
             try:
                 with open(file_path, 'rb') as file:
                     pyorc.Reader(file)  # Attempt to read as an ORC file
@@ -263,6 +269,9 @@ class SodaModel:
                 raise Exception(f"An error occurred: {e}")
  
         def __is_valid_parquet(self, file_path: str):
+            """
+            Verifies if the file at the provided filepath is a valid Parquet file.
+            """
             try:
                 pq.ParquetFile(file_path)  # Attempt to open the file as Parquet
                 return True
@@ -270,6 +279,9 @@ class SodaModel:
                 raise Exception(f"Invalid Parquet file: {e}")
             
         def __is_valid_csv(self, file_path: str):
+            """
+            Verifies if the file at the provided filepath is a valid CSV file.
+            """
             try:
                 with open(file_path, 'r') as file:
                     reader = csv.reader(file)
@@ -280,6 +292,9 @@ class SodaModel:
                 raise Exception(f"Invalid CSV file: {e}") 
             
         def __is_valid_avro(self, file_path: str):
+            """
+            Verifies if the file at the provided filepath is a valid Avro file.
+            """
             try:
                 with open(file_path, 'rb') as file:
                     reader(file) # Attempt to open as an Avro file
@@ -288,6 +303,9 @@ class SodaModel:
                 raise Exception(f"Invalid Avro file: {e}")
         
         def __is_valid_excel(self, file_path: str):
+            """
+            Verifies if the file at the provided filepath is a valid excel file.
+            """
             try:
                 # Attempt to load the Excel workbook
                 load_workbook(file_path)
@@ -296,6 +314,10 @@ class SodaModel:
                 raise Exception(f"Invalid Excel file: {e}")
         
         def get_dataframe(self):
+            """
+            Returns the appropriate dataframe after reading the file from `datasource_path`,
+            based on the file type.
+            """
             # Check if file exists
             if not os.path.exists(self.datasource_path):
                 raise FileNotFoundError(f"File not found: {self.datasource_path}")
@@ -377,7 +399,20 @@ def __get_formatted_check_for_datasource(datasource_type: str,
                                         expectation_type: str, 
                                         column: str, 
                                         condition: str, 
-                                        percentile: Optional[str] = None):
+                                        percentile: Optional[str] = None) -> str:
+    """
+    Returns the formatted expectations as required by the Soda library.
+    E.g.: 
+        max(rainfall) <= 340.0
+        
+    :param datasource_type (str): The type of the datasource based on which the check needs to be returned
+    :param expectation_type (str): The check that is to be applied
+    :param column (str): The name of the column on which the check is applied
+    :param condition (str): Condition used in the check
+    :param percentile (str or None): Percentile values (used if using percentile check)
+    
+    :return str: Formatted check for check string
+    """
     if datasource_type == conn_enum.Database_Datasource_Enum.MYSQL:
         if percentile:
             return f"{expectation_type}(`{column}`, {percentile}) {condition}"
@@ -452,14 +487,22 @@ def __create_checks(datasource_type: str, datasource_name: str, quality_checks: 
     return checks_yaml
 
 def __parse_validation_result(validation_result: str) -> List[CheckResult]:
+    """
+    Formats the resultant string list of `CheckResults`. Each of these `CheckResult` objects,
+    contains the name of the check, the status of check i.e. PASS, FAIL, or ERROR, and the validation value for the check.
+    
+    :param validation_results (str): The string of results that need to be parsed.
+    
+    :return list of CheckResult: The contains a list of check result objects.
+    """
     check_lines = validation_result.strip().split("\n")
     results = []
 
     for line in check_lines:
         # Match the pattern and extract fields using regex
         # The original regex was likely not capturing the check_status correctly.
-        # Updated regex to capture 'PASS' or 'FAIL' into the 'status' group
-        match = re.match(r"\[(.+?)\]\s+(PASS|FAIL)\s+\(check_value:\s+(\d+)\)", line)
+        # Updated regex to capture 'PASS', 'FAIL' or 'ERROR' into the 'status' group
+        match = re.match(r"\[(.+?)\]\s+(PASS|FAIL|ERROR)\s+\(check_value:\s+(\d+)\)", line)
         if match:
             check_name, status, check_value = match.groups()
             # Create CheckResult object and add to results
@@ -532,10 +575,9 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
     """
     Triggers the functions of great_expectations library in the required sequence
 
-    :param datasource_type (str): The type of datasource, e.g.: file, mysql, snowflake, csv, etc.
+    :param datasource_type (str): The type of datasource, e.g.: postgres, mysql, snowflake, mssql, etc.
     :param datasource_name (str): The name of datasource
-    :param quality_checks (List[dict]): The list of checks that are to be performed on the file, formatted as required by 
-    the great_expectations library
+    :param quality_checks (List[dict]): The list of checks that are to be performed on the data
     :param hostname (str): The host IPv4 address to connect to
     :param password (str): The password required to connect to the host server
     :param username (str): The name of the user who wants to connect to the host server
@@ -565,11 +607,10 @@ def run_quality_checks_for_file(datasource_type: str, datasource_name: str, dir_
     """
     Triggers the functions of great_expectations library in the required sequence
 
-    :param datasource_type (str): The type of datasource, e.g.: file, mysql, snowflake, csv, etc.
+    :param datasource_type (str): The type of datasource, e.g.: csv, orc, avro, json, etc.
     :param datasource_name (str): The name of datasource
     :param dir_path (str): The path where the file is stored
-    :param quality_checks (List[dict]): The list of checks that are to be performed on the file, formatted as required by 
-    the great_expectations library
+    :param quality_checks (List[dict]): The list of checks that are to be performed on the data
     :param file_name (str): The name of the file
 
     :return checkpoint_results (json): The generated validation results
