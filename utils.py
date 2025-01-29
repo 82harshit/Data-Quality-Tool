@@ -78,28 +78,28 @@ def generate_connection_string(connection: connection_model.Connection) -> str:
     # Generate connection string
     return f"{connection_type}://{username}:{password}@{hostname}:{port}/{target}"
 
-def find_validation_result(data):
-    """
-    This utility function finds the key 'validation_result' in the provided JSON data
+# def find_validation_result(data):
+#     """
+#     This utility function finds the key 'validation_result' in the provided JSON data
     
-    :param data (json): Validation result JSON
+#     :param data (json): Validation result JSON
 
-    :return: JSON containing validation results or None  
-    """
+#     :return: JSON containing validation results or None  
+#     """
 
-    try:
-        # Accessing the 'run_results' and then navigating to the specific validation result
-        run_results = data.get('run_results', {})
+#     try:
+#         # Accessing the 'run_results' and then navigating to the specific validation result
+#         run_results = data.get('run_results', {})
         
-        # Iterate over each key in the run_results
-        for result_key, result_value in run_results.items():
-            # Check if the 'validation_result' key exists
-            if 'validation_result' in result_value:
-                return result_value['validation_result']
-        return None  # Return None if no validation_result is found
-    except Exception as e:
-        dqt_logger.error(f"Error extracting validation result: {e}")
-        return None
+#         # Iterate over each key in the run_results
+#         for result_key, result_value in run_results.items():
+#             # Check if the 'validation_result' key exists
+#             if 'validation_result' in result_value:
+#                 return result_value['validation_result']
+#         return None  # Return None if no validation_result is found
+#     except Exception as e:
+#         dqt_logger.error(f"Error extracting validation result: {e}")
+#         return None
     
 def get_cred_db_connection_config() -> json:
     """
@@ -187,35 +187,35 @@ def generate_job_id() -> str:
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     return f"Job_{rand_int}{timestamp}"
 
-def log_validation_results(validation_result):
+def log_validation_results(validation_result: dict) -> None:
     """
     Parse and log validation results in a tabular format.
     """
     # Extract results and statistics
     results = validation_result.get("results", [])
-    stats = validation_result.get("statistics", {})
+    # stats = validation_result.get("statistics", {})
 
     # Prepare table data
     table_data = []
     for result in results:
-        expectation = result["expectation_config"]
         table_data.append([
-            expectation["expectation_type"],  # Type of expectation
-            expectation["kwargs"].get("column", "N/A"),  # Column name
-            "Yes" if result["success"] == 1 else "No",  # Success status
+            result["check_name"],  # Type of expectation
+            result["check_status"],  # Column name
+            result["check_value"]
+            # "Yes" if result["success"] == 1 else "No",  # Success status
         ])
 
-    # Add statistics summary rows
-    table_data.extend([
-        ["Success Percent", "N/A", stats.get("success_percent", "N/A")],
-        ["Successful Expectations", "N/A", stats.get("successful_expectations", "N/A")],
-        ["Unsuccessful Expectations", "N/A", stats.get("unsuccessful_expectations", "N/A")]
-    ])
+    # # Add statistics summary rows
+    # table_data.extend([
+    #     ["Success Percent", "N/A", stats.get("success_percent", "N/A")],
+    #     ["Successful Expectations", "N/A", stats.get("successful_expectations", "N/A")],
+    #     ["Unsuccessful Expectations", "N/A", stats.get("unsuccessful_expectations", "N/A")]
+    # ])
 
     # Generate and log the table
     table = tabulate(
         table_data,
-        headers=["Expectation Type", "Column", "Success"],
+        headers=["Expectation", "Expectation status", "Unexpected value"],
         tablefmt="grid",
     )
     
