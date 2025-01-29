@@ -154,9 +154,10 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
             JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
             raise HTTPException(status_code=403, detail=error_msg)
         except Exception as e:
-            error_msg = f"An error occurred: {str(e)}"
+            error_msg = f"An error occurred while searching for file on server: {str(e)}"
             dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="An error occurred.") 
+            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, 
+                                                     status_message="An error occurred while searching file on server.") 
             raise HTTPException(status_code=500, detail=error_msg)
 
 
