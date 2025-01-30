@@ -4,6 +4,7 @@ from io import BytesIO, StringIO
 import pandas as pd
 import fastavro
 import pyorc
+import os
 
 from database.db_models import user_credentials_db
 from database.db_models.job_run_status import JobRunStatusEnum
@@ -170,7 +171,9 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
         
         :raises HTTPException: If there is an error processing the file or if the file format is unsupported.
         """
-        file_path = f"{self.dir_path}/{self.file_name}"
+        # file_path = f"{self.dir_path}/{self.file_name}"
+        file_path = os.path.join(self.dir_path, self.file_name)
+        
         try:
                 
             # Read the file based on its extension

@@ -55,7 +55,7 @@ class JobRunStatus(database_interface.DatabaseInterface):
 
         job_status_table = job_run_status_details.get('job_status_table')
         
-        query_params = (self.job_id, None, None) # add job_id in job_run_status table with status message and logs as `None`
+        query_params = (self.job_id, JobRunStatusEnum.STARTED, None) # add job_id in job_run_status table with status message and logs as `None`
         
         insert_job_id_query = sql_query.SQLQuery(db_connection=self.db_instance,
                                                  query=query_template.INSERT_JOB_STATUS_QUERY.format(job_status_table),

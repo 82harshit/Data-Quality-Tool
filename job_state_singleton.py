@@ -57,7 +57,7 @@ class JobStateSingleton:
         
         _job_run_status = JobRunStatus(job_id=_job_id)
         _job_run_status.connect_to_db()
-        dqt_logger.info(f"Adding Job ID:{_job_id} in table")
+        dqt_logger.info(f"Adding Job ID: {_job_id} in table")
         _job_run_status.insert_in_db()
         _job_run_status.close_db_connection()
     
@@ -73,9 +73,9 @@ class JobStateSingleton:
         """
         _job_id = cls.get_job_id()
         if _job_id == None:
-            error_msg = "Job ID not initialized in singleton"
-            dqt_logger.error(error_msg)
-            return Exception(error_msg)
+            warning_msg = "Job ID not initialized in singleton"
+            dqt_logger.warning(warning_msg)
+            raise Warning(warning_msg)
         
         _job_run_status = JobRunStatus(job_id=_job_id)
         _job_run_status.connect_to_db()

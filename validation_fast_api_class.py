@@ -274,24 +274,20 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
         schema_name = job.data_source.schema_name
         database = user_conn_creds.get('database')
 
-        rand_int = random.randint(1000, 9999)  # random 4-digit integer
-        datasource_name = f"{table_name}_table_{rand_int}"
-
         try:
             # Perform database validation checks
-            validation_results = run_quality_checks_for_db(
+            return run_quality_checks_for_db(
                 database=database,
                 password=user_conn_creds.get('password'),
                 port=user_conn_creds.get('port'),
                 hostname=user_conn_creds.get('hostname'),
                 quality_checks=quality_checks,
                 username=user_conn_creds.get('username'),
-                table_name=table_name,
-                datasource_name=datasource_name,
+                datasource_name=table_name,
                 datasource_type=user_conn_creds.get('source_type'),
                 schema_name=schema_name
             )
-            return json.loads(str(validation_results))  # Convert result to JSON format
+            # return json.loads(str(validation_results))  # Convert result to JSON format
         except Exception as ge_exception:
             error_msg = f"An error occurred while validating data for database {database}: {str(ge_exception)}"
             dqt_logger.error(error_msg)
@@ -312,19 +308,19 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
         dir_path = job.data_source.dir_path
         file_name = job.data_source.file_name
 
-        rand_int = random.randint(1000, 9999)  # random 4-digit integer
-        datasource_name = f"{file_name}_file_{rand_int}"
+        # rand_int = random.randint(1000, 9999)  # random 4-digit integer
+        # datasource_name = f"{file_name}_file_{rand_int}"
 
         try:
             # Perform file validation checks
-            validation_results = run_quality_checks_for_file(
+            return run_quality_checks_for_file(
                 datasource_type=datasource_type,
-                datasource_name=datasource_name,
+                datasource_name=file_name,
                 file_name=file_name,
                 dir_path=dir_path,
                 quality_checks=quality_checks
             )
-            return json.loads(str(validation_results))  # Convert result to JSON format
+            # return json.loads(str(validation_results))  # Convert result to JSON format
         except Exception as ge_exception:
             error_msg = f"An error occurred while validating data for file {file_name}: {str(ge_exception)}"
             dqt_logger.error(error_msg)
@@ -341,7 +337,7 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
 
         :param job (object): An object of class SubmitJob containing the validation checks and other details
 
-        :return validation_results (json): A JSON containing the validation response from the great_expectations library
+        :return validation_results (json): A JSON containing the validation response from the Soda library
         """
         # extracting connection_name and quality_checks from submit job object
         self.unique_connection_name = job.connection_name # initializing self.unique_connection_name instance variable

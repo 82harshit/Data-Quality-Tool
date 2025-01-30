@@ -19,7 +19,7 @@ from typing import List, Dict, Union, Optional
 from database.db_models.job_run_status import JobRunStatusEnum
 from job_state_singleton import JobStateSingleton
 from logging_config import dqt_logger
-from request_models import connection_enum_and_metadata as conn_enum
+from request_models import connection_enum_and_metadata as conn_enum, job_model
 from Soda.soda_results_models import CheckResults, CheckResult
 
 
@@ -333,7 +333,7 @@ class SodaModel:
                     return dd.read_csv(self.datasource_path)
                 else:
                     error_msg = "Provided file is not a valid CSV file."
-                    dqt_logger.info(error_msg)
+                    dqt_logger.error(error_msg)
                     JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
                     raise Exception(error_msg)
             elif self.datasource_type == conn_enum.File_Datasource_Enum.AVRO:
@@ -341,7 +341,7 @@ class SodaModel:
                     return db.read_avro(self.datasource_path).to_dataframe()
                 else:
                     error_msg = "Provided file is not a valid AVRO file."
-                    dqt_logger.info(error_msg)
+                    dqt_logger.error(error_msg)
                     JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
                     raise Exception(error_msg)
             elif self.datasource_type == conn_enum.File_Datasource_Enum.ORC:
@@ -349,7 +349,7 @@ class SodaModel:
                     return dd.read_orc(self.datasource_path)
                 else:
                     error_msg = "Provided file is not a valid ORC file."
-                    dqt_logger.info(error_msg)
+                    dqt_logger.error(error_msg)
                     JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
                     raise Exception(error_msg)
             elif self.datasource_type == conn_enum.File_Datasource_Enum.PARQUET:
@@ -357,7 +357,7 @@ class SodaModel:
                     return dd.read_parquet(self.datasource_path)
                 else:
                     error_msg = "Provided file is not a valid parquet file."
-                    dqt_logger.info(error_msg)
+                    dqt_logger.error(error_msg)
                     JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
                     raise Exception(error_msg)
             elif self.datasource_type == conn_enum.File_Datasource_Enum.JSON:
@@ -366,7 +366,7 @@ class SodaModel:
                     return dd.from_pandas(df, npartitions=1)
                 else:
                     error_msg = "Provided file is not a valid JSON file."
-                    dqt_logger.info(error_msg)
+                    dqt_logger.error(error_msg)
                     JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
                     raise Exception(error_msg)
             elif self.datasource_type == conn_enum.File_Datasource_Enum.EXCEL:
@@ -375,12 +375,12 @@ class SodaModel:
                     return dd.from_delayed(parts)
                 else:
                     error_msg = "Provided file is not a valid excel file."
-                    dqt_logger.info(error_msg)
+                    dqt_logger.error(error_msg)
                     JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
                     raise Exception(error_msg)
             else:
                 error_msg = "File type not recognised, cannot create dataframe."
-                dqt_logger.info(error_msg)
+                dqt_logger.error(error_msg)
                 JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
                 return TypeError(error_msg)
         
@@ -426,9 +426,7 @@ def __get_formatted_check_for_datasource(datasource_type: str,
            return f"{expectation_type}([{column}], {percentile}) {condition}"
         return f"{expectation_type}([{column}]) {condition}"
     
-    if datasource_type in [conn_enum.File_Datasource_Enum.CSV, conn_enum.File_Datasource_Enum.JSON,
-                           conn_enum.File_Datasource_Enum.AVRO, conn_enum.File_Datasource_Enum.ORC,
-                           conn_enum.File_Datasource_Enum.PARQUET]:
+    if datasource_type in conn_enum.File_Datasource_Enum.__members__.values():
         column = (column.strip() # Remove leading/trailing spaces
                         .replace(" ", "_") # Replace spaces with underscores
                         .replace(r"[^\w\s]", "")  # Remove special characters
@@ -438,7 +436,7 @@ def __get_formatted_check_for_datasource(datasource_type: str,
            return f"{expectation_type}({column}, {percentile}) {condition}"
         return f"{expectation_type}({column}) {condition}"
 
-def __create_checks(datasource_type: str, datasource_name: str, quality_checks: dict) -> yaml:
+def __create_checks(datasource_type: str, datasource_name: str, quality_checks: List[job_model.QualityChecks]) -> yaml:
     """
     Parses the quality checks JSON to a YAML format as required by the Soda library.
     
@@ -447,44 +445,55 @@ def __create_checks(datasource_type: str, datasource_name: str, quality_checks: 
     
     :return yaml: Parsed quality checks JSON to YAML
     """
-    checks = []
     
-    for quality_check in quality_checks:
-        expectation_type = quality_check.get("expectation_type", "")
-        kwargs = quality_check.get("kwargs", "")
-        if kwargs:
-            condition = kwargs.get("condition", "")
-            column = kwargs.get("column", "")
-            if column:
-                if expectation_type == "percentile":
-                    percentile = kwargs.get("percentile", "")
-                    check = __get_formatted_check_for_datasource(datasource_type=datasource_type, 
-                                                        expectation_type=expectation_type, 
-                                                        column=column, 
-                                                        condition=condition, 
-                                                        percentile=percentile
-                                                        )
+    if not quality_checks:
+        raise Exception("Empty list of checks provided")
+    
+    quality_checks_list = [check.model_dump() for check in quality_checks]
+    checks = []
+
+    try:
+        for quality_check in quality_checks_list:
+            expectation_type = quality_check.get("expectation_type", "")
+            kwargs = quality_check.get("kwargs", "")
+            if kwargs:
+                condition = kwargs.get("condition", "")
+                column = kwargs.get("column", "")
+                if column:
+                    if expectation_type == "percentile":
+                        percentile = kwargs.get("percentile", "")
+                        check = __get_formatted_check_for_datasource(datasource_type=datasource_type, 
+                                                            expectation_type=expectation_type, 
+                                                            column=column, 
+                                                            condition=condition, 
+                                                            percentile=percentile
+                                                            )
+                    else:
+                        check = __get_formatted_check_for_datasource(datasource_type=datasource_type, 
+                                                            expectation_type=expectation_type, 
+                                                            column=column, 
+                                                            condition=condition
+                                                            )
+                    other_kwargs = {key:value for key, value in kwargs.items() if key not in ["column", "condition"]}
+                    other_kwargs = __remove_empty_dicts(other_kwargs) 
+                    if other_kwargs:
+                        checks.append({check: other_kwargs})
+                    else:
+                        checks.append(check)
                 else:
-                    check = __get_formatted_check_for_datasource(datasource_type=datasource_type, 
-                                                        expectation_type=expectation_type, 
-                                                        column=column, 
-                                                        condition=condition
-                                                        )
-                other_kwargs = {key:value for key, value in kwargs.items() if key not in ["column", "condition"]}
-                other_kwargs = __remove_empty_dicts(other_kwargs) 
-                if other_kwargs:
-                    checks.append({check: other_kwargs})
-                else:
+                    check = f"{expectation_type} {condition}"
                     checks.append(check)
             else:
-                check = f"{expectation_type} {condition}"
-                checks.append(check)
-        else:
-            checks.append(expectation_type)
-    
-    checks_yaml = yaml.dump({f"checks for {datasource_name}":checks}, default_flow_style=False, indent=2)
-    dqt_logger.debug(f"Created checks:\n{checks_yaml}")
-    return checks_yaml
+                checks.append(expectation_type)
+        
+        checks_yaml = yaml.dump({f"checks for {datasource_name}":checks}, default_flow_style=False, indent=2)
+        dqt_logger.debug(f"Created checks:\n{checks_yaml}")
+        return checks_yaml
+    except Exception as e:
+        error_msg = f"Failed to create checks: {e}"
+        dqt_logger.error(error_msg)
+        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Failed to create checks")
+        raise Exception(error_msg)
 
 def __parse_validation_result(validation_result: str) -> List[CheckResult]:
     """
@@ -498,22 +507,24 @@ def __parse_validation_result(validation_result: str) -> List[CheckResult]:
     check_lines = validation_result.strip().split("\n")
     results = []
 
-    for line in check_lines:
-        # Match the pattern and extract fields using regex
-        # The original regex was likely not capturing the check_status correctly.
-        # Updated regex to capture 'PASS', 'FAIL' or 'ERROR' into the 'status' group
-        match = re.match(r"\[(.+?)\]\s+(PASS|FAIL|ERROR)\s+\(check_value:\s+(\d+)\)", line)
-        if match:
-            check_name, status, check_value = match.groups()
-            # Create CheckResult object and add to results
-            result = CheckResult(
-                check_name=check_name,
-                check_status=status,  # Assign the extracted status
-                check_value=int(check_value)
-            )
-            results.append(result)
-
-    return results
+    try:
+        for line in check_lines:
+            regex = r"\[(.+?)\]\s+(PASS|FAIL|ERROR)\s+\(check_value:\s+(\d+)\)"
+            match = re.match(regex, line)
+            if match:
+                check_name, status, check_value = match.groups()
+                result = {
+                    "check_name": check_name,
+                    "check_status": status,
+                    "check_value": int(check_value)
+                }
+                results.append(result)
+        return results
+    except Exception as e:
+        error_msg = f"Failed to parse validation results: {e}"
+        dqt_logger.error(error_msg)
+        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Failed to parse validation results")
+        raise Exception(error_msg)
 
 def __run_quality_checks(datasource_type: str,
                          datasource_name: str, 
@@ -562,7 +573,10 @@ def __run_quality_checks(datasource_type: str,
         soda.scan.execute()
         validation_results = soda.scan.get_all_checks_text()
         parsed_results = CheckResults(results=__parse_validation_result(validation_results))
-        return json.loads(parsed_results.model_dump_json(indent=4))
+        dqt_logger.debug(f"Parsed results:\n{parsed_results}")
+        parsed_results_json = json.loads(parsed_results.model_dump_json(indent=4))
+        dqt_logger.debug(parsed_results_json)
+        return parsed_results_json
             
     except Exception as e:
         error_msg = f"Failed to run quality checks: {str(e)}"
@@ -571,7 +585,7 @@ def __run_quality_checks(datasource_type: str,
     
 def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str, username: str, 
                                 port: int, datasource_name: str, schema_name: str, database: str, 
-                                quality_checks: List[dict]) -> json:
+                                quality_checks: List[job_model.QualityChecks]) -> json:
     """
     Triggers the functions of great_expectations library in the required sequence
 
@@ -583,7 +597,7 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
     :param username (str): The name of the user who wants to connect to the host server
     :param port (int): The port number to be connected on
     :param database (str): The name of the database that needs to be accessed
-    
+
     :return checkpoint_results (json): The generated validation results
     """
     db_config = {
@@ -602,7 +616,7 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
         is_file=False,
     )
 
-def run_quality_checks_for_file(datasource_type: str, datasource_name: str, dir_path: str, quality_checks: List[dict], 
+def run_quality_checks_for_file(datasource_type: str, datasource_name: str, dir_path: str, quality_checks: List[job_model.QualityChecks], 
                             file_name: str) -> json:
     """
     Triggers the functions of great_expectations library in the required sequence

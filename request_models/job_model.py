@@ -62,7 +62,7 @@ class DataSource(BaseModel):
 
 
 class QualityChecks(BaseModel):
-    expectation_type: str = Field(str, description="Name of the check that is applied", min_length=11)
+    expectation_type: str = Field(str, description="Name of the check that is applied", min_length=3)
     kwargs: dict = Field(dict, description="""Contains the column on which the check is to be applied 
                                             and the arguments for the check""")
 
