@@ -215,7 +215,7 @@ def log_validation_results(validation_result: dict) -> None:
     # Generate and log the table
     table = tabulate(
         table_data,
-        headers=["Expectation", "Expectation status", "Unexpected value"],
+        headers=["Expectation", "Expectation status", "Check value"],
         tablefmt="grid",
     )
     
