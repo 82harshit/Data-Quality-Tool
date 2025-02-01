@@ -15,12 +15,13 @@ import re
 import json
 import os
 from typing import List, Dict, Union, Optional
+from datetime import datetime
 
 from database.db_models.job_run_status import JobRunStatusEnum
 from job_state_singleton import JobStateSingleton
 from logging_config import dqt_logger
 from request_models import connection_enum_and_metadata as conn_enum, job_model
-from Soda.soda_results_models import CheckResults, CheckResult
+from Soda.soda_results_models import CheckResults
 
 
 class SodaModel:
@@ -495,14 +496,14 @@ def __create_checks(datasource_type: str, datasource_name: str, quality_checks: 
         JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Failed to create checks")
         raise Exception(error_msg)
 
-def __parse_validation_result(validation_result: str) -> List[CheckResult]:
+def __parse_validation_result(validation_result: str) -> List[dict]:
     """
     Formats the resultant string list of `CheckResults`. Each of these `CheckResult` objects,
     contains the name of the check, the status of check i.e. PASS, FAIL, or ERROR, and the validation value for the check.
     
     :param validation_results (str): The string of results that need to be parsed.
     
-    :return list of CheckResult: The contains a list of check result objects.
+    :return list of dict: A list of dictionaries containing check results.
     """
     check_lines = validation_result.strip().split("\n")
     results = []
@@ -575,6 +576,7 @@ def __run_quality_checks(datasource_type: str,
         parsed_results = CheckResults(results=__parse_validation_result(validation_results))
         dqt_logger.debug(f"Parsed results:\n{parsed_results}")
         parsed_results_json = json.loads(parsed_results.model_dump_json(indent=4))
+        parsed_results_json["validation_date"] = datetime.now().strftime("%Y-%m-%d") # add current date as validation date
         dqt_logger.debug(parsed_results_json)
         return parsed_results_json
             
@@ -587,7 +589,7 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
                                 port: int, datasource_name: str, schema_name: str, database: str, 
                                 quality_checks: List[job_model.QualityChecks]) -> json:
     """
-    Triggers the functions of great_expectations library in the required sequence
+    Triggers the functions of soda library in the required sequence
 
     :param datasource_type (str): The type of datasource, e.g.: postgres, mysql, snowflake, mssql, etc.
     :param datasource_name (str): The name of datasource
@@ -619,7 +621,7 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
 def run_quality_checks_for_file(datasource_type: str, datasource_name: str, dir_path: str, quality_checks: List[job_model.QualityChecks], 
                             file_name: str) -> json:
     """
-    Triggers the functions of great_expectations library in the required sequence
+    Triggers the functions of soda library in the required sequence
 
     :param datasource_type (str): The type of datasource, e.g.: csv, orc, avro, json, etc.
     :param datasource_name (str): The name of datasource

@@ -77,29 +77,6 @@ def generate_connection_string(connection: connection_model.Connection) -> str:
     
     # Generate connection string
     return f"{connection_type}://{username}:{password}@{hostname}:{port}/{target}"
-
-# def find_validation_result(data):
-#     """
-#     This utility function finds the key 'validation_result' in the provided JSON data
-    
-#     :param data (json): Validation result JSON
-
-#     :return: JSON containing validation results or None  
-#     """
-
-#     try:
-#         # Accessing the 'run_results' and then navigating to the specific validation result
-#         run_results = data.get('run_results', {})
-        
-#         # Iterate over each key in the run_results
-#         for result_key, result_value in run_results.items():
-#             # Check if the 'validation_result' key exists
-#             if 'validation_result' in result_value:
-#                 return result_value['validation_result']
-#         return None  # Return None if no validation_result is found
-#     except Exception as e:
-#         dqt_logger.error(f"Error extracting validation result: {e}")
-#         return None
     
 def get_cred_db_connection_config() -> json:
     """
@@ -191,9 +168,7 @@ def log_validation_results(validation_result: dict) -> None:
     """
     Parse and log validation results in a tabular format.
     """
-    # Extract results and statistics
     results = validation_result.get("results", [])
-    # stats = validation_result.get("statistics", {})
 
     # Prepare table data
     table_data = []
@@ -202,16 +177,8 @@ def log_validation_results(validation_result: dict) -> None:
             result["check_name"],  # Type of expectation
             result["check_status"],  # Column name
             result["check_value"]
-            # "Yes" if result["success"] == 1 else "No",  # Success status
         ])
-
-    # # Add statistics summary rows
-    # table_data.extend([
-    #     ["Success Percent", "N/A", stats.get("success_percent", "N/A")],
-    #     ["Successful Expectations", "N/A", stats.get("successful_expectations", "N/A")],
-    #     ["Unsuccessful Expectations", "N/A", stats.get("unsuccessful_expectations", "N/A")]
-    # ])
-
+        
     # Generate and log the table
     table = tabulate(
         table_data,
@@ -264,19 +231,6 @@ def delete_all_under_folder(folder_path) -> None:
             shutil.rmtree(item_path)
     
     dqt_logger.info(f"All files and folders under '{folder_path}' have been deleted.")
-        
-# def cleanup() -> None:
-#   """
-#   Clean all the datasources, expectations and validations 
-  
-#   :return: None
-#   """
-#   great_exp_yaml_path = os.path.join('gx', 'great_expectations.yml') # relative path to 'great_expectations.yml'
-#   clear_datasources(file_path=great_exp_yaml_path)
-#   expectations_folder = os.path.join('gx', 'expectations') 
-#   delete_all_under_folder(expectations_folder)
-#   validations_folder = os.path.join('gx', 'uncommitted', 'validations')
-#   delete_all_under_folder(validations_folder)
   
 def clean_json_string(json_string: str) -> str:
     """Cleans unwanted keywords like 'JSON' and backticks from a JSON string."""

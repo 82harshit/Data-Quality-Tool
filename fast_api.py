@@ -27,7 +27,7 @@ from validation_fast_api_class import ValidationFastAPI
 from helper import get_job_id_and_initialize_job_state_singleton
 from job_state_singleton import JobStateSingleton
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
-from save_validation_results import ValidationResult
+from database.save_validation_results import ValidationResult
 from logging_config import dqt_logger
 from utils import log_validation_results
 from suggestion import SuggestionBI
@@ -142,152 +142,184 @@ async def generate_suggestions(
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests")
 async def submit_job(job: job_model.SubmitJob = Body(...,example={
-  "connection_name": "20241120162230_test_1272990_4002_testdb_2314",
+  "connection_name": "20250130172104_merit_3233347_3306_qualitytool_3757",
   "data_source": {
-      "dir_path": "C:/user/Desktop",
-      "file_name": "sample_file",
-      "table_name": "test_table",
-      "schema_name": "test_schema"
+    "table_name": "customers",
+    "schema_name": "quality_tool"
   },
   "quality_checks": [
-   {
-      "expectation_type": "expect_column_values_to_not_be_null",
-      "kwargs": {
-        "column": "Customer Id"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "Customer Id",
-        "regex": "^[a-zA-Z0-9]{15}$"
-      }
-    },
-   {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "City",
-        "regex": "^[A-Za-z\\s\\-]+$"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_not_be_null",
-      "kwargs": {
-        "column": "First Name"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "First Name",
-        "regex": "^[A-Za-z]{1,20}$"
-      }
-    },
-   {
-      "expectation_type": "expect_column_values_to_not_be_null",
-      "kwargs": {
-        "column": "Last Name"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "Last Name",
-        "regex": "^[A-Za-z]{1,20}$"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_not_be_null",
-      "kwargs": {
-        "column": "Company"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_not_be_null",
-      "kwargs": {
-        "column": "City"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "City",
-        "regex": "^[A-Za-z\\s\\-]+$"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_not_be_null",
-      "kwargs": {
-        "column": "Country"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "Country",
-        "regex": "^[A-Za-z]+$"
-      }
-    },
-   {
-      "expectation_type": "expect_column_values_to_not_be_null",
-      "kwargs": {
-        "column": "Phone 1"
-      }
-    },
-   {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "Phone 1",
-        "regex": "^[+()\\d\\s-]+$"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "Phone 2",
-        "regex": "^[+()\\d\\s-]*$"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_not_be_null",
-      "kwargs": {
-        "column": "Email"
-      }
-    },
-   {
-      "expectation_type": "expect_column_values_to_be_unique",
-      "kwargs": {
-        "column": "Email"
-      }
-    },
-   {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "Email",
-        "regex": "^[^@]+@[^@]+\\.[^@]+$"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_not_be_null",
-      "kwargs": {
-        "column": "Subscription Date"
-      }
-    },
-   {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "Subscription Date",
-        "regex": "^\\d{4}-\\d{2}-\\d{2}$"
-      }
-    },
-    {
-      "expectation_type": "expect_column_values_to_match_regex",
-      "kwargs": {
-        "column": "Website",
-        "regex": "^(http|https)://[^\\s/$.?#].[^\\s]*$"
-      }
-    }
-  ],
+        {
+            "expectation_type": "row_count",
+            "kwargs": {
+                "condition": "> 0"
+            }
+        },
+        {
+            "expectation_type": "missing_count",
+            "kwargs": {
+                "column": "Index",
+                "condition": "> 0"
+            }
+        },
+        {
+            "expectation_type": "missing_count",
+            "kwargs": {
+                "column": "Customer Id",
+                "condition": "= 0"
+            }
+        },
+        {
+            "expectation_type": "invalid_count",
+            "kwargs": {
+                "column": "Customer Id",
+                "condition": "= 0",
+                "valid regex": "^[a-zA-Z0-9]{15}+$"
+            }
+        },
+        {
+            "expectation_type": "missing_count",
+            "kwargs": {
+                "column": "First Name",
+                "condition": "= 0"
+            }
+        },
+        {
+            "expectation_type": "invalid_count",
+            "kwargs": {
+                "column": "City",
+                "condition": "= 0",
+                "valid regex": "^[A-Za-z\\s\\-]+$"
+            }
+        },
+        {
+            "expectation_type": "invalid_count",
+            "kwargs": {
+                "column": "First Name",
+                "condition": "= 0",
+                "valid regex": "^[A-Za-z]{1,20}$"
+            }
+        },
+        {
+            "expectation_type": "missing_count",
+            "kwargs": {
+                "column": "Last Name",
+                "condition": "= 0"
+            }
+        },
+        {
+            "expectation_type": "invalid_count",
+            "kwargs": {
+                "column": "Last Name",
+                "condition": "= 0",
+                "valid regex": "^[A-Za-z]{1,20}$"
+            }
+        },
+        {
+            "expectation_type": "missing_count",
+            "kwargs": {
+                "column": "Company",
+                "condition": "= 0"
+            }
+        },
+        {
+            "expectation_type": "invalid_count",
+            "kwargs": {
+                "column": "City",
+                "condition": "= 0",
+                "valid regex": "^[A-Za-z\\s\\-]+$"
+            }
+        },
+        {
+            "expectation_type": "missing_count",
+            "kwargs": {
+                "column": "Country",
+                "condition": "= 0"
+            }
+        },
+        {
+            "expectation_type": "invalid_count",
+            "kwargs": {
+                "column": "City",
+                "condition": "= 0",
+                "valid regex": "^[A-Za-z]+$"
+            }
+        },
+        {
+            "expectation_type": "missing_count",
+            "kwargs": {
+                "column": "Phone 1",
+                "condition": "= 0"
+            }
+        },
+        {
+            "expectation_type": "invalid_count",
+            "kwargs": {
+                "column": "Phone 1",
+                "condition": "= 0",
+                "valid regex": "^[+()\\d\\s-]+$"
+            }
+        },
+        {
+            "expectation_type": "missing_count",
+            "kwargs": {
+                "column": "Phone 2",
+                "condition": "= 0"
+            }
+        },
+        {
+            "expectation_type": "invalid_count",
+            "kwargs": {
+                "column": "Phone 1",
+                "condition": "= 0",
+                "valid regex": "^[+()\\d\\s-]*$"
+            }
+        },
+        {
+            "expectation_type": "missing_count",
+            "kwargs": {
+                "column": "Email",
+                "condition": "= 0"
+            }
+        },
+        {
+            "expectation_type": "duplicate_count",
+            "kwargs": {
+                "column": "Email",
+                "condition": "= 0"
+            }
+        },
+        {
+            "expectation_type": "invalid_count",
+            "kwargs": {
+                "column": "Phone 1",
+                "condition": "= 0",
+                "valid regex": "^[^@]+@[^@]+\\.[^@]+$"
+            }
+        },
+        {
+            "expectation_type": "missing_count",
+            "kwargs": {
+                "column": "Subscription Date",
+                "condition": "= 0"
+            }
+        },
+        {
+            "expectation_type": "invalid_count",
+            "kwargs": {
+                "column": "Subscription Date",
+                "condition": "= 0",
+                "valid regex": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+        },
+        {
+            "expectation_type": "invalid_count",
+            "kwargs": {
+                "column": "Website",
+                "condition": "= 0",
+                "valid regex": "^(http|https)://[^\\s/$.?#].[^\\s]*$"
+            }
+        }
+    ],
   "metadata": {
     "requested_by": "user@example.com",
     "execution_time": "2024-10-16T15:11:18.483Z",
