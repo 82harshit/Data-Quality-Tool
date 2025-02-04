@@ -20,6 +20,7 @@ import json
 import os
 from typing import List, Dict, Union, Optional
 from datetime import datetime
+import shutil
 
 from database.db_models.job_run_status import JobRunStatusEnum
 from job_state_singleton import JobStateSingleton
@@ -28,6 +29,9 @@ from request_models import connection_enum_and_metadata as conn_enum, job_model
 from Soda.soda_results_models import CheckResults
 
 nest_asyncio.apply()
+TEMP_DIR = ".tmp"
+
+
 class SodaModel:
     def __init__(self):
         """
@@ -335,9 +339,8 @@ class SodaModel:
                     dqt_logger.info(f"Successfully connected to {self.host}")
                     file_path = posixpath.join(self.dir_path, self.file_name)
                     
-                    temp_dir = ".tmp"
-                    os.makedirs(temp_dir, exist_ok=True)
-                    local_temp_path = os.path.join(temp_dir, self.file_name)
+                    os.makedirs(TEMP_DIR, exist_ok=True)
+                    local_temp_path = os.path.join(TEMP_DIR, self.file_name)
                     
                     async with conn.start_sftp_client() as sftp:
                         await sftp.get(file_path, local_temp_path)
@@ -427,8 +430,6 @@ class SodaModel:
                 error_msg = f"Could not retrieve file {self.file_name} from server {self.host}"
                 dqt_logger.error(error_msg)
                 raise Exception(error_msg)
-            finally:
-                os.remove(local_temp_file_path)
         
 @staticmethod
 def __remove_empty_dicts(data):
@@ -600,6 +601,10 @@ def __run_quality_checks(datasource_type: str,
                             .str.replace(r"[^\w\s]", "")  # Remove special characters
                             .str.lower() # Convert to lowercase
                 )
+                # removing all special characters
+                datasource_name = re.sub(r'[^a-zA-Z0-9_]', '', datasource_name)
+                # replacing spaces with '_'
+                datasource_name = datasource_name.replace(" ", "_")
             except:
                 error_msg = "Failed to preprocess dataframe."
                 dqt_logger.error(error_msg)
@@ -630,6 +635,7 @@ def __run_quality_checks(datasource_type: str,
         parsed_results_json = json.loads(parsed_results.model_dump_json(indent=4))
         parsed_results_json["validation_date"] = datetime.now().strftime("%Y-%m-%d") # add current date as validation date
         dqt_logger.debug(parsed_results_json)
+        shutil.rmtree(".tmp")
         return parsed_results_json
             
     except Exception as e:

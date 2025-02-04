@@ -6,7 +6,7 @@
     "connection_credentials": {
       "connection_type": "csv",
       "port": 22,
-      "server": "32.33.34.8",
+      "server": "172.27.141.10",
       "file_name": "customers-100.csv",
       "dir_path": "/home/merit/Documents"
     },
