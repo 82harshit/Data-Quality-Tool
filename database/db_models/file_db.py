@@ -83,7 +83,6 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
             ) as conn:
                 info_msg = "SSH connection established..."
                 dqt_logger.info(info_msg)
-                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
 
                 # Extract connection details
                 file_name = self.file_name
@@ -141,18 +140,15 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
                     error_msg = """Invalid connection configuration. 
                     Please provide either 'dir_path' with 'file_name', or just 'file_name'."""
                     dqt_logger.error(error_msg)
-                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
                     raise ValueError(error_msg)
 
         except asyncssh.PermissionDenied:
             error_msg = "SSH permission denied. Check your credentials."
             dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
             raise HTTPException(status_code=403, detail=error_msg)
         except Exception as e:
             error_msg = f"An error occurred: {str(e)}"
-            dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="An error occurred.") 
+            dqt_logger.error(error_msg) 
             raise HTTPException(status_code=500, detail=error_msg)
 
     # async def read_file_columns(self, conn):
@@ -232,7 +228,6 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
     #         else:
     #             error_msg = "Unsupported file format"
     #             dqt_logger.error(error_msg)
-    #             JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
     #             raise HTTPException(status_code=400, detail=error_msg)
 
     #         # Return the column names
@@ -240,5 +235,4 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
     #     except Exception as e:
     #         error_msg = f"Error processing file: {str(e)}"
     #         dqt_logger.error(error_msg)
-    #         JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Error processing file") 
     #         raise HTTPException(status_code=500, detail=error_msg)
