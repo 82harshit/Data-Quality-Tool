@@ -9,7 +9,10 @@ from fastavro import reader
 import pyarrow.parquet as pq
 from openpyxl import load_workbook
 import asyncio
+import nest_asyncio
+import asyncssh
 from soda.scan import Scan
+import posixpath
 
 import yaml
 import re
@@ -17,7 +20,6 @@ import json
 import os
 from typing import List, Dict, Union, Optional
 from datetime import datetime
-import paramiko
 
 from database.db_models.job_run_status import JobRunStatusEnum
 from job_state_singleton import JobStateSingleton
@@ -25,7 +27,7 @@ from logging_config import dqt_logger
 from request_models import connection_enum_and_metadata as conn_enum, job_model
 from Soda.soda_results_models import CheckResults
 
-
+nest_asyncio.apply()
 class SodaModel:
     def __init__(self):
         """
@@ -328,30 +330,34 @@ class SodaModel:
         
         async def __get_file_path(self):
             try:
-                # connect to the client
-                client = paramiko.SSHClient()
-                client.load_system_host_keys()
-                client.connect(hostname=self.host, username=self.username, password=self.password)
-            except ConnectionError as conn_error:
-                raise conn_error
-            
-            try:
-                file_path = os.path.join(self.dir_path, self.file_name)
-                sftp_client = client.open_sftp()
-                temp_dir = ".tmp"
-                os.makedirs(temp_dir, exist_ok=True)
-                local_temp_path = os.path.join(temp_dir, self.file_name)
-                sftp_client.get(file_path, local_temp_path)
-                return local_temp_path
+                dqt_logger.debug(f"Initializing connection to {self.host}")
+                async with asyncssh.connect(self.host, username=self.username, password=self.password, known_hosts=None) as conn:
+                    dqt_logger.info(f"Successfully connected to {self.host}")
+                    file_path = posixpath.join(self.dir_path, self.file_name)
+                    
+                    temp_dir = ".tmp"
+                    os.makedirs(temp_dir, exist_ok=True)
+                    local_temp_path = os.path.join(temp_dir, self.file_name)
+                    
+                    async with conn.start_sftp_client() as sftp:
+                        await sftp.get(file_path, local_temp_path)
+                        dqt_logger.debug(f"Downloaded file {self.file_name} from {self.host}")
+                    return local_temp_path
+            except FileNotFoundError as fnf_error:
+                dqt_logger.error(f"File not found: {file_path}")
+                raise fnf_error
             except Exception as e:
+                dqt_logger.error(f"Error: {e}")
                 raise e
-            
+    
         def get_dataframe(self):
             """
             Returns the appropriate dataframe after reading the file from `datasource_path`, based on the file type.
             """
             try:
                 local_temp_file_path = asyncio.run(self.__get_file_path())
+                dqt_logger.debug(f"Downloaded file path: {local_temp_file_path}")
+                
                 # Check if file exists
                 if not os.path.exists(local_temp_file_path):
                     raise FileNotFoundError(f"File not found at: {local_temp_file_path}")
