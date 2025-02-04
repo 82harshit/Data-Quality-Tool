@@ -51,6 +51,9 @@ def main():
     standalone_parser.add_argument("endpoint", type=str, help="The endpoint URL.")
     standalone_parser.add_argument("request_json_or_job_id", nargs="?", type=str,
                                     help="The request JSON as a string or file path, or a job ID for 'submit_job_status'.")
+    standalone_parser.add_argument("--username", type=str, help="The name of the username")
+    standalone_parser.add_argument("--password", type=str, help="The password used to login")
+    standalone_parser.add_argument("--host", type=str, help="The IP of the host to connect to")
     standalone_parser.add_argument("--db", type=str, help="The name of the database (for 'generate_suggestions' endpoint only).")
     standalone_parser.add_argument("--table", type=str, help="The name of the table (for 'generate_suggestions' endpoint only).")
     standalone_parser.add_argument("--metric", type=str, 
@@ -64,9 +67,9 @@ def main():
         execute_api_request(host=args.host, port=args.port)
     elif args.mode == "standalone":
         if args.endpoint == EndpointEnum.GENERATE_SUGGESTIONS:
-            # Handle generate_suggestions with --db, --table and --metric arguments
-            if not args.db or not args.table or not args.metric:
-                raise ValueError("--db, --table and --metric are required for 'generate_suggestions' endpoint.")
+            # Handle generate_suggestions with --host, --username, --password, --db, --table and --metric arguments
+            if not args.db or not args.table or not args.metric and not args.username and not args.password and not args.host:
+                raise ValueError("--host, --username, --password, --db, --table and --metric are required for 'generate_suggestions' endpoint.")
             
             # Construct the request JSON for generate_suggestions
             request_json = json.dumps({
