@@ -1,10 +1,9 @@
 """
-This file contains three FastAPI endpoints:-
+This file contains the following FastAPI endpoints:-
 
-1. /create-connection: 
-
-This endpoint is used to test connection with server or filesystem, it stores the user credentials 
-and generates a unique `connection name` for the user
+1. /create-connection: This endpoint is used to test connection with server or filesystem, 
+                       it stores the user credentials and generates a 
+                       unique `connection name` for the user
 
 2. /submit-job:
 
@@ -17,6 +16,9 @@ and generates a unique `connection name` for the user
     2.4 The validation results generated are then saved in a relational database
     
 3. /submit-job-status: This endpoint returns the execution status of the given job_id
+
+4. /generate-suggestions: This endpoint generates data quality check suggestions using AI for 
+                          data based on the provided metric
 """
 
 import configparser
@@ -24,13 +26,24 @@ from fastapi import FastAPI, Body, HTTPException
 
 from database.db_models.job_run_status import JobRunStatusEnum
 from validation_fast_api_class import ValidationFastAPI
-from helper import get_job_id_and_initialize_job_state_singleton
 from job_state_singleton import JobStateSingleton
 from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
 from database.save_validation_results import ValidationResult
 from logging_config import dqt_logger
-from utils import log_validation_results
-from suggestion import SuggestionBI
+from utils import log_validation_results, generate_job_id
+from suggestion_bi.suggestion import SuggestionBI
+
+
+def get_job_id_and_initialize_job_state_singleton() -> str:
+    """
+    Creates a new job id and sets it up in the singleton object
+    
+    :return job_id(str): Generated job_id
+    """
+    job_id = generate_job_id() # creates a new job id
+    dqt_logger.info(f"Generated Job_ID: {job_id}") # logs the job id
+    JobStateSingleton.set_job_id(job_id=job_id) # sets the job_id in singleton object
+    return job_id
 
 
 app = FastAPI()
@@ -49,7 +62,7 @@ async def submit_job_status(job_id: str):
 
 @app.post("/create-connection", description="This endpoint allows connection to the provided connection type")
 async def create_connection(connection: connection_model.Connection = Body(...,
-    example = {
+    examples = [{
         "user_credentials": {
             "username": "test",
             "password": "test123",
@@ -68,7 +81,7 @@ async def create_connection(connection: connection_model.Connection = Body(...,
             "execution_time": "2024-09-26T10:00:00Z",
             "description": "This is a test description"
         }
-    }
+    }]
 )): 
     if not connection.user_credentials:
         error_msg = "Incorrect JSON request, missing user credentials"
@@ -115,24 +128,19 @@ async def create_connection(connection: connection_model.Connection = Body(...,
 @app.post("/generate-suggestions", description="Generate AI-based data quality suggestions")
 async def generate_suggestions(
     connection: connection_model.GenerateSuggestion = Body(...,
-        example={
+        examples= [{
+            "username": "merit",
+            "password": "sample_password",
+            "host": "127.0.0.1",
             "database": "quality_tool",
             "table_name": "customers",
             "metric": "correctness"
-        }
+        }]
     )
 ):
     try:
-        config = configparser.ConfigParser()
-        config.read('database/database_config.ini')
-
-        db_username = config.get('Database', 'app_username')
-        db_password = config.get('Database', 'app_password')
-        db_host = config.get('Database', 'app_hostname')
-
         # Build the database URI dynamically
-        db_uri = f"mysql+pymysql://{db_username}:{db_password}@{db_host}/{connection.database}"
-
+        db_uri = f"mysql+pymysql://{connection.username}:{connection.password}@{connection.host}/{connection.database}"
         return SuggestionBI(db_uri=db_uri, table=connection.table_name).run_prompt(metric=connection.metric)
     except Exception as e:
         error_msg = f"Error generating AI suggestions: {str(e)}"
@@ -141,7 +149,7 @@ async def generate_suggestions(
 
 
 @app.post("/submit-job", description="This endpoint allows to submit job requests")
-async def submit_job(job: job_model.SubmitJob = Body(...,example={
+async def submit_job(job: job_model.SubmitJob = Body(..., examples=[{
   "connection_name": "20250130172104_merit_3233347_3306_qualitytool_3757",
   "data_source": {
     "table_name": "customers",
@@ -325,7 +333,7 @@ async def submit_job(job: job_model.SubmitJob = Body(...,example={
     "execution_time": "2024-10-16T15:11:18.483Z",
     "description": "This is a test description"
   }
-})):
+}])):
     job_id = get_job_id_and_initialize_job_state_singleton()
     
     if not job.connection_name:

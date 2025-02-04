@@ -119,7 +119,10 @@ class GenerateSuggestion(BaseModel):
     """
     This is the request body for API POST request for 'generate-connection' endpoint
     """
-    database: str = Field(None, description="Name of the database"),
+    username: str = Field(None, description="Name of the user who wants to connect")
+    password: str = Field(None, description="Password required to connect to the database")
+    host: str = Field(None, description="IP of the server to connect")
+    database: str = Field(None, description="Name of the database")
     table_name: str = Field(None, description="Name of the table to analyze")
     metric: Optional[str] = Field(None, description="Name of the metric that needs to be focused on")
     

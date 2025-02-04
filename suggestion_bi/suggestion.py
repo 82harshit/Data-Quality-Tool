@@ -1,14 +1,16 @@
 import os
+from typing import Optional
+
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
 from sqlalchemy import create_engine
+from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain.output_parsers import PydanticOutputParser
-from request_models.expectations import AllExpectations
+
+from soda_expectations import AllExpectations
 from prompts import generate_expectation_prompt
 from utils import clean_json_string, convert_to_json
 from logging_config import dqt_logger
-from typing import Optional
 
 
 class SuggestionBI:
@@ -47,10 +49,14 @@ class SuggestionBI:
         :return: List of suggestions as a Python dictionary.
         """
         if not self.db:
-            raise ValueError("Database not initialized.")
+            error_msg = "Database not initialized for generating quality check suggestions."
+            dqt_logger.error(error_msg)
+            raise ValueError(error_msg)
         
         if not self.table:
-            raise ValueError("Table name not provided.")
+            error_msg = "Table name not provided for generating quality check suggestions."
+            dqt_logger.error(error_msg)
+            raise ValueError(error_msg)
 
         expectation_parser = PydanticOutputParser(pydantic_object=AllExpectations)
         prompt = generate_expectation_prompt(

@@ -1,19 +1,12 @@
-import configparser
 import json
 import sys
 import asyncio
 from typing import Optional
 
-from database.db_models.job_run_status import JobRunStatusEnum
 from endpoint_enums import EndpointEnum
-from validation_fast_api_class import ValidationFastAPI
-from helper import get_job_id_and_initialize_job_state_singleton
-from job_state_singleton import JobStateSingleton
-from request_models import connection_enum_and_metadata as conn_enum, connection_model, job_model
-from save_validation_results import ValidationResult
+from request_models import connection_model, job_model
 from logging_config import dqt_logger
-from suggestion import SuggestionBI
-from utils import log_validation_results, cleanup
+from fast_api import submit_job, submit_job_status, create_connection, generate_suggestions
 
 
 def request_json_parser(endpoint:str, request_json: Optional[dict]=None, job_id: Optional[str]=None) -> None:
@@ -28,164 +21,21 @@ def request_json_parser(endpoint:str, request_json: Optional[dict]=None, job_id:
     """
     if endpoint == EndpointEnum.CREATE_CONNECTION:
         connection = connection_model.Connection(**request_json)
-        create_connection_result = asyncio.run(CreateConnection(connection=connection).establish_connection())
+        create_connection_result = asyncio.run(create_connection(connection=connection))
         dqt_logger.info(create_connection_result)
     elif endpoint == EndpointEnum.SUBMIT_JOB:
         job = job_model.SubmitJob(**request_json)
-        submit_job_result = asyncio.run(Submit_Job(job=job).execute_job())
+        submit_job_result = asyncio.run(submit_job(job=job))
         dqt_logger.info(submit_job_result)
     elif endpoint == EndpointEnum.SUBMIT_JOB_STATUS:
-        submit_job_status_result = asyncio.run(SubmitJobStatus(job_id=job_id).retrieve_job_status())
+        submit_job_status_result = asyncio.run(submit_job_status(job_id=job_id))
         dqt_logger.info(submit_job_status_result)
     elif endpoint == EndpointEnum.GENERATE_SUGGESTIONS:
         connection = connection_model.GenerateSuggestion(**request_json)
-        suggestions = asyncio.run(GenerateSuggestions(connection=connection).generate())
+        suggestions = asyncio.run(generate_suggestions(connection=connection))
         dqt_logger.info(suggestions)
     else:
         raise ValueError(f"Endpoint {endpoint} not found")
-
-class CreateConnection:
-    def __init__(self,connection: connection_model.Connection):
-        self.connection = connection
-
-    async def establish_connection(self):
-        if not self.connection.user_credentials:
-            error_msg = "Incorrect JSON request, missing user credentials"
-            dqt_logger.error(error_msg)
-            raise Exception(error_msg)
-        
-        if self.connection.connection_credentials:
-            connection_type = self.connection.connection_credentials.connection_type
-        else:
-            error_msg = "Incorrect JSON request, missing connection credentials"
-            dqt_logger.error(error_msg)
-            raise Exception(error_msg)
-        
-        try:
-            validation_api = ValidationFastAPI()
-            validation_api.create_connection_based_on_type(connection=self.connection) # create connection to the user_credentials db
-        except Exception as e:
-            error_msg = f"Error creating connection: {str(e)}"
-            dqt_logger.error(error_msg)
-            raise Exception(error_msg)
-        
-        try:
-            # insert credentials based on connection_type
-            if connection_type in conn_enum.File_Datasource_Enum.__members__.values():
-                unique_connection_name = await validation_api.insert_user_credentials(connection=self.connection, 
-                                                                                        expected_extension=connection_type)
-            elif connection_type in conn_enum.Database_Datasource_Enum.__members__.values():
-                unique_connection_name = await validation_api.insert_user_credentials(connection=self.connection)
-            else:
-                error_msg = f"Unsupported connection type: {connection_type}"
-                dqt_logger.error(error_msg)
-                raise Exception(error_msg)
-        except Exception as e:
-            error_msg = f"Error inserting credentials: {str(e)}"
-            dqt_logger.error(error_msg)
-            raise Exception(error_msg)
-
-        if unique_connection_name:
-            return {"status": "connected", "connection_name": unique_connection_name}
-        
-        raise Exception("Could not connect, an error occurred")
-
-
-class GenerateSuggestions:
-    def __init__(self, connection: connection_model.GenerateSuggestion):
-        self.connection = connection
-
-    async def generate(self):
-        try:
-            # Read database configuration
-            config = configparser.ConfigParser()
-            config.read('database/database_config.ini')
-
-            db_username = config.get('Database', 'app_username')
-            db_password = config.get('Database', 'app_password')
-            db_host = config.get('Database', 'app_hostname')
-
-            # Build the database URI dynamically
-            db_uri = f"mysql+pymysql://{db_username}:{db_password}@{db_host}/{self.connection.database}"
-            
-            return SuggestionBI(db_uri=db_uri, table=self.connection.table_name).run_prompt(metric=self.connection.metric)
-        
-        except Exception as e:
-            error_msg = f"Error generating AI suggestions: {str(e)}"
-            dqt_logger.error(error_msg)
-            raise Exception(error_msg)
-        
-
-class Submit_Job:
-    def __init__(self,job: job_model.SubmitJob):
-        self.job = job
-
-    async def execute_job(self):
-        job_id = get_job_id_and_initialize_job_state_singleton()
-    
-        if not self.job.connection_name:
-            error_msg = "Incorrect JSON provided, missing connection name"
-            dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
-            raise Exception(error_msg)
-        
-        if not self.job.data_source:
-            error_msg = "Incorrect JSON provided, missing data source"
-            dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
-            raise Exception(error_msg)
-
-        if not self.job.quality_checks:
-            error_msg = "Incorrect JSON provided, missing quality checks"
-            dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
-            raise Exception(error_msg)
-
-        validation_api = ValidationFastAPI()
-        
-        try:
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.STARTED)
-            validation_results = await validation_api.validation_check_request(job=self.job)
-            dqt_logger.debug(f"Validation results:\n{validation_results}")
-        except Exception as validation_check_error:
-            error_msg = f"An error occurred while validating data.\nError:{str(validation_check_error)}"
-            dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, 
-                                                    status_message="An error occurred while validating data.")
-            return {"job_id": job_id}
-    
-        if validation_results: 
-            try:
-                log_validation_results(validation_results)
-                info_msg = "Saving validation results in database"
-                dqt_logger.info(info_msg)
-                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS, status_message=info_msg)
-                ValidationResult().save_result_for_job_id(validation_results, job_id=job_id) 
-                return {"job_id": job_id}
-            except Exception as saving_validation_error:
-                error_msg = f"""An error occurred, failed to save validation results in database
-                            \nError:{str(saving_validation_error)}"""
-                dqt_logger.error(error_msg)
-                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, 
-                                                        status_message="""An error occurred, failed to save validation 
-                                                        results in database""")
-                return {"job_id": job_id}
-            finally:
-                cleanup()
-        else:
-            error_msg = "Missing validation results"
-            dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
-            return {"job_id": job_id}
-
-
-class SubmitJobStatus:
-    def __init__(self,job_id:str):
-        self.job_id = job_id
-
-    async def retrieve_job_status(self):
-        current_job_state = JobStateSingleton.get_state_of_job_id(job_id=self.job_id)
-        return current_job_state
     
 if __name__ == "__main__":
     endpoint = sys.argv[1]  # First argument

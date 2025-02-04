@@ -1,10 +1,5 @@
 import asyncssh
 from fastapi import HTTPException
-from io import BytesIO, StringIO
-import pandas as pd
-import fastavro
-import pyorc
-import os
 
 from database.db_models import user_credentials_db
 from database.db_models.job_run_status import JobRunStatusEnum
@@ -160,91 +155,90 @@ class FileDatabase(user_credentials_db.UserCredentialsDatabase):
             JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="An error occurred.") 
             raise HTTPException(status_code=500, detail=error_msg)
 
-
-    async def read_file_columns(self, conn):
-        """
-        Reads the columns of a file from the remote server based on its file extension.
+    # async def read_file_columns(self, conn):
+    #     """
+    #     Reads the columns of a file from the remote server based on its file extension.
         
-        :param conn (asyncssh.SSHClientConnection): The SSH connection to the server.
+    #     :param conn (asyncssh.SSHClientConnection): The SSH connection to the server.
         
-        :return list: A list of column names from the file, or an error message if the file format is unsupported.
+    #     :return list: A list of column names from the file, or an error message if the file format is unsupported.
         
-        :raises HTTPException: If there is an error processing the file or if the file format is unsupported.
-        """
-        # file_path = f"{self.dir_path}/{self.file_name}"
-        file_path = os.path.join(self.dir_path, self.file_name)
+    #     :raises HTTPException: If there is an error processing the file or if the file format is unsupported.
+    #     """
+    #     # file_path = f"{self.dir_path}/{self.file_name}"
+    #     file_path = os.path.join(self.dir_path, self.file_name)
         
-        try:
+    #     try:
                 
-            # Read the file based on its extension
-            if file_path.endswith(".csv"):
-                # For CSV files
-                command = f"cat {file_path}"
-                result = await conn.run(command)
-                file_content = result.stdout
-                df = pd.read_csv(StringIO(file_content))
+    #         # Read the file based on its extension
+    #         if file_path.endswith(".csv"):
+    #             # For CSV files
+    #             command = f"cat {file_path}"
+    #             result = await conn.run(command)
+    #             file_content = result.stdout
+    #             df = pd.read_csv(StringIO(file_content))
 
-            elif file_path.endswith(".json"):
-                # For JSON files
-                command = f"cat {file_path}"
-                result = await conn.run(command)
-                file_content = result.stdout
-                df = pd.read_json(StringIO(file_content))
+    #         elif file_path.endswith(".json"):
+    #             # For JSON files
+    #             command = f"cat {file_path}"
+    #             result = await conn.run(command)
+    #             file_content = result.stdout
+    #             df = pd.read_json(StringIO(file_content))
 
-            elif file_path.endswith(".parquet"):
-                # For Parquet files, stream binary data
-                command = f"cat {file_path}"
-                result = await conn.run(command, encoding=None)  # Get binary output
-                file_content = BytesIO(result.stdout)  # Convert to BytesIO for pandas
-                df = pd.read_parquet(file_content)
+    #         elif file_path.endswith(".parquet"):
+    #             # For Parquet files, stream binary data
+    #             command = f"cat {file_path}"
+    #             result = await conn.run(command, encoding=None)  # Get binary output
+    #             file_content = BytesIO(result.stdout)  # Convert to BytesIO for pandas
+    #             df = pd.read_parquet(file_content)
 
-            elif file_path.endswith(".avro"):
-                # For Avro files
-                command = f"cat {file_path}"
-                result = await conn.run(command, encoding=None)  # Get binary output
-                file_content = BytesIO(result.stdout)  # Convert to BytesIO for fastavro
-                reader = fastavro.reader(file_content)
-                # Extract field names from the Avro schema
-                columns = [field['name'] for field in reader.schema['fields']]
-                return columns
+    #         elif file_path.endswith(".avro"):
+    #             # For Avro files
+    #             command = f"cat {file_path}"
+    #             result = await conn.run(command, encoding=None)  # Get binary output
+    #             file_content = BytesIO(result.stdout)  # Convert to BytesIO for fastavro
+    #             reader = fastavro.reader(file_content)
+    #             # Extract field names from the Avro schema
+    #             columns = [field['name'] for field in reader.schema['fields']]
+    #             return columns
 
-            elif file_path.endswith(".orc"):
-                # For ORC files using the 'pyorc' library
-                command = f"cat {file_path}"
-                result = await conn.run(command, encoding=None)  # Get binary output
-                file_content = BytesIO(result.stdout)  # Convert to BytesIO for pyorc
-                reader = pyorc.Reader(file_content)
+    #         elif file_path.endswith(".orc"):
+    #             # For ORC files using the 'pyorc' library
+    #             command = f"cat {file_path}"
+    #             result = await conn.run(command, encoding=None)  # Get binary output
+    #             file_content = BytesIO(result.stdout)  # Convert to BytesIO for pyorc
+    #             reader = pyorc.Reader(file_content)
                 
-                # Inspect the schema to check the structure of the fields
-                fields = reader.schema.fields
+    #             # Inspect the schema to check the structure of the fields
+    #             fields = reader.schema.fields
                 
-                # Extract column names properly from the schema
-                columns = []
-                for field in fields:
-                    # Check if the field has a 'name' attribute (this might be structured differently)
-                    if isinstance(field, dict):
-                        columns.append(field.get('name', 'Unknown'))
-                    else:
-                        columns.append(str(field))  # Fallback to string representation if structure is different
+    #             # Extract column names properly from the schema
+    #             columns = []
+    #             for field in fields:
+    #                 # Check if the field has a 'name' attribute (this might be structured differently)
+    #                 if isinstance(field, dict):
+    #                     columns.append(field.get('name', 'Unknown'))
+    #                 else:
+    #                     columns.append(str(field))  # Fallback to string representation if structure is different
 
-                return columns
+    #             return columns
             
-            elif file_path.endswith(".xlsx"):  # Excel handling
-                command = f"cat {file_path}"
-                result = await conn.run(command, encoding=None)  # Retrieve binary data
-                file_content = BytesIO(result.stdout)
-                df = pd.read_excel(file_content, engine='openpyxl')
+    #         elif file_path.endswith(".xlsx"):  # Excel handling
+    #             command = f"cat {file_path}"
+    #             result = await conn.run(command, encoding=None)  # Retrieve binary data
+    #             file_content = BytesIO(result.stdout)
+    #             df = pd.read_excel(file_content, engine='openpyxl')
                 
-            else:
-                error_msg = "Unsupported file format"
-                dqt_logger.error(error_msg)
-                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
-                raise HTTPException(status_code=400, detail=error_msg)
+    #         else:
+    #             error_msg = "Unsupported file format"
+    #             dqt_logger.error(error_msg)
+    #             JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
+    #             raise HTTPException(status_code=400, detail=error_msg)
 
-            # Return the column names
-            return df.columns.tolist()
-        except Exception as e:
-            error_msg = f"Error processing file: {str(e)}"
-            dqt_logger.error(error_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Error processing file") 
-            raise HTTPException(status_code=500, detail=error_msg)
+    #         # Return the column names
+    #         return df.columns.tolist()
+    #     except Exception as e:
+    #         error_msg = f"Error processing file: {str(e)}"
+    #         dqt_logger.error(error_msg)
+    #         JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Error processing file") 
+    #         raise HTTPException(status_code=500, detail=error_msg)

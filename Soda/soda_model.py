@@ -8,6 +8,7 @@ import pyorc
 from fastavro import reader
 import pyarrow.parquet as pq
 from openpyxl import load_workbook
+import asyncio
 from soda.scan import Scan
 
 import yaml
@@ -16,6 +17,7 @@ import json
 import os
 from typing import List, Dict, Union, Optional
 from datetime import datetime
+import paramiko
 
 from database.db_models.job_run_status import JobRunStatusEnum
 from job_state_singleton import JobStateSingleton
@@ -237,11 +239,16 @@ class SodaModel:
             
 
     class SodaFileDatasource:
-        def __init__(self, datasource_path: str, datasource_type: str):
-            self.datasource_path = datasource_path
+        def __init__(self, datasource_type: str, file_name: str, dir_path: str, host: str, username: str, password: str):
+            self.file_name = file_name
+            self.dir_path = dir_path
             self.datasource_type = datasource_type
+            self.username = username
+            self.password = password
+            self.host = host
         
-        def __is_valid_json(self, filepath: str):
+        @staticmethod
+        def __is_valid_json(filepath: str):
             """
             Verifies if the file at the provided filepath is a valid JSON file.
             """
@@ -257,8 +264,9 @@ class SodaModel:
             except Exception as e:
                 # Handle any other unexpected exceptions
                 raise Exception(f"Error while reading file {filepath}: {e}")
-            
-        def __is_valid_orc(self, file_path: str):
+
+        @staticmethod
+        def __is_valid_orc(file_path: str):
             """
             Verifies if the file at the provided filepath is a valid ORC file.
             """
@@ -269,7 +277,8 @@ class SodaModel:
             except Exception as e:
                 raise Exception(f"An error occurred: {e}")
  
-        def __is_valid_parquet(self, file_path: str):
+        @staticmethod
+        def __is_valid_parquet(file_path: str):
             """
             Verifies if the file at the provided filepath is a valid Parquet file.
             """
@@ -279,7 +288,8 @@ class SodaModel:
             except (ValueError, IOError) as e:
                 raise Exception(f"Invalid Parquet file: {e}")
             
-        def __is_valid_csv(self, file_path: str):
+        @staticmethod    
+        def __is_valid_csv(file_path: str):
             """
             Verifies if the file at the provided filepath is a valid CSV file.
             """
@@ -292,7 +302,8 @@ class SodaModel:
             except (csv.Error, IOError) as e:
                 raise Exception(f"Invalid CSV file: {e}") 
             
-        def __is_valid_avro(self, file_path: str):
+        @staticmethod
+        def __is_valid_avro(file_path: str):
             """
             Verifies if the file at the provided filepath is a valid Avro file.
             """
@@ -303,7 +314,8 @@ class SodaModel:
             except (ValueError, IOError) as e:
                 raise Exception(f"Invalid Avro file: {e}")
         
-        def __is_valid_excel(self, file_path: str):
+        @staticmethod
+        def __is_valid_excel(file_path: str):
             """
             Verifies if the file at the provided filepath is a valid excel file.
             """
@@ -314,78 +326,105 @@ class SodaModel:
             except Exception as e:
                 raise Exception(f"Invalid Excel file: {e}")
         
+        async def __get_file_path(self):
+            try:
+                # connect to the client
+                client = paramiko.SSHClient()
+                client.load_system_host_keys()
+                client.connect(hostname=self.host, username=self.username, password=self.password)
+            except ConnectionError as conn_error:
+                raise conn_error
+            
+            try:
+                file_path = os.path.join(self.dir_path, self.file_name)
+                sftp_client = client.open_sftp()
+                temp_dir = ".tmp"
+                os.makedirs(temp_dir, exist_ok=True)
+                local_temp_path = os.path.join(temp_dir, self.file_name)
+                sftp_client.get(file_path, local_temp_path)
+                return local_temp_path
+            except Exception as e:
+                raise e
+            
         def get_dataframe(self):
             """
-            Returns the appropriate dataframe after reading the file from `datasource_path`,
-            based on the file type.
+            Returns the appropriate dataframe after reading the file from `datasource_path`, based on the file type.
             """
-            # Check if file exists
-            if not os.path.exists(self.datasource_path):
-                raise FileNotFoundError(f"File not found: {self.datasource_path}")
-            
-            # Check if file is empty
-            if os.path.getsize(self.datasource_path) == 0:
-                raise Exception(f"File is empty: {self.datasource_path}")
-            
-            dask.config.set({"dataframe.convert-string": False})
-            
-            if self.datasource_type == conn_enum.File_Datasource_Enum.CSV:
-                if self.__is_valid_csv(self.datasource_path):
-                    return dd.read_csv(self.datasource_path)
+            try:
+                local_temp_file_path = asyncio.run(self.__get_file_path())
+                # Check if file exists
+                if not os.path.exists(local_temp_file_path):
+                    raise FileNotFoundError(f"File not found at: {local_temp_file_path}")
+                
+                # Check if file is empty
+                if os.path.getsize(local_temp_file_path) == 0:
+                    raise Exception(f"File is empty: {local_temp_file_path}")
+                
+                dask.config.set({"dataframe.convert-string": False})
+                
+                if self.datasource_type == conn_enum.File_Datasource_Enum.CSV:
+                    if self.__is_valid_csv(local_temp_file_path):
+                        return dd.read_csv(local_temp_file_path)
+                    else:
+                        error_msg = "Provided file is not a valid CSV file."
+                        dqt_logger.error(error_msg)
+                        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
+                        raise Exception(error_msg)
+                elif self.datasource_type == conn_enum.File_Datasource_Enum.AVRO:
+                    if self.__is_valid_avro(local_temp_file_path):
+                        return db.read_avro(local_temp_file_path).to_dataframe()
+                    else:
+                        error_msg = "Provided file is not a valid AVRO file."
+                        dqt_logger.error(error_msg)
+                        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
+                        raise Exception(error_msg)
+                elif self.datasource_type == conn_enum.File_Datasource_Enum.ORC:
+                    if self.__is_valid_orc(local_temp_file_path):
+                        return dd.read_orc(local_temp_file_path)
+                    else:
+                        error_msg = "Provided file is not a valid ORC file."
+                        dqt_logger.error(error_msg)
+                        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
+                        raise Exception(error_msg)
+                elif self.datasource_type == conn_enum.File_Datasource_Enum.PARQUET:
+                    if self.__is_valid_parquet(local_temp_file_path):
+                        return dd.read_parquet(local_temp_file_path)
+                    else:
+                        error_msg = "Provided file is not a valid parquet file."
+                        dqt_logger.error(error_msg)
+                        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
+                        raise Exception(error_msg)
+                elif self.datasource_type == conn_enum.File_Datasource_Enum.JSON:
+                    if self.__is_valid_json(local_temp_file_path):
+                        df = pd.read_json(local_temp_file_path)
+                        return dd.from_pandas(df, npartitions=1)
+                    else:
+                        error_msg = "Provided file is not a valid JSON file."
+                        dqt_logger.error(error_msg)
+                        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
+                        raise Exception(error_msg)
+                elif self.datasource_type == conn_enum.File_Datasource_Enum.EXCEL:
+                    if self.__is_valid_excel(local_temp_file_path):
+                        parts = delayed(pd.read_excel)(local_temp_file_path)
+                        return dd.from_delayed(parts)
+                    else:
+                        error_msg = "Provided file is not a valid excel file."
+                        dqt_logger.error(error_msg)
+                        JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
+                        raise Exception(error_msg)
                 else:
-                    error_msg = "Provided file is not a valid CSV file."
+                    error_msg = "File type not recognised, cannot create dataframe."
                     dqt_logger.error(error_msg)
                     JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
-                    raise Exception(error_msg)
-            elif self.datasource_type == conn_enum.File_Datasource_Enum.AVRO:
-                if self.__is_valid_avro(self.datasource_path):
-                    return db.read_avro(self.datasource_path).to_dataframe()
-                else:
-                    error_msg = "Provided file is not a valid AVRO file."
-                    dqt_logger.error(error_msg)
-                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
-                    raise Exception(error_msg)
-            elif self.datasource_type == conn_enum.File_Datasource_Enum.ORC:
-                if self.__is_valid_orc(self.datasource_path):
-                    return dd.read_orc(self.datasource_path)
-                else:
-                    error_msg = "Provided file is not a valid ORC file."
-                    dqt_logger.error(error_msg)
-                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
-                    raise Exception(error_msg)
-            elif self.datasource_type == conn_enum.File_Datasource_Enum.PARQUET:
-                if self.__is_valid_parquet(self.datasource_path):
-                    return dd.read_parquet(self.datasource_path)
-                else:
-                    error_msg = "Provided file is not a valid parquet file."
-                    dqt_logger.error(error_msg)
-                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
-                    raise Exception(error_msg)
-            elif self.datasource_type == conn_enum.File_Datasource_Enum.JSON:
-                if self.__is_valid_json(filepath=self.datasource_path):
-                    df = pd.read_json(self.datasource_path)
-                    return dd.from_pandas(df, npartitions=1)
-                else:
-                    error_msg = "Provided file is not a valid JSON file."
-                    dqt_logger.error(error_msg)
-                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
-                    raise Exception(error_msg)
-            elif self.datasource_type == conn_enum.File_Datasource_Enum.EXCEL:
-                if self.__is_valid_excel(self.datasource_path):
-                    parts = delayed(pd.read_excel)(self.datasource_path)
-                    return dd.from_delayed(parts)
-                else:
-                    error_msg = "Provided file is not a valid excel file."
-                    dqt_logger.error(error_msg)
-                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
-                    raise Exception(error_msg)
-            else:
-                error_msg = "File type not recognised, cannot create dataframe."
+                    return TypeError(error_msg)
+            except Exception:
+                error_msg = f"Could not retrieve file {self.file_name} from server {self.host}"
                 dqt_logger.error(error_msg)
-                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)  
-                return TypeError(error_msg)
+                raise Exception(error_msg)
+            finally:
+                os.remove(local_temp_file_path)
         
-
+@staticmethod
 def __remove_empty_dicts(data):
     """
     Removes all the empty dictionaries from the provided JSON.
@@ -396,6 +435,7 @@ def __remove_empty_dicts(data):
         return [__remove_empty_dicts(item) for item in data]
     return data
 
+@staticmethod
 def __get_formatted_check_for_datasource(datasource_type: str, 
                                         expectation_type: str, 
                                         column: str, 
@@ -437,6 +477,7 @@ def __get_formatted_check_for_datasource(datasource_type: str,
            return f"{expectation_type}({column}, {percentile}) {condition}"
         return f"{expectation_type}({column}) {condition}"
 
+@staticmethod
 def __create_checks(datasource_type: str, datasource_name: str, quality_checks: List[job_model.QualityChecks]) -> yaml:
     """
     Parses the quality checks JSON to a YAML format as required by the Soda library.
@@ -496,6 +537,7 @@ def __create_checks(datasource_type: str, datasource_name: str, quality_checks: 
         JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message="Failed to create checks")
         raise Exception(error_msg)
 
+@staticmethod
 def __parse_validation_result(validation_result: str) -> List[dict]:
     """
     Formats the resultant string list of `CheckResults`. Each of these `CheckResult` objects,
@@ -536,8 +578,12 @@ def __run_quality_checks(datasource_type: str,
         soda = SodaModel()
         
         if is_file:
-            datasource = soda.SodaFileDatasource(datasource_path=config["file_path"],
-                                                 datasource_type=datasource_type)
+            datasource = soda.SodaFileDatasource(file_name=config["file_name"],
+                                                dir_path=config["dir_path"],
+                                                host=config["hostname"],
+                                                username=config["username"],
+                                                password=config["password"],
+                                                datasource_type=datasource_type)
             file_dataframe = datasource.get_dataframe()
             dqt_logger.debug(f"Loaded file as dataframe: {file_dataframe}")
             # preprocessing dataframe
@@ -584,7 +630,7 @@ def __run_quality_checks(datasource_type: str,
         error_msg = f"Failed to run quality checks: {str(e)}"
         dqt_logger.error(error_msg)
         raise RuntimeError(error_msg)
-    
+
 def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str, username: str, 
                                 port: int, datasource_name: str, schema_name: str, database: str, 
                                 quality_checks: List[job_model.QualityChecks]) -> json:
@@ -618,8 +664,8 @@ def run_quality_checks_for_db(datasource_type: str, hostname: str, password: str
         is_file=False,
     )
 
-def run_quality_checks_for_file(datasource_type: str, datasource_name: str, dir_path: str, quality_checks: List[job_model.QualityChecks], 
-                            file_name: str) -> json:
+def run_quality_checks_for_file(datasource_type: str, datasource_name: str, dir_path: str, hostname: str, password: str, username: str,
+                                quality_checks: List[job_model.QualityChecks], file_name: str) -> json:
     """
     Triggers the functions of soda library in the required sequence
 
@@ -631,7 +677,13 @@ def run_quality_checks_for_file(datasource_type: str, datasource_name: str, dir_
 
     :return checkpoint_results (json): The generated validation results
     """
-    file_config = {"file_path": os.path.join(dir_path, file_name)}
+    file_config = {
+        "hostname": hostname,
+        "password": password,
+        "username": username,
+        "dir_path": dir_path, 
+        "file_name": file_name
+        }
     return __run_quality_checks(
         datasource_type=datasource_type,
         datasource_name=datasource_name,

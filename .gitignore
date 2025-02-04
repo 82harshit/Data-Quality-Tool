@@ -15,3 +15,5 @@ venv
 .venv
 test
 data_source
+.tmp
+test_connection.py

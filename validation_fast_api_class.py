@@ -1,5 +1,4 @@
 import json
-import random
 from typing import Optional
 
 from fastapi import HTTPException
@@ -139,8 +138,6 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
        
         if self.db_instance is None:
             warning_msg = "File object not initialized before establising connection"
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
-                                                     status_message=warning_msg)
             dqt_logger.warning(warning_msg)
             raise Exception(warning_msg) 
         
@@ -158,8 +155,6 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
                 if not file_name.endswith(expected_extension):
                     error_msg = f"The provided file is not a {expected_extension.upper()} file."
                     dqt_logger.error(error_msg)
-                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
-                                                     status_message=error_msg)
                     raise HTTPException(status_code=400, detail=error_msg)
 
                 # Search for the file on the server
@@ -168,14 +163,10 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
                 if not search_result["file_found"]:
                     error_msg = f"{file_name} file not found on server."
                     dqt_logger.error(error_msg)
-                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
-                                                     status_message=error_msg)
                     raise HTTPException(status_code=404, detail=error_msg)
             except Exception as e:
                 error_msg = f"Error processing {file_name} connection: {str(e)}"
                 dqt_logger.error(error_msg)
-                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
-                                                     status_message=error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
         else: # Handle database-related connection
             database_name = connection.connection_credentials.database
@@ -186,14 +177,10 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
                 if not db_exists:
                     error_msg = "Trying to connect to a database that does not exist on the given server"
                     dqt_logger.error(error_msg)
-                    JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
-                                                     status_message=error_msg)
                     raise HTTPException(status_code=500, detail=error_msg)
             except Exception as e:
                 error_msg = f"Error checking database existence for {database_name}: {str(e)}"
                 dqt_logger.error(error_msg)
-                JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
-                                                     status_message=error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
 
         # Insert connection details into the database      
@@ -201,11 +188,7 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
             self.db_instance.insert_in_db(unique_connection_name=unique_connection_name,connection_string=connection_string)
             info_msg = "Connection details insertion completed"
             dqt_logger.info(info_msg)
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.INPROGRESS,
-                                                     status_message=info_msg)
         except Exception as e:
-            JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
-                                                     status_message=error_msg)
             error_msg = f"Error inserting connection details into database: {str(e)}"
             dqt_logger.error(error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
@@ -287,7 +270,6 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
                 datasource_type=user_conn_creds.get('source_type'),
                 schema_name=schema_name
             )
-            # return json.loads(str(validation_results))  # Convert result to JSON format
         except Exception as ge_exception:
             error_msg = f"An error occurred while validating data for database {database}: {str(ge_exception)}"
             dqt_logger.error(error_msg)
@@ -295,7 +277,7 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
                                                      status_message=error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
 
-    async def __handle_file_validation(self, job: job_model.SubmitJob, quality_checks: list, datasource_type: str) -> dict:
+    async def __handle_file_validation(self, job: job_model.SubmitJob, user_conn_creds: dict, quality_checks: list, datasource_type: str) -> dict:
         """
         Handle validation checks for a file data source.
            
@@ -318,9 +300,11 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
                 datasource_name=file_name,
                 file_name=file_name,
                 dir_path=dir_path,
-                quality_checks=quality_checks
+                quality_checks=quality_checks,
+                hostname=user_conn_creds.get('hostname'),
+                username=user_conn_creds.get('username'),
+                password=user_conn_creds.get('password')
             )
-            # return json.loads(str(validation_results))  # Convert result to JSON format
         except Exception as ge_exception:
             error_msg = f"An error occurred while validating data for file {file_name}: {str(ge_exception)}"
             dqt_logger.error(error_msg)
@@ -361,7 +345,7 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
         dqt_logger.debug(f"User connection creds retrieved: {user_conn_creds}")
 
         datasource_type = user_conn_creds.get('source_type')
-
+         
         if datasource_type in conn_enum.Database_Datasource_Enum.__members__.values():
             return await self.__handle_database_validation(job=job, 
                                                            user_conn_creds=user_conn_creds, 
@@ -370,6 +354,7 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
         elif datasource_type in conn_enum.File_Datasource_Enum.__members__.values():
             return await self.__handle_file_validation(job=job, 
                                                        quality_checks=quality_checks, 
+                                                       user_conn_creds=user_conn_creds,
                                                        datasource_type=datasource_type
                                                        )     
         elif datasource_type in conn_enum.Other_Datasources_Enum.__members__.values():
