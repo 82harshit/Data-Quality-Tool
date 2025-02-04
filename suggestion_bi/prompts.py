@@ -47,7 +47,7 @@ def generate_expectation_prompt(table: str, table_schema: str, metric: str, k: i
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         metric=metric,
-        k=20
+        k=k
     )
 
     return formatted_prompt
