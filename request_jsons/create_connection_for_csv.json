@@ -7,7 +7,7 @@
       "connection_type": "csv",
       "port": 22,
       "server": "32.33.34.8",
-      "file_name": "weather.csv",
+      "file_name": "customers-100.csv",
       "dir_path": "/home/merit/Documents"
     },
     "metadata": {

@@ -7,8 +7,8 @@ from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain.output_parsers import PydanticOutputParser
 
-from soda_expectations import AllExpectations
-from prompts import generate_expectation_prompt
+from .soda_expectations import AllExpectations
+from .prompts import generate_expectation_prompt
 from utils import clean_json_string, convert_to_json
 from logging_config import dqt_logger
 

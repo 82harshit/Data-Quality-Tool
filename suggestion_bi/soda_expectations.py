@@ -26,4 +26,4 @@ class AllExpectations(BaseModel):
     var_samp: Optional[str] = Field(None, description="Calculates the sample variance.")
     distribution_difference: Optional[str] = Field(None, description="To determine whether the distribution of a column has changed between two points in time")
     freshenss: Optional[str] = Field(None, description="To determine the relative age of the data in a column in your dataset.")
-    schema: Optional[str] = Field(None, description="To validate the presence, absence or position of columns in a dataset, or to validate the type of data column contains.")
+    schema_check: Optional[str] = Field(None, description="To validate the presence, absence or position of columns in a dataset, or to validate the type of data column contains.", alias='schema')
