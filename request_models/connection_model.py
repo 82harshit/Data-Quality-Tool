@@ -59,11 +59,6 @@ class ConnectionCredentials(BaseModel):
                 error_msg = "'database' field is required for database connections."
                 dqt_logger.error(error_msg)
                 raise ValueError(error_msg)
-            
-            if port != 3306:
-                error_msg = f"Invalid port {port} for database connection. Expected port: 3306."
-                dqt_logger.error(error_msg)
-                raise ValueError(error_msg)
 
         elif connection_type in conn_enum.File_Datasource_Enum.__members__.values():
             if dir_path:
