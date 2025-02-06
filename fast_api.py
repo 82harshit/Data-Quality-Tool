@@ -20,8 +20,6 @@ This file contains the following FastAPI endpoints:-
 4. /generate-suggestions: This endpoint generates data quality check suggestions using AI for 
                           data based on the provided metric
 """
-
-import configparser
 from fastapi import FastAPI, Body, HTTPException
 
 from database.db_models.job_run_status import JobRunStatusEnum

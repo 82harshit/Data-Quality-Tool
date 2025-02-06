@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, Date, ForeignKey, Integer
+from sqlalchemy import create_engine, Column, String, Date, ForeignKey, Integer, Text
 from sqlalchemy.orm import sessionmaker, Session, declarative_base, relationship
 
 import os
@@ -29,7 +29,7 @@ class Expectations(Base):
     batch_id = Column(String(255), ForeignKey('batches.batch_id'), nullable=False)
     check_name = Column(String(255), nullable=False)
     check_status = Column(String(255), nullable=False)
-    check_value = Column(String(255), nullable=False)
+    check_value = Column(Text, nullable=False)
     
     batch = relationship("Batches", back_populates="expectations")
     
