@@ -511,7 +511,6 @@ def __create_checks(datasource_type: str, datasource_name: str, quality_checks: 
             expectation_type = quality_check.get("expectation_type", "")
             kwargs = quality_check.get("kwargs", "")
             if expectation_type == "schema":
-                # TODO: expand for multiple status's in a schema check
                 if kwargs:
                     status = kwargs.get("status", "")
                     condition = kwargs.get("condition", "")
@@ -567,7 +566,7 @@ def __create_checks(datasource_type: str, datasource_name: str, quality_checks: 
                     checks.append(expectation_type)
         
         checks_yaml = yaml.dump({f"checks for {datasource_name}":checks}, default_flow_style=False, sort_keys=False)
-        dqt_logger.info(f"Created checks:\n{checks_yaml}")
+        dqt_logger.debug(f"Created checks:\n{checks_yaml}")
         return checks_yaml
     except Exception as e:
         error_msg = f"Failed to create checks: {e}"
@@ -594,7 +593,7 @@ def __parse_validation_result(validation_result: str) -> List[dict]:
             Extracts strings of format:
             [avg(bathrooms) between 2 and 3] FAIL (check_value: 1.2862385321100918)
             """
-            regex = r"\[(.+?)\]\s+(PASS|FAIL|ERROR)\s+\(check_value:\s+(\d+(\.\d+)?)\)"
+            regex = r"\[(.+?)\]\s+(PASS|FAIL|ERROR|WARN)\s+\(check_value:\s+(\d+(\.\d+)?)\)"
             match = re.match(regex, line)
             if match:
                 check_name = match.group(1) # First group: check name
@@ -611,7 +610,7 @@ def __parse_validation_result(validation_result: str) -> List[dict]:
                 Extracts strings of format:
                 [schema] FAIL (fail_missing_column_names = [room], schema_measured = [price bigint, area bigint, bedrooms bigint, bathrooms bigint, stories bigint, mainroad varchar, guestroom varchar, basement varchar, hotwaterheating varchar, airconditioning varchar, parking bigint, prefarea varchar, furnishingstatus varchar])
                 """
-                regex = r"\[(.+?)\]\s+(PASS|FAIL|ERROR)\s+\((.+?)\)"
+                regex = r"\[(.+?)\]\s+(PASS|FAIL|ERROR|WARN)\s+\((.+?)\)"
                 match = re.match(regex, line)
                 if match:
                     check_name = match.group(1)  # Check name
@@ -685,9 +684,9 @@ def __run_quality_checks(datasource_type: str,
         soda.scan.add_sodacl_yaml_str(checks)
         soda.scan.execute()
         validation_results = soda.scan.get_all_checks_text()
-        dqt_logger.info(validation_results)
+        dqt_logger.debug(validation_results)
         parsed_results = __parse_validation_result(validation_results)
-        dqt_logger.info(parsed_results)
+        dqt_logger.debug(parsed_results)
         parsed_results = CheckResults(results=parsed_results)
         dqt_logger.debug(f"Parsed results:\n{parsed_results}")
         parsed_results_json = json.loads(parsed_results.model_dump_json(indent=4))
