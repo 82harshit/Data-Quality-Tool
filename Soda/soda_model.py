@@ -498,6 +498,8 @@ def __run_quality_checks(datasource_type: str,
         
         parsed_results_json = json.loads(parsed_results.model_dump_json(indent=4))
         parsed_results_json["validation_date"] = datetime.now().strftime("%Y-%m-%d") # add current date as validation date
+        parsed_results_json["datasource_name"] = datasource_name # add datasource name
+    
         dqt_logger.debug(parsed_results_json)
         
         shutil.rmtree(".tmp") # removing all downloaded files

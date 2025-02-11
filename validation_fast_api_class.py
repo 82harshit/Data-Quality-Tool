@@ -284,14 +284,12 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
         :param job (object): An object of job model
         :param quality_checks (list): A list of checks that are to be applied on the data
         :param datasource_type (str): The type of file datasource -- csv, excel, json, etc.
+        :param user_conn_creds (dict): A dictionary of connection credentials
         
         :return (dict): A JSON containing validation results
         """
         dir_path = job.data_source.dir_path
         file_name = job.data_source.file_name
-
-        # rand_int = random.randint(1000, 9999)  # random 4-digit integer
-        # datasource_name = f"{file_name}_file_{rand_int}"
 
         try:
             # Perform file validation checks

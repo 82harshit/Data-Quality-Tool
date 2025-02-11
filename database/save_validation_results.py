@@ -140,7 +140,14 @@ class ValidationResult:
                 self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
                 raise Exception(error_msg)
                
-            batch_id = uuid4().hex
+            datasource_name = json_response['datasource_name']
+            if not datasource_name:
+                error_msg = "Error: No datasource name found in response"
+                dqt_logger.error(error_msg)
+                self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
+                raise Exception(error_msg)
+               
+            batch_id = f"{datasource_name}_{uuid4().hex}" # creating batch id
             self.upsert_batch(batch_id=batch_id, job_id=job_id, batch_date=batch_date, db_session=db_session)
             
             for result in results:       
