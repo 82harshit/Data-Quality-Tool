@@ -125,6 +125,12 @@ class ValidationResult:
                 dqt_logger.error(error_msg)
                 self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
                 raise Exception(error_msg)
+            
+            if 'datasource_name' not in json_response:
+                error_msg = "Error: 'datasource_name' key not found in response"
+                dqt_logger.error(error_msg)
+                self.job_state.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
+                raise Exception(error_msg)
   
             results = json_response['results']
             if not results:
