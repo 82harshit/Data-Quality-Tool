@@ -9,3 +9,4 @@ class CheckResult(BaseModel):
 
 class CheckResults(BaseModel):
     results: List[CheckResult]
+    

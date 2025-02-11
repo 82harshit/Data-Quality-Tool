@@ -334,6 +334,16 @@ class SodaModel:
                 raise Exception(f"Invalid Excel file: {e}")
         
         async def __get_file_path(self):
+            """Established an SFTP connection to the server, downloads the required file and saves it locally in .tmp folder.
+            This .tmp folder is created and then deleted after the valdation is completed.
+            
+            Raises:
+                fnf_error: File not found error when the expected file is not present on server
+                e: Raises exceptions that are encountered while downloading the file
+
+            Returns:
+                None
+            """
             try:
                 dqt_logger.debug(f"Initializing connection to {self.host}")
                 async with asyncssh.connect(self.host, username=self.username, password=self.password, known_hosts=None) as conn:

@@ -61,11 +61,6 @@ class SodaParser:
                 return f"{expectation_type}({column}, {percentile}) {condition}"
             return f"{expectation_type}({column}) {condition}"
 
-    # # Custom representer to ensure lists are serialized in flow style
-    # class FlowStyleDumper(yaml.Dumper):
-    #     def increase_indent(self, flow=False, indentless=False):
-    #         return super(FlowStyleDumper, self).increase_indent(flow=True)
-
     def create_checks(self, datasource_type: str, datasource_name: str, quality_checks: List[job_model.QualityChecks]) -> yaml:
         """
         Parses the quality checks JSON to a YAML format as required by the Soda library.
