@@ -17,3 +17,6 @@ test
 data_source
 .tmp
 test_connection.py
+dashboard
+.soda_venv
+.ge_venv
