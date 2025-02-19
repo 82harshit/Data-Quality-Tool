@@ -2,7 +2,6 @@ import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain.output_parsers import PydanticOutputParser
@@ -16,29 +15,17 @@ from logging_config import dqt_logger
 class SuggestionBI:
     def __init__(self, api_key_env_var="OPENAI_API_KEY", db_uri=None, table=None):
         self.api_key_env_var = api_key_env_var
-        self.db_uri = db_uri
         self.table = table
-        self.db = None
-        self.llm = None
+        self.llm = ChatOpenAI(model="o3-mini")
         self._initialize_environment()
-        self._initialize_llm()
         if db_uri:
-            self._initialize_database(db_uri)
+            self.db = SQLDatabase.from_uri(db_uri)
 
     def _initialize_environment(self):
         """Load environment variables."""
         load_dotenv()
         if not os.environ.get(self.api_key_env_var):
             raise EnvironmentError(f"API key for {self.api_key_env_var} is not set in the .env file.")
-
-    def _initialize_llm(self):
-        """Initialize the language model."""
-        self.llm = ChatOpenAI(model="gpt-4o-mini")
-
-    def _initialize_database(self, db_uri):
-        """Initialize the SQL database connection."""
-        self.db = SQLDatabase.from_uri(db_uri)
-        self.engine = create_engine(db_uri)
 
     def run_prompt(self, metric: Optional[str] = "correctness") -> dict:
         """
@@ -66,12 +53,12 @@ class SuggestionBI:
             k=6,
             expectation_parser=expectation_parser
         )
-
+    
         try:
             answer = self.llm.invoke(prompt)
             cleaned_json_string = clean_json_string(answer.content)
             final_answer = convert_to_json(cleaned_json_string)
-            return final_answer  # Return as a Python dictionary
+            return final_answer # Return as a Python dictionary
         except Exception as e:
             dqt_logger.error("Error in processing the prompt: %s", e)
             raise e

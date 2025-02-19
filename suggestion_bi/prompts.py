@@ -6,79 +6,25 @@ def generate_expectation_prompt(table: str, table_schema: str, metric: str, k: i
     system_prompt = """You are an AI assistant expert at mapping columns to expectation checks. 
                         Do not include any comments or code from your side."""
     
-    user_prompt = """You are tasked with analyzing a database table. Below, the table name and its schema are provided within triple backticks (```).  
-    Follow these instructions carefully to generate well-structured expectation mappings:  
+    user_prompt = """Output must be in strict JSON format. Follow these guidelines to generate structured expectation mappings:
 
-    1. Map each column** in the schema to the most appropriate expectations.  
-    2. Ensure proper JSON format** by strictly following this structure:  
-    ```json
-    {
-        "expectation_type": "<expectation_name>",
-        "kwargs": {
-            "column": "<column_name>",
-            "condition": "<condition_value>",  # Include condition where applicable
-            <additional_parameters>
-        }
-    }
-    3. Exclude None values: If an expectation does not apply to a column, do not include it.
-    4. Maintain uniqueness: Ensure there are no duplicate expectation names in the output.
-    5. Avoid unnecessary repetition: Each expectation type should appear only once per relevant column.
-    6. Limit expectations: Return at most k expectations.
-    7. Ensure correct JSON output formatting: The final output must be a list of objects, like this:
-    [
-        {
-            "expectation_type": "row_count",
-            "kwargs": {
-                "condition": "> 0"
-            }
-        },
-        {
-            "expectation_type": "missing_count",
-            "kwargs": {
-                "column": "furnishingstatus",
-                "condition": "> 0",
-                "missing values": [
-                    "furnished",
-                    "semi-furnished",
-                    "unfurnished"
-                ]
-            }
-        },
-        {
-            "expectation_type": "duplicate_count",
-            "kwargs": {
-                "column": "price",
-                "condition": "= 0"
-                }
-        },
-        {
-            "expectation_type": "invalid_count",
-            "kwargs": {
-                "column": "bedrooms",
-                "condition": "= 0",
-                "valid values": [
-                    1,
-                    2,
-                    3,
-                    4
-                        
-                ]
-            }
-        }
-    ]
-    8. Do not return a dictionary-style mapping like this:
-    {
-        "avg": None,
-        "duplicate_count": {
-            "expectation_type": "duplicate_count",
-            "kwargs": {
-                "column": "Customer Id"
-            }
-        }
-    }
-    Instead, return it as a list of structured expectation objects.
-    9. Do not define schema-related expectations.
-    Focus on the provided metric and create concise mappings.
+    Map Expectations: Assign relevant expectations to each column based on the schema (data type, constraints, and typical values).
+    JSON Structure: Output a list of objects with:
+    "expectation_type": The expectation name.
+    "kwargs": A dictionary with necessary parameters:
+    "column": Column name (if applicable).
+    "condition": Derived from the schema (e.g., numerical ranges, allowed categories).
+    Additional parameters where needed.
+    Exclude None Values: Only include applicable expectations.
+    No Duplicates: Each expectation should appear only once per column.
+    Limit Expectations: Return at most k expectations, prioritizing the most relevant ones.
+    Consistent Formatting: Ensure correct JSON syntax and structure.
+    Schema-Based Conditions: Derive conditions dynamically from the schema:
+    Numerical columns: Use range conditions (> 0, <= max_value).
+    Categorical columns: Ensure values exist within a predefined set.
+    Text columns: Validate non-null constraints or expected patterns.
+    Avoid Schema Checks: Focus on metric-based expectations, not structural validations.
+    Gracefully Handle Edge Cases: If no valid expectations apply, return an empty JSON list ([]).
     """
 
     final_prompt = PromptTemplate(
@@ -86,8 +32,8 @@ def generate_expectation_prompt(table: str, table_schema: str, metric: str, k: i
         {system_prompt}
         {user_prompt}
         Metric: {metric}
-        Table name: ```{table}```
-        Table schema: ```{table_schema}```
+        Table name: {table}
+        Table schema: {table_schema}
         k: {k}
         {format_instructions}
         """,
@@ -95,8 +41,7 @@ def generate_expectation_prompt(table: str, table_schema: str, metric: str, k: i
         partial_variables={"format_instructions": expectation_parser.get_format_instructions()}
     )
     
-    # Generate the final prompt
-    formatted_prompt = final_prompt.format(
+    return final_prompt.format(
         table=table,
         table_schema=table_schema,
         system_prompt=system_prompt,
@@ -104,5 +49,3 @@ def generate_expectation_prompt(table: str, table_schema: str, metric: str, k: i
         metric=metric,
         k=k
     )
-
-    return formatted_prompt
