@@ -58,6 +58,7 @@ def main():
     standalone_parser.add_argument("--table", type=str, help="The name of the table (for 'generate_suggestions' endpoint only).")
     standalone_parser.add_argument("--metric", type=str, 
                                    help="The data metric to be focused on (for 'generate_suggestions' endpoint only).")
+    standalone_parser.add_argument("--port", type=int, help="The port of the server to connect to.")
     
     # Parse arguments
     args = parser.parse_args()
@@ -67,9 +68,9 @@ def main():
         execute_api_request(host=args.host, port=args.port)
     elif args.mode == "standalone":
         if args.endpoint == EndpointEnum.GENERATE_SUGGESTIONS:
-            # Handle generate_suggestions with --host, --username, --db, --table and --metric arguments
-            if not args.db or not args.table or not args.metric and not args.username and not args.host:
-                raise ValueError("--host, --username, --db, --table and --metric are required for 'generate_suggestions' endpoint.")
+            # Handle generate_suggestions with --host, --port, --username, --db, --table and --metric arguments
+            if not args.db or not args.table or not args.metric and not args.username and not args.host and not args.port:
+                raise ValueError("--host, --port, --username, --db, --table and --metric are required for 'generate_suggestions' endpoint.")
             
             password = getpass.getpass(prompt="Enter your password: ")
             
@@ -79,6 +80,7 @@ def main():
             # Construct the request JSON for generate_suggestions
             request_json = json.dumps({
                 "host": args.host,
+                "port": args.port,
                 "username": args.username,
                 "password": password,
                 "database": args.db,

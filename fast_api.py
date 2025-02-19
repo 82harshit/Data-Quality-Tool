@@ -128,6 +128,7 @@ async def generate_suggestions(
     connection: connection_model.GenerateSuggestion = Body(...,
         examples= [{
             "username": "merit",
+            "port": "0000",
             "password": "sample_password",
             "host": "127.0.0.1",
             "database": "quality_tool",

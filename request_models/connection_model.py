@@ -116,6 +116,7 @@ class GenerateSuggestion(BaseModel):
     """
     username: str = Field(None, description="Name of the user who wants to connect")
     password: str = Field(None, description="Password required to connect to the database")
+    port: int = Field(None, description="Port of the server to connect")
     host: str = Field(None, description="IP of the server to connect")
     database: str = Field(None, description="Name of the database")
     table_name: str = Field(None, description="Name of the table to analyze")
