@@ -28,7 +28,7 @@ class SuggestionBI:
         if not os.environ.get(self.api_key_env_var):
             raise EnvironmentError(f"API key for {self.api_key_env_var} is not set in the .env file.")
 
-    def run_prompt(self, metric: Optional[str] = "correctness") -> dict:
+    def run_prompt(self, metric: Optional[str] = "correctness") -> List[dict]:
         """
         Generate AI-based suggestions for the specified table and schema.
 
@@ -58,7 +58,18 @@ class SuggestionBI:
         return self.invoke_llm(prompt=prompt)
     
     @retry(tries=3, delay=2, backoff=2, jitter=(1, 3), logger=dqt_logger)    
-    def invoke_llm(self, prompt: str):
+    def invoke_llm(self, prompt: str) -> List[dict]:
+        """Invokes the LLM with the provided prompt.
+        Retries 3 times if any exception or warning is raised.
+
+        :param prompt (str): The prompt to be executed
+
+        Raises:
+            Warning: Raised when the response returned from LLM is incorrect
+            e: Raised when an error occurs while invoking LLM
+
+        :return List[dict]: A list of dictionaries containing suggested expectations
+        """
         try:
             answer = self.llm.invoke(prompt)
             cleaned_json_string = clean_json_string(answer.content)
@@ -73,7 +84,7 @@ class SuggestionBI:
             dqt_logger.error("Error in processing the prompt: %s", e)
             raise e
     
-    def validate_llm_response(self, json_list: List[dict]):
+    def validate_llm_response(self, json_list: List[dict]) -> bool:
         """
         Checks if each JSON object in the list contains the required keys.
         Required keys: "expectation_type", "kwargs", "condition"
