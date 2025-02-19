@@ -1,7 +1,8 @@
 import os
-from typing import Optional
+from typing import Optional, List
 
 from dotenv import load_dotenv
+from retry import retry
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain.output_parsers import PydanticOutputParser
@@ -53,12 +54,43 @@ class SuggestionBI:
             k=6,
             expectation_parser=expectation_parser
         )
+        
+        return self.invoke_llm(prompt=prompt)
     
+    @retry(tries=3, delay=2, backoff=2, jitter=(1, 3), logger=dqt_logger)    
+    def invoke_llm(self, prompt: str):
         try:
             answer = self.llm.invoke(prompt)
             cleaned_json_string = clean_json_string(answer.content)
-            final_answer = convert_to_json(cleaned_json_string)
-            return final_answer # Return as a Python dictionary
+            response_json = convert_to_json(cleaned_json_string)
+            if self.validate_llm_response(json_list=response_json):
+                return response_json
+            else:
+                warning_msg = "Invalid response received from LLM"
+                dqt_logger.warning(warning_msg)
+                raise Warning(warning_msg)
         except Exception as e:
             dqt_logger.error("Error in processing the prompt: %s", e)
             raise e
+    
+    def validate_llm_response(self, json_list: List[dict]):
+        """
+        Checks if each JSON object in the list contains the required keys.
+        Required keys: "expectation_type", "kwargs", "condition"
+
+        :param json_list: List of JSON objects (dictionaries)   
+        :return: True if all required keys are present in each JSON, False otherwise
+        """
+        dqt_logger.debug(f"JSON response: {json_list}")
+        
+        for json_obj in json_list:
+            if "expectation_type" not in json_obj or "kwargs" not in json_obj:
+                return False
+            # Check if 'expectation_type' starts with 'expect_column_values'
+            if json_obj["expectation_type"].startswith("expect_column_values"):
+                return False
+            
+            if "condition" not in json_obj.get("kwargs", {}):
+                return False
+        return True
+    
