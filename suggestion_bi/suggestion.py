@@ -60,7 +60,7 @@ class SuggestionBI:
     @retry(tries=3, delay=2, backoff=2, jitter=(1, 3), logger=dqt_logger)    
     def invoke_llm(self, prompt: str) -> List[dict]:
         """Invokes the LLM with the provided prompt.
-        Retries 3 times if any exception or warning is raised.
+        Retries 3 times if an exception or warning is raised.
 
         :param prompt (str): The prompt to be executed
 
