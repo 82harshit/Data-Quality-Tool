@@ -151,8 +151,10 @@ async def generate_suggestions(
 async def submit_job(job: job_model.SubmitJob = Body(..., examples=[{
   "connection_name": "20250130172104_merit_3233347_3306_qualitytool_3757",
   "data_source": {
-    "table_name": "customers",
-    "schema_name": "quality_tool"
+    "dir_path": "sample_dir",
+    "file_name": "sample_file",
+    "table_name": "sample_table",
+    "schema_name": "sample_schema"
   },
   "quality_checks": [
         {

@@ -334,27 +334,32 @@ class SodaModel:
                 raise Exception(f"Invalid Excel file: {e}")
         
         async def __get_file_path(self):
-            """Established an SFTP connection to the server, downloads the required file and saves it locally in .tmp folder.
+            """Checks if a file is present locally on the provided path, otherwise established an SFTP connection to the server, 
+            downloads the required file and saves it locally in .tmp folder.
             This .tmp folder is created and then deleted after the valdation is completed.
             
             Raises:
-                fnf_error: File not found error when the expected file is not present on server
+                fnf_error: File not found error when the expected file is not present on server or at the given path
                 e: Raises exceptions that are encountered while downloading the file
 
             Returns:
                 None
             """
             try:
+                file_path = posixpath.join(self.dir_path, self.file_name)
+                
+                # check if file is present on the local system
+                if self.host in ["127.0.0.1", "localhost"] and os.path.isfile(file_path):
+                    return file_path
+                
+                #  search for file on remote server
                 dqt_logger.debug(f"Initializing connection to {self.host}")
                 async with asyncssh.connect(self.host, username=self.username, password=self.password, known_hosts=None) as conn:
-                    dqt_logger.info(f"Successfully connected to {self.host}")
-                    file_path = posixpath.join(self.dir_path, self.file_name)
-                    
+                    dqt_logger.info(f"Successfully connected to {self.host}")    
                     os.makedirs(TEMP_DIR, exist_ok=True)
-                    local_temp_path = os.path.join(TEMP_DIR, self.file_name)
-                    
+                    local_temp_path = os.path.join(TEMP_DIR, self.file_name) # create file path to .tmp dir
                     async with conn.start_sftp_client() as sftp:
-                        await sftp.get(file_path, local_temp_path)
+                        await sftp.get(file_path, local_temp_path) # get file from server to .tmp using sftp
                         dqt_logger.debug(f"Downloaded file {self.file_name} from {self.host}")
                     return local_temp_path
             except FileNotFoundError as fnf_error:
@@ -384,7 +389,8 @@ class SodaModel:
                 
                 if self.datasource_type == conn_enum.File_Datasource_Enum.CSV:
                     if self.__is_valid_csv(local_temp_file_path):
-                        return dd.read_csv(local_temp_file_path)
+                        parts = delayed(pd.read_csv)(local_temp_file_path)
+                        return dd.from_delayed(parts)
                     else:
                         error_msg = "Provided file is not a valid CSV file."
                         dqt_logger.error(error_msg)

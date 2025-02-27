@@ -178,7 +178,7 @@ class SodaParser:
                 else:
                     """
                     Extracts strings of format:
-                    [schema] FAIL (fail_missing_column_names = [room], schema_measured = [price bigint, area bigint, bedrooms bigint, bathrooms bigint, stories bigint, mainroad varchar, guestroom varchar, basement varchar, hotwaterheating varchar, airconditioning varchar, parking bigint, prefarea varchar, furnishingstatus varchar])
+                    [schema] FAIL (fail_missing_column_names = [room], schema_measured = [price bigint, area bigint, bedrooms bigint])
                     """
                     regex = r"\[(.+?)\]\s+(PASS|FAIL|ERROR|WARN)\s+\((.+?)\)"
                     match = re.match(regex, line)
