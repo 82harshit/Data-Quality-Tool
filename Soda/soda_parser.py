@@ -62,16 +62,20 @@ class SodaParser:
             return f"{expectation_type}({column}) {condition}"
         
     @staticmethod
-    def __check_filename_match(filename: str, filename_regex: str) -> str:
+    def __check_filename_match(filename: str, filename_regex: str):
         """Performs a regex match of the filename with the provided filename regex.
         
         :param filename (str): The name of the file to be validated.
         :param filename_regex (str): The regex to match the filename with.
         
-        :return (str): Match result formatted in the response style of Soda.
+        :raises Exception: Incorrect filename format exception.
+        
+        :return None: If the filename matches with the provided regex.
         """
         if not bool(re.match(filename_regex, filename)):
-            raise Exception("Incorrect filename: Filename does not match with the filename format provided.") 
+            error_msg = "Incorrect filename format: Filename does not match with the filename format provided."
+            dqt_logger.error(error_msg)
+            raise Exception(error_msg) 
 
     def create_checks(self, datasource_type: str, datasource_name: str, quality_checks: List[job_model.QualityChecks]) -> yaml:
         """
