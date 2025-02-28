@@ -60,6 +60,18 @@ class SodaParser:
             if percentile:
                 return f"{expectation_type}({column}, {percentile}) {condition}"
             return f"{expectation_type}({column}) {condition}"
+        
+    @staticmethod
+    def __check_filename_match(filename: str, filename_regex: str) -> str:
+        """Performs a regex match of the filename with the provided filename regex.
+        
+        :param filename (str): The name of the file to be validated.
+        :param filename_regex (str): The regex to match the filename with.
+        
+        :return (str): Match result formatted in the response style of Soda.
+        """
+        if bool(re.match(filename_regex, filename)):
+            raise Exception("Incorrect filename: Filename does not match with the filename format provided.") 
 
     def create_checks(self, datasource_type: str, datasource_name: str, quality_checks: List[job_model.QualityChecks]) -> yaml:
         """
@@ -70,9 +82,10 @@ class SodaParser:
         
         :return yaml: Parsed quality checks JSON to YAML
         """
-        
         if not quality_checks:
-            raise Exception("Empty list of checks provided")
+            error_msg = "Cannot validate data, an empty list of checks was provided"
+            dqt_logger.error(error_msg)
+            raise Exception(error_msg)
         
         quality_checks_list = [check.model_dump() for check in quality_checks]
         checks = []
@@ -81,7 +94,11 @@ class SodaParser:
             for quality_check in quality_checks_list:
                 expectation_type = quality_check.get("expectation_type", "")
                 kwargs = quality_check.get("kwargs", "")
-                if expectation_type == "schema":
+                if expectation_type == "file_name_check":
+                    file_name = kwargs.get("file_name", "")
+                    file_name_regex = kwargs.get("regex", "")
+                    self.__check_filename_match(filename=file_name, filename_regex=file_name_regex)
+                elif expectation_type == "schema":
                     if kwargs:
                         status = kwargs.get("status", "")
                         condition = kwargs.get("condition", "")
