@@ -77,6 +77,72 @@ class SodaParser:
             dqt_logger.error(error_msg)
             raise Exception(error_msg) 
 
+    @staticmethod
+    def __create_user_defined_checks(expectation_type: str, kwargs: dict, datasource_name: str) -> dict:
+        """Formats a user defined check in a dictionary format which is then parsed as YAML, as required by Soda.
+        
+        :param expectation_type (str): Type of user defined expectation
+        :param kwargs (dict): Arguments like queries, expressions, threshold condition, etc to be included in check
+        :param datasource_name (str): The name of the datasource on which the check is to be performed
+
+        :return dict: Dictionary of formatted check
+        """
+        # replace the keyword '[dataset_name]' with the actual datasource name
+        kwargs = {key:value.replace("[dataset_name]", datasource_name) for key, value in kwargs.items()}
+        
+        # Generates check of type: https://docs.soda.io/soda-cl/user-defined.html#example-with-check-name
+        if expectation_type == "user_defined_query":
+            query_name = kwargs.get("query_name", "")
+            if not query_name:
+                warning_msg = f"Query name not provided"
+                dqt_logger.warning(warning_msg)
+                raise Warning(warning_msg)
+            query_name = query_name.replace(" ", "_") # replacing spaces with '_'
+        
+            threshold_condition = kwargs.get("condition", "") # threshold value with condition, e.g.: > 0, = 5, between 4 and 10
+            if not threshold_condition:
+                warning_msg = f"No threshold provided for check {query_name}"
+                dqt_logger.warning(warning_msg)
+                raise Warning(warning_msg)
+        
+            valid_query = kwargs.get("valid_query", "")
+            if not valid_query:
+                warning_msg = "Valid SQL query not provided"
+                dqt_logger.warning(warning_msg)
+                raise Warning(warning_msg)
+        
+            other_kwargs = {key:value for key, value in kwargs.items() if key not in ["query_name", "valid_query", "condition"]} 
+            check = {
+                f"{query_name} {threshold_condition}": {
+                    f"{query_name} query": valid_query,
+                    **other_kwargs
+                }
+            }
+        # Generates check for type: https://docs.soda.io/soda-cl/user-defined.html#example-with-alert-configuration
+        elif expectation_type == "user_defined_expression": # TODO: test for user-defined expressions    
+            expression_name = kwargs.get("expression_name", "")
+            if not expression_name:
+                warning_msg = "Expression name not provided"
+                dqt_logger.warning(warning_msg)
+                raise Warning(warning_msg)
+            expression_name = expression_name.replace(" ", "_") # replacing spaces with '_'
+            
+            valid_expression = kwargs.get("valid_expression", "")
+            if not valid_expression:
+                warning_msg = "Valid SQL expression not provided"
+                dqt_logger.warning(warning_msg)
+                raise Warning(warning_msg)
+            
+            other_kwargs = {key:value for key, value in kwargs.items() if key not in ["expression_name, valid_expression"]}
+            check = {
+                expression_name: {
+                    f"{expression_name} expression": valid_expression,
+                    **other_kwargs
+                }
+            }
+        
+        return check
+
     def create_checks(self, datasource_type: str, datasource_name: str, quality_checks: List[job_model.QualityChecks]) -> yaml:
         """
         Parses the quality checks JSON to a YAML format as required by the Soda library.
@@ -98,11 +164,15 @@ class SodaParser:
             for quality_check in quality_checks_list:
                 expectation_type = quality_check.get("expectation_type", "")
                 kwargs = quality_check.get("kwargs", "")
-                if expectation_type == "file_name_check":
+                if expectation_type in ["user_defined_query", "user_defined_expression"]:
+                    user_defined_checks = self.__create_user_defined_checks(expectation_type=expectation_type, 
+                                                                            kwargs=kwargs, datasource_name=datasource_name)
+                    checks.append(user_defined_checks)
+                elif expectation_type == "file_name_check": # filename checks
                     file_name = kwargs.get("file_name", "")
                     file_name_regex = kwargs.get("regex", "")
                     self.__check_filename_match(filename=file_name, filename_regex=file_name_regex)
-                elif expectation_type == "schema":
+                elif expectation_type == "schema": # schema checks: https://docs.soda.io/soda-cl/schema.html#schema-checks
                     if kwargs:
                         status = kwargs.get("status", "")
                         condition = kwargs.get("condition", "")
@@ -131,7 +201,7 @@ class SodaParser:
                         condition = kwargs.get("condition", "")
                         column = kwargs.get("column", "")
                         if column:
-                            if expectation_type == "percentile":
+                            if expectation_type == "percentile": # percentile check: https://docs.soda.io/soda-cl/numeric-metrics.html#numeric-metrics
                                 percentile = kwargs.get("percentile", "")
                                 check = self.__get_formatted_check_for_datasource(datasource_type=datasource_type, 
                                                                     expectation_type=expectation_type, 
@@ -158,7 +228,7 @@ class SodaParser:
                         checks.append(expectation_type)
             
             checks_yaml = yaml.dump({f"checks for {datasource_name}":checks}, default_flow_style=False, sort_keys=False)
-            dqt_logger.debug(f"Created checks:\n{checks_yaml}")
+            dqt_logger.info(f"Created checks:\n{checks_yaml}")
             return checks_yaml
         except Exception as e:
             error_msg = f"Failed to create checks: {e}"
