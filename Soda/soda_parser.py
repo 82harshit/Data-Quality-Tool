@@ -70,7 +70,7 @@ class SodaParser:
         
         :return (str): Match result formatted in the response style of Soda.
         """
-        if bool(re.match(filename_regex, filename)):
+        if not bool(re.match(filename_regex, filename)):
             raise Exception("Incorrect filename: Filename does not match with the filename format provided.") 
 
     def create_checks(self, datasource_type: str, datasource_name: str, quality_checks: List[job_model.QualityChecks]) -> yaml:
