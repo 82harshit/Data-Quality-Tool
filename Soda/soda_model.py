@@ -472,7 +472,7 @@ def __run_quality_checks(datasource_type: str,
                 file_dataframe.columns = (
                     file_dataframe.columns.str.strip() # Remove leading/trailing spaces
                             .str.replace(" ", "_") # Replace spaces with underscores
-                            .str.replace(r"[^\w\s]", "")  # Remove special characters
+                            .str.replace(r'[^a-zA-Z0-9_]', '', regex=True) # Remove special characters
                             .str.lower() # Convert to lowercase
                 )
                 # removing all special characters

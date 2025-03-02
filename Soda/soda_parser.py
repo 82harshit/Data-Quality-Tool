@@ -54,9 +54,9 @@ class SodaParser:
         if datasource_type in conn_enum.File_Datasource_Enum.__members__.values():
             column = (column.strip() # Remove leading/trailing spaces
                             .replace(" ", "_") # Replace spaces with underscores
-                            .replace(r"[^\w\s]", "")  # Remove special characters
                             .lower() # Convert to lowercase
             )
+            column = re.sub(r'[^a-zA-Z0-9_]', '', column) # Remove special characters
             if percentile:
                 return f"{expectation_type}({column}, {percentile}) {condition}"
             return f"{expectation_type}({column}) {condition}"
