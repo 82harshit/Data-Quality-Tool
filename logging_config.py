@@ -50,14 +50,19 @@ logging_config = {
         'watchfiles': {
             'level': 'WARNING',
             'handlers': [],
-            'propogate': False,
+            'propagate': False,
         },
         'soda': {
             'level': 'WARNING',
             'handlers': [],
-            'propogate': False,
+            'propagate': False,
+        },
+        'soda.scan': {
+            'level': 'ERROR',
+            'handlers': ['consoleHandler', 'fileHandler'],
+            'propagate': True,
         }
-    },
+    }
 }
 
 logging.config.dictConfig(logging_config)

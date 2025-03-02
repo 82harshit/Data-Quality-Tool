@@ -1,6 +1,6 @@
 from typing import Optional
 
-from database.db_models.job_run_status import JobRunStatus
+from database.db_models.job_run_status import JobRunStatus, JobRunStatusEnum
 from logging_config import dqt_logger
 
 
@@ -16,6 +16,7 @@ class JobStateSingleton:
     """
     _instance = None # Holds the singleton instance of the class.
     _job_id = None # Stores the current job ID managed by the singleton.
+    _error_logged = False # Tracks if the first error is logged.
 
     def __new__(cls): 
         """Ensures that only one instance of the class exists (singleton behavior)."""
@@ -24,9 +25,11 @@ class JobStateSingleton:
         return cls._instance
 
     @classmethod
-    def set_job_id(cls, job_id) -> None:
+    def set_job_id(cls, job_id: str) -> None:
         """
         Set the job ID in the singleton instance.
+        
+        :param job_id (str): Job ID which needs to be stored in singleton.
         
         :return: None
         """
@@ -62,12 +65,12 @@ class JobStateSingleton:
         _job_run_status.close_db_connection()
     
     @classmethod
-    def update_state_of_job_id(cls, job_status: str, status_message: Optional[str] = None) -> None:
+    def update_state_of_job_id(cls, job_status: JobRunStatusEnum, status_message: Optional[str] = None) -> None:
         """
         Update the state of the current job ID in the database.
 
-        :param job_status: New status for the job
-        :param status_message: Optional log or message associated with the job
+        :param job_status (JobRunStatusEnum): New status for the job
+        :param status_message (str): Optional log or message associated with the job
         
         :return: None
         """
@@ -77,12 +80,27 @@ class JobStateSingleton:
             dqt_logger.warning(warning_msg)
             raise Warning(warning_msg)
         
-        _job_run_status = JobRunStatus(job_id=_job_id)
-        _job_run_status.connect_to_db()
-        dqt_logger.info(f"Updating state for {_job_id} to: status = {job_status}, logs = {status_message}")
-        _job_run_status.update_in_db(job_status=job_status, status_message=status_message)
-        _job_run_status.close_db_connection()
-        
+        # if job status is error then save only the first error log, pass the rest of logs
+        if job_status == JobRunStatusEnum.ERROR:
+            if cls._error_logged: # do not update if first error is logged
+                dqt_logger.info(f"State for {_job_id}: status = {job_status}, logs = {status_message}")
+            else: # saving the first error log in database
+                _job_run_status = JobRunStatus(job_id=_job_id)
+                _job_run_status.connect_to_db()
+                dqt_logger.info(f"Updating state for {_job_id} to: status = {job_status}, logs = {status_message}")
+                _job_run_status.update_in_db(job_status=job_status, status_message=status_message)
+                _job_run_status.close_db_connection()
+                cls._error_logged = True
+        else: # for non-error logs
+            if cls._error_logged: # do not update if first error is logged
+                dqt_logger.info(f"State for {_job_id}: status = {job_status}, logs = {status_message}")
+            else: # update job status in database
+                _job_run_status = JobRunStatus(job_id=_job_id)
+                _job_run_status.connect_to_db()
+                dqt_logger.info(f"Updating state for {_job_id} to: status = {job_status}, logs = {status_message}")
+                _job_run_status.update_in_db(job_status=job_status, status_message=status_message)
+                _job_run_status.close_db_connection()
+            
     @staticmethod
     def get_state_of_job_id(job_id: str) -> dict:
         """
