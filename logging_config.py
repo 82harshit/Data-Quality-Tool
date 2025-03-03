@@ -56,6 +56,11 @@ logging_config = {
             'level': 'WARNING',
             'handlers': [],
             'propogate': False,
+        },
+        'soda.scan': {
+            'level': 'ERROR',
+            'handlers': ['consoleHandler', 'fileHandler'],
+            'propogate': True,
         }
     },
 }

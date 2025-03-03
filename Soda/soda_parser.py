@@ -72,7 +72,7 @@ class SodaParser:
         
         :return None: If the filename matches with the provided regex.
         """
-        if not bool(re.match(filename_regex, filename)):
+        if re.match(filename_regex, filename) == False:
             error_msg = "Incorrect filename format: Filename does not match with the filename format provided."
             dqt_logger.error(error_msg)
             raise Exception(error_msg) 
