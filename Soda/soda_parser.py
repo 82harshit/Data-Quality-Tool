@@ -72,13 +72,35 @@ class SodaParser:
         
         :return None: If the filename matches with the provided regex.
         """
-        if re.match(filename_regex, filename) == False:
-            error_msg = "Incorrect filename format: Filename does not match with the filename format provided."
+        if not bool(re.match(filename_regex, filename)):
+            error_msg = f"Incorrect filename format: Filename '{filename}' does not match with the filename format provided."
             dqt_logger.error(error_msg)
-            raise Exception(error_msg) 
+            raise ValueError(error_msg) 
 
     @staticmethod
-    def __create_user_defined_checks(expectation_type: str, kwargs: dict, datasource_name: str) -> dict:
+    def __sanitize_sql_query(query: str) -> str:
+        """Function to replace spaces with underscores, remove special characters and lowercase the column names.
+            Note: The column names must be provided under {{}}
+            E.g.: SELECT COUNT(*) FROM [dataset_name] WHERE {{Manufacturer's code}} != '0';
+    
+            :param query (str): SQL query which needs to be cleaned
+            
+            :return sanitized_query (str): Cleaned query
+        """
+        def clean_column_name(match):
+            column_name = match.group(1)  # Extract column name
+            cleaned_name = re.sub(r'[^a-zA-Z0-9_]', '', column_name.replace(' ', '_'))
+            cleaned_name = cleaned_name.lower()
+            return f"'{cleaned_name}'"
+        
+        # Regex pattern to find column names inside {{<column name>}}
+        pattern = r"\{\{(.*?)\}\}"
+        
+        # Replace matches using clean_column_name function
+        sanitized_query = re.sub(pattern, clean_column_name, query)
+        return sanitized_query
+    
+    def __create_user_defined_checks(self, expectation_type: str, kwargs: dict, datasource_name: str) -> dict:
         """Formats a user defined check in a dictionary format which is then parsed as YAML, as required by Soda.
         
         :param expectation_type (str): Type of user defined expectation
@@ -94,7 +116,7 @@ class SodaParser:
         if expectation_type == "user_defined_query":
             query_name = kwargs.get("query_name", "")
             if not query_name:
-                warning_msg = f"Query name not provided"
+                warning_msg = "Query name not provided"
                 dqt_logger.warning(warning_msg)
                 raise Warning(warning_msg)
             query_name = query_name.replace(" ", "_") # replacing spaces with '_'
@@ -110,6 +132,7 @@ class SodaParser:
                 warning_msg = "Valid SQL query not provided"
                 dqt_logger.warning(warning_msg)
                 raise Warning(warning_msg)
+            valid_query = self.__sanitize_sql_query(query=valid_query)
         
             other_kwargs = {key:value for key, value in kwargs.items() if key not in ["query_name", "valid_query", "condition"]} 
             check = {
