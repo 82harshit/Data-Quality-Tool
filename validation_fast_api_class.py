@@ -277,7 +277,10 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
                                                      status_message=error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
 
-    async def __handle_file_validation(self, job: job_model.SubmitJob, user_conn_creds: dict, quality_checks: list, datasource_type: str) -> dict:
+    async def __handle_file_validation(self, job: job_model.SubmitJob, 
+                                       user_conn_creds: dict, 
+                                       quality_checks: list, 
+                                       datasource_type: str) -> dict:
         """
         Handle validation checks for a file data source.
            
@@ -356,6 +359,5 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
                                                        datasource_type=datasource_type
                                                        )     
         elif datasource_type in conn_enum.Other_Datasources_Enum.__members__.values():
-            #FUTURE: implement a function 'run_quality_check_for_other_sources()' in great_exp_model.py
             raise NotImplementedError("Validation checks for other datasources are not yet implemented.")
         

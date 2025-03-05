@@ -98,6 +98,7 @@ class SodaParser:
         
         # Replace matches using clean_column_name function
         sanitized_query = re.sub(pattern, clean_column_name, query)
+        print(f"Sanitized query: {sanitized_query}")
         return sanitized_query
     
     def __create_user_defined_checks(self, expectation_type: str, kwargs: dict, datasource_name: str) -> dict:
@@ -127,6 +128,15 @@ class SodaParser:
                 dqt_logger.warning(warning_msg)
                 raise Warning(warning_msg)
         
+            # Ensure threshold_condition is a string and does not contain Python types
+            if isinstance(threshold_condition, type):
+                threshold_condition = str(threshold_condition.__name__)  # Convert to a valid string
+
+            if not isinstance(threshold_condition, str):
+                warning_msg = f"Threshold condition should be a string, got {type(threshold_condition)}"
+                dqt_logger.warning(warning_msg)
+                raise ValueError(warning_msg)
+                    
             valid_query = kwargs.get("valid_query", "")
             if not valid_query:
                 warning_msg = "Valid SQL query not provided"
@@ -277,12 +287,15 @@ class SodaParser:
                 Extracts strings of format:
                 [avg(bathrooms) between 2 and 3] FAIL (check_value: 1.2862385321100918)
                 """
-                regex = r"\[(.+?)\]\s+(PASS|FAIL|ERROR|WARN)\s+\(check_value:\s+(\d+(\.\d+)?)\)"
+                regex = r"\[(.+?)\]\s+(PASS|FAIL|ERROR|WARN|None)\s+\(check_value:\s+(\d+(\.\d+)?)\)"
                 match = re.match(regex, line)
                 if match:
                     check_name = match.group(1) # First group: check name
                     status = match.group(2) # Second group: status
-                    check_value = match.group(3) # Third group: full check value (integer or decimal)
+                    check_value = match.group(3) # Third group: full check value
+
+                    if status == 'None':
+                        status = "No data found that statisfies valid_query"
 
                     result = {
                         "check_name": check_name,
@@ -294,18 +307,22 @@ class SodaParser:
                     Extracts strings of format:
                     [schema] FAIL (fail_missing_column_names = [room], schema_measured = [price bigint, area bigint, bedrooms bigint])
                     """
-                    regex = r"\[(.+?)\]\s+(PASS|FAIL|ERROR|WARN)\s+\((.+?)\)"
+                    regex = r"\[(.+?)\]\s+(PASS|FAIL|ERROR|WARN|None)\s+\((.+?)\)"
                     match = re.match(regex, line)
                     if match:
                         check_name = match.group(1)  # Check name
                         status = match.group(2)  # Status (PASS, FAIL, ERROR)
                         metadata_raw = match.group(3)  # Metadata as raw string
                         
+                        if status == 'None':
+                            status = "No data found that statisfies valid_query"
+                        
                         result = {
                             "check_name": check_name,
                             "check_status": status,
                             "check_value": metadata_raw
                         }
+                        
                 results.append(result)
             return results
         except Exception as e:

@@ -505,18 +505,18 @@ def __run_quality_checks(datasource_type: str,
         soda.scan.add_sodacl_yaml_str(checks)
         soda.scan.execute()
         validation_results = soda.scan.get_all_checks_text()
-        dqt_logger.debug(validation_results)
+        dqt_logger.debug(f"Validation results:\n{validation_results}")
         
         parsed_results = soda_parser.parse_validation_result(validation_results)
-        dqt_logger.debug(parsed_results)
-        parsed_results = CheckResults(results=parsed_results)
         dqt_logger.debug(f"Parsed results:\n{parsed_results}")
+        parsed_results = CheckResults(results=parsed_results)
+        dqt_logger.debug(f"Check results:\n{parsed_results}")
         
         parsed_results_json = json.loads(parsed_results.model_dump_json(indent=4))
         parsed_results_json["validation_date"] = datetime.now().strftime("%Y-%m-%d") # add current date as validation date
         parsed_results_json["datasource_name"] = datasource_name # add datasource name
     
-        dqt_logger.debug(parsed_results_json)
+        dqt_logger.debug(f"Parser results JSON:\n{parsed_results_json}")
         
         shutil.rmtree(".tmp") # removing all downloaded files
         return parsed_results_json
