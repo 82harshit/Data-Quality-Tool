@@ -91,14 +91,14 @@ class SodaParser:
             column_name = match.group(1)  # Extract column name
             cleaned_name = re.sub(r'[^a-zA-Z0-9_]', '', column_name.replace(' ', '_'))
             cleaned_name = cleaned_name.lower()
-            return f"'{cleaned_name}'"
+            return cleaned_name
         
         # Regex pattern to find column names inside {{<column name>}}
         pattern = r"\{\{(.*?)\}\}"
         
         # Replace matches using clean_column_name function
         sanitized_query = re.sub(pattern, clean_column_name, query)
-        print(f"Sanitized query: {sanitized_query}")
+        dqt_logger.debug(f"Sanitized query: {sanitized_query}")
         return sanitized_query
     
     def __create_user_defined_checks(self, expectation_type: str, kwargs: dict, datasource_name: str) -> dict:
@@ -295,7 +295,7 @@ class SodaParser:
                     check_value = match.group(3) # Third group: full check value
 
                     if status == 'None':
-                        status = "No data found that statisfies valid_query"
+                        status = "No data found that statisfies the provided query or expression"
 
                     result = {
                         "check_name": check_name,
@@ -315,7 +315,7 @@ class SodaParser:
                         metadata_raw = match.group(3)  # Metadata as raw string
                         
                         if status == 'None':
-                            status = "No data found that statisfies valid_query"
+                            status = "No data found that statisfies the provided query or expression"
                         
                         result = {
                             "check_name": check_name,
