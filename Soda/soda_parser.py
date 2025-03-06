@@ -150,7 +150,8 @@ class SodaParser:
                 warning_msg = "Query name not provided"
                 dqt_logger.warning(warning_msg)
                 raise Warning(warning_msg)
-            query_name = query_name.replace(" ", "_") # replacing spaces with '_'
+            query_name = re.sub(r'[^a-zA-Z0-9_]', '', query_name.replace(" ", "_"))
+            query_name = query_name.lower()
         
             threshold_condition = kwargs.get("condition", "") # threshold value with condition, e.g.: > 0, = 5, between 4 and 10
             if not threshold_condition:
