@@ -77,7 +77,7 @@ class SodaParser:
         """
         match = re.match(filename_regex, filename)
         if match:
-            country_code = match.group(1)
+            matched_component = match.group(1)
         else:
             warning_msg = f"Could not extract match component from filename {filename} for check: filename_match_with_column"
             dqt_logger.warning(warning_msg)
@@ -85,7 +85,7 @@ class SodaParser:
         
         check = {
             f"invalid_count({column}) {condition}": {
-                "valid regex": country_code        
+                "valid regex": matched_component        
             }
         }
         
