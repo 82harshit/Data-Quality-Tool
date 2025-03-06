@@ -60,7 +60,37 @@ class SodaParser:
             if percentile:
                 return f"{expectation_type}({column}, {percentile}) {condition}"
             return f"{expectation_type}({column}) {condition}"
+    
+    @staticmethod
+    def __filename_match_with_column(filename: str, filename_regex: str, column: str, condition: str) -> str:
+        """Extracts the component from the provided filename using the filename_regex.
+        A Soda check of `invalid_count` is generated using these params.
+
+        :param filename (str): The name of the file that needs to be matched with
+        :param filename_regex (str): The regex pattern to extract the component which needs to be matched from the filename
+        :param column (str): The column on which check needs to be applied
+        :param condition (str): The condition for Soda `invalid_count` check
+
+        :raise Warning: If the match component cannnot be extracted from the filename using the filename_regex
+
+        :returns str: Soda formatted check of `invalid_count`
+        """
+        match = re.match(filename_regex, filename)
+        if match:
+            country_code = match.group(1)
+        else:
+            warning_msg = f"Could not extract match component from filename {filename} for check: filename_match_with_column"
+            dqt_logger.warning(warning_msg)
+            raise Warning(warning_msg)
         
+        check = {
+            f"invalid_count({column}) {condition}": {
+                "valid regex": country_code        
+            }
+        }
+        
+        return check
+    
     @staticmethod
     def __check_filename_match(filename: str, filename_regex: str):
         """Performs a regex match of the filename with the provided filename regex.
@@ -205,6 +235,14 @@ class SodaParser:
                     file_name = kwargs.get("file_name", "")
                     file_name_regex = kwargs.get("regex", "")
                     self.__check_filename_match(filename=file_name, filename_regex=file_name_regex)
+                elif expectation_type == "file_name_match_with_column":
+                    file_name = kwargs.get("file_name", "")
+                    file_name_regex = kwargs.get("file_regex", "")
+                    condition = kwargs.get("condition", "")
+                    column = kwargs.get("column", "")
+                    file_name_match_with_column_check = self.__filename_match_with_column(filename=file_name, filename_regex=file_name_regex, 
+                                                                                          column=column, condition=condition)
+                    checks.append(file_name_match_with_column_check)
                 elif expectation_type == "schema": # schema checks: https://docs.soda.io/soda-cl/schema.html#schema-checks
                     if kwargs:
                         status = kwargs.get("status", "")

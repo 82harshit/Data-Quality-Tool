@@ -301,7 +301,7 @@ class SodaModel:
             Verifies if the file at the provided filepath is a valid CSV file.
             """
             try:
-                with open(file_path, 'r') as file:
+                with open(file_path, 'r', encoding='utf-8') as file:
                     reader = csv.reader(file)
                     for _ in reader:  # Attempt to read rows
                         pass
@@ -333,7 +333,7 @@ class SodaModel:
             except Exception as e:
                 raise Exception(f"Invalid Excel file: {e}")
         
-        async def __get_file_path(self):
+        async def __get_file_path(self) -> str:
             """Checks if a file is present locally on the provided path, otherwise established an SFTP connection to the server, 
             downloads the required file and saves it locally in .tmp folder.
             This .tmp folder is created and then deleted after the valdation is completed.
@@ -342,8 +342,7 @@ class SodaModel:
                 fnf_error: File not found error when the expected file is not present on server or at the given path
                 e: Raises exceptions that are encountered while downloading the file
 
-            Returns:
-                None
+            :return str: File path where the downloaded file was stored
             """
             try:
                 file_path = posixpath.join(self.dir_path, self.file_name)
