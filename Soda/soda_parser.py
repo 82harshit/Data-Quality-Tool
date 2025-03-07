@@ -6,7 +6,7 @@ from request_models import connection_enum_and_metadata as conn_enum, job_model
 from logging_config import dqt_logger
 from job_state_singleton import JobStateSingleton
 from database.db_models.job_run_status import JobRunStatusEnum
-
+from .sql_keywords import SQL_KEYWORDS
 
 class SodaParser:
     def __remove_empty_dicts(self, data):
@@ -119,6 +119,8 @@ class SodaParser:
         """
         def clean_column_name(match):
             column_name = match.group(1)  # Extract column name
+            if column_name.upper() in SQL_KEYWORDS: # check if column name is a reserved SQL keyword
+                return f"'{column_name}'"
             cleaned_name = re.sub(r'[^a-zA-Z0-9_]', '', column_name.replace(' ', '_'))
             cleaned_name = cleaned_name.lower()
             return cleaned_name
@@ -152,6 +154,8 @@ class SodaParser:
                 raise Warning(warning_msg)
             query_name = re.sub(r'[^a-zA-Z0-9_]', '', query_name.replace(" ", "_"))
             query_name = query_name.lower()
+        
+            dqt_logger.debug(f"Preprocessed query name: {query_name}")
         
             threshold_condition = kwargs.get("condition", "") # threshold value with condition, e.g.: > 0, = 5, between 4 and 10
             if not threshold_condition:

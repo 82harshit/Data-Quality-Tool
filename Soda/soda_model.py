@@ -474,6 +474,7 @@ def __run_quality_checks(datasource_type: str,
                             .str.replace(r'[^a-zA-Z0-9_]', '', regex=True) # Remove special characters
                             .str.lower() # Convert to lowercase
                 )
+                dqt_logger.debug(f"File dataframe column names: {file_dataframe.columns}")
                 # removing all special characters
                 datasource_name = re.sub(r'[^a-zA-Z0-9_]', '', datasource_name)
                 # replacing spaces with '_'
