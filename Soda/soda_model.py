@@ -3,6 +3,7 @@ import dask
 import dask.dataframe as dd
 import dask.bag as db
 from dask.delayed import delayed
+from io import StringIO
 import pandas as pd
 import pyorc
 from fastavro import reader
@@ -11,8 +12,11 @@ from openpyxl import load_workbook
 import asyncio
 import nest_asyncio
 import asyncssh
-from soda.scan import Scan
 import posixpath
+
+from soda.scan import Scan
+from soda.sampler.sampler import Sampler
+from soda.sampler.sample_context import SampleContext
 
 import yaml
 import re
@@ -31,6 +35,7 @@ from Soda.soda_parser import SodaParser
 
 nest_asyncio.apply()
 TEMP_DIR = ".tmp"
+FAILED_VALUES = "failed_values"
 
 
 class SodaModel:
@@ -39,7 +44,28 @@ class SodaModel:
         Creates a new Soda scan object
         """
         self.scan = Scan()
-        
+    
+    class CustomSampler(Sampler):
+        def store_sample(self, sample_context: SampleContext):
+            rows = sample_context.sample.get_rows()
+            json_data = json.dumps(rows) # Convert failed rows to JSON
+            json_data_io = StringIO(json_data) # Use StringIO to wrap the JSON string
+            exceptions_df = pd.read_json(json_data_io) # create dataframe with failed rows
+            # Define exceptions dataframe
+            exceptions_schema = sample_context.sample.get_schema().get_dict()
+            exception_df_schema = []
+            for n in exceptions_schema:
+                exception_df_schema.append(n["name"])
+            exceptions_df.columns = exception_df_schema
+            check_name = sample_context.check_name
+            exceptions_df['failed_check'] = check_name
+            exceptions_df['created_at'] = datetime.now()
+            # Ensure the "failed_values" directory exists
+            os.makedirs(FAILED_VALUES, exist_ok=True)
+            # Save the dataframe as a CSV file in the "failed_values" folder
+            file_path = os.path.join(FAILED_VALUES, f"{check_name}.csv")
+            exceptions_df.to_csv(file_path, sep=",", index=False, encoding="utf-8")
+                
     class SodaSQLDatasource:
         def __init__(self, 
                      datasource_type: str, 
@@ -503,6 +529,7 @@ def __run_quality_checks(datasource_type: str,
         
         soda.scan.set_data_source_name(data_source_name=datasource_name)
         soda.scan.add_sodacl_yaml_str(checks)
+        soda.scan.sampler = soda.CustomSampler() # custom sampler to save the failed expectations
         soda.scan.execute()
         validation_results = soda.scan.get_all_checks_text()
         dqt_logger.debug(f"Validation results:\n{validation_results}")

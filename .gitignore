@@ -20,3 +20,4 @@ test_connection.py
 dashboard
 .soda_venv
 .ge_venv
+failed_values
