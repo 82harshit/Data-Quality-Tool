@@ -35,7 +35,7 @@ from Soda.soda_parser import SodaParser
 
 nest_asyncio.apply()
 TEMP_DIR = ".tmp"
-FAILED_VALUES = "failed_values"
+FAILED_CHECKS = "failed_checks"
 
 
 class SodaModel:
@@ -64,9 +64,9 @@ class SodaModel:
             exceptions_df['failed_check'] = check_name
             exceptions_df['created_at'] = datetime.now()
             # Ensure the "failed_values" directory exists
-            os.makedirs(FAILED_VALUES, exist_ok=True)
+            os.makedirs(FAILED_CHECKS, exist_ok=True)
             # Save the dataframe as a CSV file in the "failed_values" folder
-            file_path = os.path.join(FAILED_VALUES, f"{check_name}.csv")
+            file_path = os.path.join(FAILED_CHECKS, f"{check_name}.csv")
             exceptions_df.to_csv(file_path, sep=",", index=False, encoding="utf-8")
                 
     class SodaSQLDatasource:

@@ -179,11 +179,15 @@ class SodaParser:
                 dqt_logger.warning(warning_msg)
                 raise Warning(warning_msg)
             valid_query = self.__sanitize_sql_query(query=valid_query)
+            
+            failed_rows_query = kwargs.get("failed rows query", "")
+            failed_rows_query = self.__sanitize_sql_query(query=failed_rows_query)
         
-            other_kwargs = {key:value for key, value in kwargs.items() if key not in ["query_name", "valid_query", "condition"]} 
+            other_kwargs = {key:value for key, value in kwargs.items() if key not in ["query_name", "valid_query", "condition", "failed rows query"]} 
             check = {
                 f"{query_name} {threshold_condition}": {
                     f"{query_name} query": valid_query,
+                    "failed rows query": failed_rows_query,
                     **other_kwargs
                 }
             }
@@ -294,6 +298,7 @@ class SodaParser:
                                                                     )
                             other_kwargs = {key:value for key, value in kwargs.items() if key not in ["column", "condition"]}
                             other_kwargs = self.__remove_empty_dicts(other_kwargs)
+                            # Docs for samples limit: https://docs.soda.io/soda-cl/failed-row-samples.html#configure-a-python-custom-sampler
                             other_kwargs["samples limit"] = sys.maxsize
                             if other_kwargs:
                                 checks.append({check: other_kwargs})
