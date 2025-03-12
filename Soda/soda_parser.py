@@ -1,6 +1,7 @@
 from typing import Optional, List
 import yaml
 import re
+import sys
 
 from request_models import connection_enum_and_metadata as conn_enum, job_model
 from logging_config import dqt_logger
@@ -293,6 +294,7 @@ class SodaParser:
                                                                     )
                             other_kwargs = {key:value for key, value in kwargs.items() if key not in ["column", "condition"]}
                             other_kwargs = self.__remove_empty_dicts(other_kwargs)
+                            other_kwargs["samples limit"] = sys.maxsize
                             if other_kwargs:
                                 checks.append({check: other_kwargs})
                             else:

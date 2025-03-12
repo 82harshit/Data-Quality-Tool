@@ -43,9 +43,12 @@ class SodaModel:
         """
         Creates a new Soda scan object
         """
-        self.scan = Scan()
-    
+        self.scan = Scan()    
+        
     class CustomSampler(Sampler):
+        """Custom sampler class for Soda which collects failed rows from a dataset and stores them as a CSV file in `failed_values` dir.
+        Docs: https://docs.soda.io/soda/route-failed-rows.html
+        """
         def store_sample(self, sample_context: SampleContext):
             rows = sample_context.sample.get_rows()
             json_data = json.dumps(rows) # Convert failed rows to JSON
@@ -320,8 +323,8 @@ class SodaModel:
                 return True
             except (ValueError, IOError) as e:
                 raise Exception(f"Invalid Parquet file: {e}")
-            
-        @staticmethod    
+              
+        @staticmethod
         def __is_valid_csv(file_path: str):
             """
             Verifies if the file at the provided filepath is a valid CSV file.
@@ -529,7 +532,7 @@ def __run_quality_checks(datasource_type: str,
         
         soda.scan.set_data_source_name(data_source_name=datasource_name)
         soda.scan.add_sodacl_yaml_str(checks)
-        soda.scan.sampler = soda.CustomSampler() # custom sampler to save the failed expectations
+        soda.scan.sampler = soda.CustomSampler() # custom sampler to save failed expectations
         soda.scan.execute()
         validation_results = soda.scan.get_all_checks_text()
         dqt_logger.debug(f"Validation results:\n{validation_results}")
