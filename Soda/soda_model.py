@@ -528,16 +528,17 @@ def __run_quality_checks(datasource_type: str,
             db_config = datasource.get_database_config()
             soda.scan.add_configuration_yaml_str(db_config)
         
+        # creating YAML check string for scan
         checks = soda_parser.create_checks(datasource_type=datasource_type, datasource_name=datasource_name, quality_checks=quality_checks)
         
-        soda.scan.set_data_source_name(data_source_name=datasource_name)
-        soda.scan.add_sodacl_yaml_str(checks)
+        soda.scan.set_data_source_name(data_source_name=datasource_name) # initializing scan datasource name
+        soda.scan.add_sodacl_yaml_str(checks) # adding Soda checks as a YAML string to scan object
         soda.scan.sampler = soda.CustomSampler() # custom sampler to save failed expectations
-        soda.scan.execute()
+        soda.scan.execute() # executing scan
         validation_results = soda.scan.get_all_checks_text()
         dqt_logger.debug(f"Validation results:\n{validation_results}")
         
-        parsed_results = soda_parser.parse_validation_result(validation_results)
+        parsed_results = soda_parser.parse_validation_result(validation_results) # parsing validated result
         dqt_logger.debug(f"Parsed results:\n{parsed_results}")
         parsed_results = CheckResults(results=parsed_results)
         dqt_logger.debug(f"Check results:\n{parsed_results}")

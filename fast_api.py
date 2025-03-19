@@ -156,6 +156,13 @@ async def submit_job(job: job_model.SubmitJob = Body(..., examples=[{
     "table_name": "sample_table",
     "schema_name": "sample_schema"
   },
+  "quality_checks_file": {
+      "file_path": "sample_file_path",
+      "client_name": "jato",
+      "master_column": "column_1",
+      "slave_columns": ["column_2", "column_4"],
+      "sheet_name": "sheet_3"
+  },
   "quality_checks": [
         {
             "expectation_type": "row_count",

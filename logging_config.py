@@ -15,7 +15,7 @@ logging_config = {
     'disable_existing_loggers': False,
     'formatters': {
         'simpleFormatter': {
-            'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            'format': '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(lineno)d - %(message)s',
         },
     },
     'handlers': {

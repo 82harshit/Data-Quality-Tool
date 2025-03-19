@@ -1,4 +1,5 @@
-from typing import Optional, List
+from typing import Optional, List, Union
+from pydantic import BaseModel
 import yaml
 import re
 import sys
@@ -216,7 +217,7 @@ class SodaParser:
         
         return check
 
-    def create_checks(self, datasource_type: str, datasource_name: str, quality_checks: List[job_model.QualityChecks]) -> yaml:
+    def create_checks(self, datasource_type: str, datasource_name: str, quality_checks: List[Union[job_model.QualityChecks, dict]]) -> yaml:
         """
         Parses the quality checks JSON to a YAML format as required by the Soda library.
         
@@ -230,7 +231,11 @@ class SodaParser:
             dqt_logger.error(error_msg)
             raise Exception(error_msg)
         
-        quality_checks_list = [check.model_dump() for check in quality_checks]
+        quality_checks_list = [
+            check.model_dump() if isinstance(check, BaseModel) else check
+            for check in quality_checks
+        ] # does a model_dump() if a check is a pydantic model otherwise appends it without modification if its a dictionary
+            
         checks = []
 
         try:

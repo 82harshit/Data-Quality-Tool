@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 
+from custom import jato
 from database import sql_queries as query_template
 from database.database_connection import get_connection_object_for_db
 from database.db_models.sql_query import SQLQuery
@@ -270,8 +271,8 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
                 datasource_type=user_conn_creds.get('source_type'),
                 schema_name=schema_name
             )
-        except Exception as ge_exception:
-            error_msg = f"An error occurred while validating data for database {database}: {str(ge_exception)}"
+        except Exception as e:
+            error_msg = f"An error occurred while validating data for database {database}: {str(e)}"
             dqt_logger.error(error_msg)
             JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
                                                      status_message=error_msg)
@@ -306,8 +307,8 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
                 username=user_conn_creds.get('username'),
                 password=user_conn_creds.get('password')
             )
-        except Exception as ge_exception:
-            error_msg = f"An error occurred while validating data for file {file_name}: {str(ge_exception)}"
+        except Exception as e:
+            error_msg = f"An error occurred while validating data for file {file_name}: {str(e)}"
             dqt_logger.error(error_msg)
             JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR,
                                                      status_message=error_msg)
@@ -346,6 +347,29 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
         dqt_logger.debug(f"User connection creds retrieved: {user_conn_creds}")
 
         datasource_type = user_conn_creds.get('source_type')
+        
+        try:
+            # adding client specific custom checks (if any)
+            custom_checks = job.quality_checks_file
+            if custom_checks:
+                client = custom_checks.client_name
+                if client.lower() == 'jato':
+                    custom_check_json = jato.Jato().create_checks_from_file(file_path=custom_checks.file_path, 
+                                                            master_column=custom_checks.master_column, 
+                                                            slave_columns=custom_checks.slave_columns, 
+                                                            sheet_name=custom_checks.sheet_name if custom_checks.sheet_name else None
+                                                            )
+                    if custom_check_json:
+                        quality_checks += custom_check_json # appending custom checks
+                        dqt_logger.debug(f"After adding custom checks: {quality_checks}")
+                    else:
+                        info_msg = "No custom checks generated"
+                        dqt_logger.info(info_msg)
+                else:
+                    error_msg = f"Unknown client {client} provided, DQT does not contain custom checks defined for client {client}"
+                    dqt_logger.error(error_msg)
+        except Exception as custom_check_exception:
+            raise custom_check_exception
          
         if datasource_type in conn_enum.Database_Datasource_Enum.__members__.values():
             return await self.__handle_database_validation(job=job, 
