@@ -356,8 +356,8 @@ async def submit_job(job: job_model.SubmitJob = Body(..., examples=[{
         JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg)
         raise HTTPException(status_code=400, detail={"error": error_msg})
 
-    if not job.quality_checks:
-        error_msg = "Incorrect JSON provided, missing quality checks"
+    if not job.quality_checks and not job.quality_checks_file:
+        error_msg = "Incorrect JSON provided, missing quality_checks or quality_checks_file or both."
         dqt_logger.error(error_msg)
         JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, status_message=error_msg) 
         raise HTTPException(status_code=400, detail={"error": error_msg})
@@ -369,7 +369,7 @@ async def submit_job(job: job_model.SubmitJob = Body(..., examples=[{
       validation_results = await validation_api.validation_check_request(job=job)
       dqt_logger.debug(f"Validation results:\n{validation_results}")
     except Exception as validation_check_error:
-      error_msg = f"An error occurred while validating data.\nError:{str(validation_check_error)}"
+      error_msg = f"An error occurred while validating data.\nError: {str(validation_check_error)}"
       dqt_logger.error(error_msg)
       JobStateSingleton.update_state_of_job_id(job_status=JobRunStatusEnum.ERROR, 
                                                status_message="An error occurred while validating data.")

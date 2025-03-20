@@ -83,7 +83,7 @@ class Jato:
         
         for _, row in df.iterrows():
             for column in slave_columns:
-                if row[column] == "Y":
+                if row[column] in ["Y", "y", "yes", "Yes", "YES"]:
                     master_col_value = row[master_column].lower() if isinstance(row[master_column], str) else row[master_column]
                     valid_query = f"SELECT COUNT(*) FROM [dataset_name] WHERE LOWER({{{{ {master_column} }}}}) LIKE '%{master_col_value}%' AND (LOWER({{{{ {column} }}}}) IS NOT NULL OR LOWER({{{{ {column} }}}}) != '');"
                     failed_rows_query = f"SELECT COUNT(*) FROM [dataset_name] WHERE LOWER({{{{ {master_column} }}}}) NOT LIKE '%{master_col_value}%' AND (LOWER({{{{ {column} }}}}) IS NULL OR LOWER({{{{ {column}}}}}) = '');"
@@ -100,7 +100,7 @@ class Jato:
                         }
                     }
                
-                elif row[column] == "N":
+                elif row[column] in ["N", "n", "no", "No", "NO"]:
                     master_col_value = row[master_column].lower() if isinstance(row[master_column], str) else row[master_column]
                     valid_query = f"SELECT COUNT(*) FROM [dataset_name] WHERE LOWER({{{{ {master_column} }}}}) LIKE '%{master_col_value}%' AND (LOWER({{{{ {column} }}}}) IS NULL OR LOWER({{{{ {column} }}}}) = '');"
                     failed_rows_query = f"SELECT COUNT(*) FROM [dataset_name] WHERE LOWER({{{{ {master_column} }}}}) LIKE '%{master_col_value}%' AND (LOWER({{{{ {column} }}}}) IS NOT NULL OR LOWER({{{{ {column} }}}}) != '');"
