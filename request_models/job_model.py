@@ -69,7 +69,7 @@ class QualityChecks(BaseModel):
 
 class QualityChecksFile(BaseModel):
     file_path: str = Field(str, description="The path of the file that contains the defined quality checks", min_length=5)
-    master_column: str = Field(str, description="The name of the column which is referred to", min_length=2)
+    master_columns: List[str] = Field(List[str], description="The name of the columns which are being referred to", min_length=1)
     slave_columns: List[str] = Field(List[str], description="The list of columns that contain the conditions which need to be validated", min_length=1) 
     sheet_name: Optional[str] = Field(str, description="The name of the sheet which contains the expectation rules", min_length=5)
     client_name: str = Field(str, description="The name of the client for which the custom checks are written", min_length=2)
@@ -82,7 +82,7 @@ class QualityChecksFile(BaseModel):
             raise ValueError(error_msg)
         
         file_path = values.get('file_path')
-        master_column = values.get('master_column')
+        master_column = values.get('master_columns')
         slave_columns = values.get('slave_columns')
         client_name = values.get('client_name')
         
@@ -92,7 +92,7 @@ class QualityChecksFile(BaseModel):
             raise ValueError(error_msg)
         
         if not master_column:
-            error_msg = "Master column must be provided"
+            error_msg = "Master columns must be provided"
             dqt_logger.error(error_msg)
             raise ValueError(error_msg)
         

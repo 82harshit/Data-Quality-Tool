@@ -21,4 +21,4 @@ dashboard
 .soda_venv
 .ge_venv
 failed_checks
-jato.json
+jato*.json

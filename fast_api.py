@@ -159,7 +159,7 @@ async def submit_job(job: job_model.SubmitJob = Body(..., examples=[{
   "quality_checks_file": {
       "file_path": "sample_file_path",
       "client_name": "jato",
-      "master_column": "column_1",
+      "master_columns": ["column_1", "column_3"],
       "slave_columns": ["column_2", "column_4"],
       "sheet_name": "sheet_3"
   },

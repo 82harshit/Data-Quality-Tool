@@ -353,7 +353,7 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
             client = custom_checks.client_name
             if client.lower() == 'jato':
                 custom_check_json = jato.Jato().create_checks_from_file(file_path=custom_checks.file_path, 
-                                                        master_column=custom_checks.master_column, 
+                                                        master_columns=custom_checks.master_columns, 
                                                         slave_columns=custom_checks.slave_columns, 
                                                         sheet_name=custom_checks.sheet_name if custom_checks.sheet_name else None
                                                         )
@@ -366,7 +366,7 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
             else:
                 error_msg = f"Unknown client {client} provided, DQT does not contain custom checks defined for client {client}"
                 dqt_logger.error(error_msg)
-         
+                
         if datasource_type in conn_enum.Database_Datasource_Enum.__members__.values():
             return await self.__handle_database_validation(job=job, 
                                                            user_conn_creds=user_conn_creds, 

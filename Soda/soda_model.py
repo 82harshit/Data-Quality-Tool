@@ -66,7 +66,7 @@ class SodaModel:
             # Ensure the "failed_values" directory exists
             os.makedirs(FAILED_CHECKS, exist_ok=True)
             # Save the dataframe as a CSV file in the "failed_values" folder
-            file_path = os.path.join(FAILED_CHECKS, f"{check_name}.csv")
+            file_path = os.path.join(FAILED_CHECKS, f"{check_name}_{datetime.now().strftime('%d-%m-%y_%H-%M-%S')}.csv")
             exceptions_df.to_csv(file_path, sep=",", index=False, encoding="utf-8")
                 
     class SodaSQLDatasource:
@@ -527,7 +527,7 @@ def __run_quality_checks(datasource_type: str,
                                                 )
             db_config = datasource.get_database_config()
             soda.scan.add_configuration_yaml_str(db_config)
-        
+            
         # creating YAML check string for scan
         checks = soda_parser.create_checks(datasource_type=datasource_type, datasource_name=datasource_name, quality_checks=quality_checks)
         
