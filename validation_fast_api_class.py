@@ -348,21 +348,16 @@ class ValidationFastAPI(validation_api_interface.ValidationAPIInterface):
         datasource_type = user_conn_creds.get('source_type')
     
         # adding client specific custom checks (if any)
-        custom_checks = job.quality_checks_file
-        if custom_checks:
-            client = custom_checks.client_name
+        for custom_check in job.quality_checks_file:
+            client = custom_check.client_name
             if client.lower() == 'jato':
-                custom_check_json = jato.Jato().create_checks_from_file(file_path=custom_checks.file_path, 
-                                                        master_columns=custom_checks.master_columns, 
-                                                        slave_columns=custom_checks.slave_columns, 
-                                                        sheet_name=custom_checks.sheet_name if custom_checks.sheet_name else None
-                                                        )
+                custom_check_json = jato.Jato().create_checks_from_file(quality_checks_file=custom_check)
                 if custom_check_json:
                     quality_checks += custom_check_json # appending custom checks
                     dqt_logger.debug(f"After adding custom checks: {quality_checks}")
                 else:
-                    info_msg = "No custom checks generated"
-                    dqt_logger.info(info_msg)
+                    warning_msg = "No custom checks generated"
+                    dqt_logger.warning(warning_msg)
             else:
                 error_msg = f"Unknown client {client} provided, DQT does not contain custom checks defined for client {client}"
                 dqt_logger.error(error_msg)

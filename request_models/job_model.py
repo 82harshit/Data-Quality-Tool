@@ -113,5 +113,5 @@ class SubmitJob(BaseModel):
                                  min_length=36)
     data_source: DataSource
     quality_checks: Optional[List[QualityChecks]] = []
-    quality_checks_file: Optional[QualityChecksFile] = None
+    quality_checks_file: Optional[List[QualityChecksFile]] = []
     metadata: conn_enum.Metadata

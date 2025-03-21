@@ -25,6 +25,7 @@ import os
 from typing import List, Dict, Union
 from datetime import datetime
 import shutil
+import sys
 
 from database.db_models.job_run_status import JobRunStatusEnum
 from job_state_singleton import JobStateSingleton
@@ -44,12 +45,25 @@ class SodaModel:
         Creates a new Soda scan object
         """
         self.scan = Scan()    
+        # Samples limit docs: https://docs.soda.io/soda-cl/failed-row-samples.html#customize-failed-row-samples-for-datasets-and-columns
+        self.scan._configuration.samples_limit = sys.maxsize
         
     class CustomSampler(Sampler):
-        """Custom sampler class for Soda which collects failed rows from a dataset and stores them as a CSV file in `failed_values` dir.
+        """Custom sampler class for Soda which collects failed rows from a dataset after validation 
+        and stores them as a CSV file in `failed_checks` dir.
         Docs: https://docs.soda.io/soda/route-failed-rows.html
         """
         def store_sample(self, sample_context: SampleContext):
+            checks_name_mapping = {
+                ">": "greater_than",
+                "<": "less_than",
+                ">=": "greater_than_or_equal_to",
+                "<=": "less_than_or_equal_to",
+                "==": "equal_to",
+                "!=": "not_equal_to",
+                "<>": "not_equal_to",
+                "=": "equal_to"
+            }
             rows = sample_context.sample.get_rows()
             json_data = json.dumps(rows) # Convert failed rows to JSON
             json_data_io = StringIO(json_data) # Use StringIO to wrap the JSON string
@@ -65,7 +79,11 @@ class SodaModel:
             exceptions_df['created_at'] = datetime.now()
             # Ensure the "failed_values" directory exists
             os.makedirs(FAILED_CHECKS, exist_ok=True)
-            # Save the dataframe as a CSV file in the "failed_values" folder
+            # Save the dataframe as a CSV file in the "failed_checks" folder
+            # preprocessing check name for saving as CSV file
+            check_name = check_name.replace(" ", "_")
+            pattern = r"(>=|<=|==|!=|<>|>|<|=)" # regex pattern to match special characters in check names (these special chars lead to file naming issues)
+            check_name = re.sub(pattern, lambda m: checks_name_mapping[m.group()], check_name)
             file_path = os.path.join(FAILED_CHECKS, f"{check_name}_{datetime.now().strftime('%d-%m-%y_%H-%M-%S')}.csv")
             exceptions_df.to_csv(file_path, sep=",", index=False, encoding="utf-8")
                 
@@ -495,6 +513,7 @@ def __run_quality_checks(datasource_type: str,
                                                 datasource_type=datasource_type)
             file_dataframe = datasource.get_dataframe()
             dqt_logger.debug(f"Loaded file as dataframe: {file_dataframe}")
+            
             # preprocessing dataframe
             try:
                 file_dataframe.columns = (
@@ -513,6 +532,7 @@ def __run_quality_checks(datasource_type: str,
                 dqt_logger.error(error_msg)
                 raise Exception(error_msg)
             
+            dqt_logger.debug(f"Preprocessed dataframe: {file_dataframe}")
             soda.scan.add_dask_dataframe(dask_df=file_dataframe, dataset_name=datasource_name, data_source_name=datasource_name)
             
         else:

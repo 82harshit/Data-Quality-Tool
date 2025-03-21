@@ -119,8 +119,13 @@ class SodaParser:
             
             :return sanitized_query (str): Cleaned query
         """
+        if query is None or query == '':
+            warning_msg = "Query provided to sanitize is empty"
+            dqt_logger.warning(warning_msg)
+            raise Warning(warning_msg)
+        
         def clean_column_name(match):
-            column_name = match.group(1)  # Extract column name
+            column_name = match.group(1).strip()  # Extract column name
             if column_name.upper() in SQL_KEYWORDS: # check if column name is a reserved SQL keyword
                 return f"'{column_name}'"
             cleaned_name = re.sub(r'[^a-zA-Z0-9_]', '', column_name.replace(' ', '_'))
@@ -132,6 +137,7 @@ class SodaParser:
         
         # Replace matches using clean_column_name function
         sanitized_query = re.sub(pattern, clean_column_name, query)
+        sanitized_query = sanitized_query.strip().replace("\n", "").replace("\t", "")
         dqt_logger.debug(f"Sanitized query: {sanitized_query}")
         return sanitized_query
     
@@ -154,9 +160,10 @@ class SodaParser:
                 warning_msg = "Query name not provided"
                 dqt_logger.warning(warning_msg)
                 raise Warning(warning_msg)
+            
+            # preprocessing query name
             query_name = re.sub(r'[^a-zA-Z0-9_]', '', query_name.replace(" ", "_"))
             query_name = query_name.lower()
-        
             dqt_logger.debug(f"Preprocessed query name: {query_name}")
         
             threshold_condition = kwargs.get("condition", "") # threshold value with condition, e.g.: > 0, = 5, between 4 and 10
@@ -182,7 +189,8 @@ class SodaParser:
             valid_query = self.__sanitize_sql_query(query=valid_query)
             
             failed_rows_query = kwargs.get("failed rows query", "")
-            failed_rows_query = self.__sanitize_sql_query(query=failed_rows_query)
+            if failed_rows_query:
+                failed_rows_query = self.__sanitize_sql_query(query=failed_rows_query)
         
             other_kwargs = {key:value for key, value in kwargs.items() if key not in ["query_name", "valid_query", "condition", "failed rows query"]} 
             check = {
@@ -192,6 +200,7 @@ class SodaParser:
                     **other_kwargs
                 }
             }
+            dqt_logger.info(f"Generated user defined query check: {check}")
         # Generates check for type: https://docs.soda.io/soda-cl/user-defined.html#example-with-alert-configuration
         elif expectation_type == "user_defined_expression": # TODO: test for user-defined expressions    
             expression_name = kwargs.get("expression_name", "")
