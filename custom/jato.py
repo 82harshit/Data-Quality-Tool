@@ -83,6 +83,7 @@ class Jato:
             "Product Description 3": "product_description",
             "Product Description 4": "product_description",
             "Other mandatory costs Value on Website 1": "other_mandatory_costs",
+            "Other mandatory costs Value on Website 2": "other_mandatory_costs",
             "Yearly Mileage (miles)": "yearly_mileage_miles",
             "Yearly Mileage (km)": "yearly_mileage_km",
             "Total Contract Mileage (miles)": "total_contract_mileage_miles",
@@ -90,56 +91,231 @@ class Jato:
             "Product description": "product_description"
         }
         
-        # for _, row in dataframe.iterrows():
-        #     # for column in slave_columns:
-        #     valid_query = f"""
-        #     SELECT COUNT(*), 
-        #     CASE 
-        #         WHEN LOWER({{{{ {product_description_column_mapping[master_columns[0]]} }}}}) LIKE '%{row[master_columns[0]].lower()}%' 
-        #         AND LOWER({{{{ {product_description_column_mapping[master_columns[1]]} }}}}) LIKE '%{row[master_columns[1]].lower()}%' 
-        #     THEN 1 ELSE 0 END,
-        #     CASE
-        #         WHEN {{{{ {product_description_column_mapping[master_columns[2]]} }}}} IS NOT NULL THEN 
-        #             CASE
-        #                 WHEN {{{{ {product_description_column_mapping[slave_columns[0]]} }}}} IS NOT NULL THEN 1
-        #                 ELSE 0
-        #             END
-        #         WHEN {{{{ {product_description_column_mapping[master_columns[3]]} }}}} IS NULL THEN
-        #             CASE
-        #                 WHEN {{{{ {product_description_column_mapping[slave_columns[1]]} }}}} IS NULL THEN 1
-        #                 ELSE 0
-        #             END
-        #         WHEN {{{{ {product_description_column_mapping[master_columns[2]]} }}}} IS NOT NULL AND {{{{ {product_description_column_mapping[master_columns[3]]} }}}} IN NOT NULL THEN
-        #             CASE
-        #                 WHEN {{{{ {product_description_column_mapping[slave_columns[0]]} }}}} LIKE '%|%' THEN 1
-        #                 ELSE 0
-        #             END 
-        #         WHEN {{{{ {product_description_column_mapping[master_columns[2]]} }}}} IS NULL AND {{{{ {product_description_column_mapping[master_columns[3]]} }}}} IN NULL THEN
-        #             CASE
-        #                 WHEN {{{{ {product_description_column_mapping[slave_columns[0]]} }}}} IS NULL THEN 1
-        #                 ELSE 0
-        #             END
-        #     END
-        #     FROM [dataset_name];
-        #     """
-               
-        #     valid_query = self.__sanitize_sql_query(query=valid_query)
+        for _, row in dataframe.iterrows():
+            # valid_query = f"""
+            # SELECT
+            # COUNT(
+            #     CASE
+            #         WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+            #         AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+            #         AND {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}} IS NOT NULL
+            #         AND {{{{ {product_description_column_mapping["Product Description 1"]} }}}} LIKE '%{row["Product Description 1"]}%'
+            #         THEN 1
+            #         ELSE NULL
+            #     END
+            # ) AS prod_desc_1_is_present_when_additional_fees_is_present,
+            # COUNT(
+            #     CASE
+            #         WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+            #         AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+            #         AND {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}} IS NOT NULL
+            #         AND {{{{ {product_description_column_mapping["Product Description 2"]} }}}} LIKE '%{row["Product Description 2"]}%'
+            #         THEN 1
+            #         ELSE NULL
+            #     END
+            # ) AS prod_desc_2_is_present_when_other_mandatory_cost_is_present,
+            # COUNT(
+            #     CASE
+            #         WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+            #         AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+            #         AND {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 2"]} }}}} IS NOT NULL
+            #         AND {{{{ {product_description_column_mapping["Product Description 3"]} }}}} LIKE '%{row["Product Description 3"]}%'
+            #         THEN 1
+            #         ELSE NULL
+            #     END
+            # ) AS prod_desc_3_is_present_when_other_mandatory_cost_is_present,
+            # COUNT(
+            #     CASE
+            #         WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+            #         AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+            #         AND {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}} IS NOT NULL
+            #         AND {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}} IS NOT NULL
+            #         AND {{{{ {product_description_column_mapping["Product description"]} }}}} LIKE '%|%'
+            #         THEN 1
+            #         ELSE NULL
+            #     END
+            # ) AS both_additional_fees_and_other_mandatory_costs_are_present
+            # FROM [dataset_name]
+            # GROUP BY
+            # {{{{ {product_description_column_mapping["Make"]} }}}},
+            # {{{{ {product_description_column_mapping["Region"]} }}}},
+            # {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}},
+            # {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}},
+            # {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 2"]} }}}}
+            # """
             
-        #     check = {
-        #         "expectation_type": "user_defined_query",
-        #         "kwargs": {
-        #             "query_name": f"{slave_columns[0]} should be present",
-        #             "condition": "> 0",
-        #             "valid_query": valid_query,
-        #             "failed rows query": None
-        #         }
-        #     }
             
-        #     checks.append(check) 
+            # valid_query = f"""
+            # SELECT COUNT(*)
+            # FROM (
+            #     SELECT 
+            #         CASE
+            #             WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+            #             AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+            #             AND {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}} IS NOT NULL
+            #             AND {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}} IS NOT NULL
+            #             AND {{{{ {product_description_column_mapping["Product description"]} }}}} LIKE '%|%'
+            #             THEN 1
+            #             ELSE 0
+            #         END AS both_additional_fees_and_other_mandatory_costs_are_present,
+            #         CASE
+            #             WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+            #             AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+            #             AND {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}} IS NOT NULL
+            #             AND {{{{ {product_description_column_mapping["Product Description 1"]} }}}} LIKE '%{row["Product Description 1"]}%'
+            #             THEN 1
+            #             ELSE 0
+            #         END AS prod_desc_1_is_present_when_additional_fees_is_present,
+            #         CASE
+            #             WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+            #             AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+            #             AND {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}} IS NOT NULL
+            #             AND {{{{ {product_description_column_mapping["Product Description 2"]} }}}} LIKE '%{row["Product Description 2"]}%'
+            #             THEN 1
+            #             ELSE 0
+            #         END AS prod_desc_2_is_present_when_other_mandatory_cost_is_present,
+            #         CASE
+            #             WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+            #             AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+            #             AND {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 2"]} }}}} IS NOT NULL
+            #             AND {{{{ {product_description_column_mapping["Product Description 3"]} }}}} LIKE '%{row["Product Description 3"]}%'
+            #             THEN 1
+            #             ELSE 0
+            #         END AS prod_desc_3_is_present_when_other_mandatory_cost_is_present
+            #     FROM [dataset_name]
+            # ) AS subquery
+            # WHERE 
+            # both_additional_fees_and_other_mandatory_costs_are_present = 1 
+            # OR prod_desc_1_is_present_when_additional_fees_is_present = 1 
+            # OR prod_desc_2_is_present_when_other_mandatory_cost_is_present = 1 
+            # OR prod_desc_3_is_present_when_other_mandatory_cost_is_present = 1;
+            # """
+            
+            additional_fees_value_query = f"""
+            SELECT COUNT(
+                CASE
+                    WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+                    AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+                    AND {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}} IS NOT NULL
+                    AND COALESCE({{{{ {product_description_column_mapping["Product Description 1"]} }}}}::TEXT, '') LIKE '%{row["Product Description 1"]}%'
+                    THEN 1
+                    ELSE NULL
+                END 
+            )
+            FROM [dataset_name]
+            GROUP BY
+            {{{{ {product_description_column_mapping["Make"]} }}}},
+            {{{{ {product_description_column_mapping["Region"]} }}}},
+            {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}}
+            ;
+            """
+            
+            other_mandatory_costs_website_1_query = f"""
+            SELECT COUNT(
+                CASE
+                    WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+                    AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+                    AND {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}} IS NOT NULL
+                    AND COALESCE({{{{ {product_description_column_mapping["Product Description 2"]} }}}}::TEXT, '') LIKE '%{row["Product Description 2"]}%'
+                    THEN 1
+                    ELSE NULL
+                END 
+            )
+            FROM [dataset_name]
+            GROUP BY
+            {{{{ {product_description_column_mapping["Make"]} }}}},
+            {{{{ {product_description_column_mapping["Region"]} }}}},
+            {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}}
+            ;
+            """
+            
+            other_mandatory_costs_website_2_query = f"""
+            SELECT COUNT(
+                 CASE
+                        WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+                        AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+                        AND {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 2"]} }}}} IS NOT NULL
+                        AND COALESCE({{{{ {product_description_column_mapping["Product Description 3"]} }}}}::TEXT, '') LIKE '%{row["Product Description 3"]}%'
+                        THEN 1
+                        ELSE NULL
+                    END 
+            )
+            FROM [dataset_name]
+            GROUP BY
+            {{{{ {product_description_column_mapping["Make"]} }}}},
+            {{{{ {product_description_column_mapping["Region"]} }}}},
+            {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 2"]} }}}}
+            ;
+            """
+            
+            additional_fees_and_other_mandatory_costs_val_query = f"""
+            SELECT COUNT(
+                 CASE
+                        WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+                        AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+                        AND {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}} IS NOT NULL
+                        AND {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}} IS NOT NULL
+                        AND COALESCE({{{{ {product_description_column_mapping["Product description"]} }}}}::TEXT, '') LIKE '%|%'
+                        THEN 1
+                        ELSE NULL
+                    END 
+            )
+            FROM [dataset_name]
+            GROUP BY
+            {{{{ {product_description_column_mapping["Make"]} }}}},
+            {{{{ {product_description_column_mapping["Region"]} }}}},
+            {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}},
+            {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}}
+            ;
+            """
+            
+            check = {
+                "expectation_type": "user_defined_query",
+                "kwargs": {
+                    "query_name": "Additional fee value is present",
+                    "condition": "> 0",
+                    "valid_query": additional_fees_value_query
+                }
+            }
+             
+            checks.append(check)  
+             
+            check = {
+                "expectation_type": "user_defined_query",
+                "kwargs": {
+                    "query_name": "Other mandatory costs for website 1 value is present",
+                    "condition": "> 0",
+                    "valid_query": other_mandatory_costs_website_1_query
+                }
+            }
+            
+            checks.append(check) 
+            
+            check = {
+                "expectation_type": "user_defined_query",
+                "kwargs": {
+                    "query_name": "Other mandatory costs value for website 2 is present",
+                    "condition": "> 0",
+                    "valid_query": other_mandatory_costs_website_2_query
+                }
+            }
+            
+            checks.append(check)    
+            
+            check = {
+                "expectation_type": "user_defined_query",
+                "kwargs": {
+                    "query_name": "Additional fees and other mandatory costs are present",
+                    "condition": "> 0",
+                    "valid_query": additional_fees_and_other_mandatory_costs_val_query
+                }
+            }
+            
+            checks.append(check) 
         
         # Query for: No mileage
         
-        valid_query = f"""
+        no_mileage_query = f"""
         SELECT COUNT(
         CASE
             WHEN {{{{ {product_description_column_mapping["Yearly Mileage (miles)"]} }}}} = {{{{ {product_description_column_mapping["Yearly Mileage (km)"]} }}}}
@@ -147,7 +323,7 @@ class Jato:
                 AND {{{{ {product_description_column_mapping["Yearly Mileage (miles)"]} }}}} = {{{{ {product_description_column_mapping["Total Contract Mileage (km)"]} }}}}
             THEN 
             CASE 
-                WHEN {{{{ {product_description_column_mapping["Product description"]} }}}} = 'No mileage info available'
+                WHEN COALESCE({{{{ {product_description_column_mapping["Product description"]} }}}}::TEXT, '') = 'No mileage info available'
                 THEN 1
                 ELSE 0
             END
@@ -161,7 +337,7 @@ class Jato:
         {{{{ {product_description_column_mapping["Product description"]} }}}};
         """
         
-        failed_rows_query = f"""
+        failed_rows_query_for_no_mileage = f"""
         SELECT {{{{ {product_description_column_mapping["Yearly Mileage (miles)"]} }}}}, 
                 {{{{ {product_description_column_mapping["Yearly Mileage (km)"]} }}}},
                 {{{{ {product_description_column_mapping["Total Contract Mileage (miles)"]} }}}},
@@ -174,7 +350,7 @@ class Jato:
                 AND {{{{ {product_description_column_mapping["Yearly Mileage (miles)"]} }}}} = {{{{ {product_description_column_mapping["Total Contract Mileage (km)"]} }}}}
             THEN 
             CASE 
-                WHEN {{{{ {product_description_column_mapping["Product description"]} }}}} NOT LIKE '%No mileage info available%'
+                WHEN COALESCE({{{{ {product_description_column_mapping["Product description"]} }}}}::TEXT, '') NOT LIKE '%No mileage info available%'
                 THEN 1
                 ELSE 0
             END
@@ -193,8 +369,8 @@ class Jato:
             "kwargs": {
                 "query_name": "No mileage check",
                 "condition": "> 0",
-                "valid_query": valid_query,
-                "failed rows query": failed_rows_query
+                "valid_query": no_mileage_query,
+                "failed rows query": failed_rows_query_for_no_mileage
             }
         }
         
