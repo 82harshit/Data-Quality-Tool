@@ -69,8 +69,8 @@ class QualityChecks(BaseModel):
 
 class QualityChecksFile(BaseModel):
     file_path: str = Field(str, description="The path of the file that contains the defined quality checks", min_length=5)
-    master_columns: List[str] = Field(List[str], description="The name of the columns which are being referred to", min_length=1)
-    slave_columns: List[str] = Field(List[str], description="The list of columns that contain the conditions which need to be validated", min_length=1) 
+    master_columns: Optional[List[str]] = Field(List[str], description="The name of the columns which are being referred to", min_length=1)
+    slave_columns: Optional[List[str]] = Field(List[str], description="The list of columns that contain the conditions which need to be validated", min_length=1) 
     sheet_name: Optional[str] = Field(str, description="The name of the sheet which contains the expectation rules", min_length=5)
     client_name: str = Field(str, description="The name of the client for which the custom checks are written", min_length=2)
     
@@ -82,22 +82,10 @@ class QualityChecksFile(BaseModel):
             raise ValueError(error_msg)
         
         file_path = values.get('file_path')
-        master_column = values.get('master_columns')
-        slave_columns = values.get('slave_columns')
         client_name = values.get('client_name')
         
         if not file_path:
             error_msg = "File path must be provided"
-            dqt_logger.error(error_msg)
-            raise ValueError(error_msg)
-        
-        if not master_column:
-            error_msg = "Master columns must be provided"
-            dqt_logger.error(error_msg)
-            raise ValueError(error_msg)
-        
-        if not slave_columns:
-            error_msg = "At least one slave column must be provided"
             dqt_logger.error(error_msg)
             raise ValueError(error_msg)
 

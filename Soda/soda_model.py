@@ -46,7 +46,7 @@ class SodaModel:
         """
         self.scan = Scan()    
         # Samples limit docs: https://docs.soda.io/soda-cl/failed-row-samples.html#customize-failed-row-samples-for-datasets-and-columns
-        self.scan._configuration.samples_limit = sys.maxsize
+        # self.scan._configuration.samples_limit = sys.maxsize
         
     class CustomSampler(Sampler):
         """Custom sampler class for Soda which collects failed rows from a dataset after validation 
@@ -420,7 +420,9 @@ class SodaModel:
             Returns the appropriate dataframe after reading the file from `datasource_path`, based on the file type.
             """
             try:
-                local_temp_file_path = asyncio.run(self.__get_file_path())
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                local_temp_file_path = loop.run_until_complete(self.__get_file_path())
                 dqt_logger.debug(f"Downloaded file path: {local_temp_file_path}")
                 
                 # Check if file exists
@@ -435,8 +437,11 @@ class SodaModel:
                 
                 if self.datasource_type == conn_enum.File_Datasource_Enum.CSV:
                     if self.__is_valid_csv(local_temp_file_path):
-                        parts = delayed(pd.read_csv)(local_temp_file_path)
-                        return dd.from_delayed(parts)
+                        parts = delayed(pd.read_csv)(local_temp_file_path, dtype=str, encoding='utf-8', index_col=None)
+                        df = dd.from_delayed([parts])
+                        df = df.persist()
+                        df = df.compute()
+                        return df
                     else:
                         error_msg = "Provided file is not a valid CSV file."
                         dqt_logger.error(error_msg)
@@ -522,7 +527,11 @@ def __run_quality_checks(datasource_type: str,
                             .str.replace(r'[^a-zA-Z0-9_]', '', regex=True) # Remove special characters
                             .str.lower() # Convert to lowercase
                 )
+                # detecting and cleaning hidden non-printable characters like \xa0, \u200b, etc.
+                file_dataframe.columns = [col.encode('utf-8').decode('utf-8').strip() for col in file_dataframe.columns]
+                
                 dqt_logger.debug(f"File dataframe column names: {file_dataframe.columns}")
+                # preprocessing datasource name
                 # removing all special characters
                 datasource_name = re.sub(r'[^a-zA-Z0-9_]', '', datasource_name)
                 # replacing spaces with '_'

@@ -46,7 +46,7 @@ class Jato:
     
     def __read_file(self, file_path: str, sheet_name: Optional[str]=None):
         if self.__is_valid_csv(file_path=file_path):
-            return pd.read_csv(file_path, index_col=None)
+            return pd.read_csv(file_path, index_col=None, dtype=str, encoding="utf-8")
         elif self.__is_valid_excel(file_path=file_path):
             try:
                 return pd.read_excel(file_path, sheet_name=sheet_name, index_col=None, engine="openpyxl")
@@ -67,11 +67,85 @@ class Jato:
         if sheet_name.lower().strip() == "payment type":
             return self.__create_checks_for_payment_type(master_column=master_columns[0], slave_columns=slave_columns, dataframe=df)
         elif sheet_name.lower().strip() == "product description":
-            return self.__create_checks_for_product_description(master_columns=master_columns, slave_columns=slave_columns, dataframe=df)
+            return self.__create_checks_for_product_description(dataframe=df)
+        elif sheet_name.lower().strip() == "km_miles conversion":
+            return self.__validate_km_to_miles_conversion(dataframe=df)
+        elif sheet_name.lower().strip() == "headers":
+            return self.__validate_headers(dataframe=df)
         else:
             raise Exception(f"Sheet name {sheet_name} is not valid. Please provide a valid sheet name.")
     
-    def __create_checks_for_product_description(self, master_columns: str, slave_columns: List[str], dataframe) -> List[dict]:
+    def __validate_headers(self, dataframe) -> List[dict]:
+        # Pre-processing dataframe values under each column
+        for col in dataframe.columns:
+            dataframe[col] = (
+                dataframe[col].astype(str)  # Ensure all values are strings
+                .str.strip()                # Remove leading/trailing spaces
+                .str.replace(" ", "_")      # Replace spaces with underscores
+                .str.replace(r'[^a-zA-Z0-9_]', '', regex=True)  # Remove special characters
+                .str.lower()               # Convert to lowercase
+            )
+
+        # Detecting and cleaning hidden non-printable characters like \xa0, \u200b, etc.
+        dataframe = dataframe.applymap(lambda x: x.encode('utf-8').decode('utf-8').strip() if isinstance(x, str) else x)
+
+        rows = dataframe['Headers'].tolist()
+        
+        check = {
+            "expectation_type": "schema",
+            "kwargs": {
+                "status": "fail",
+                "condition": "when required column missing",
+                "values": rows
+            }
+        }
+        
+        return [check]
+    
+    def __validate_km_to_miles_conversion(self, dataframe) -> List[dict]:
+        conversion_mapping = {
+            "Miles": "miles",
+            "KMs": "kms",
+            "Yearly Mileage (Km)": "yearly_mileage_km",
+            "Yearly Mileage (miles)": "yearly_mileage_miles",
+            "Total contract mileage (Km)": "total_contract_mileage_km",
+            "Total contract mileage (miles)": "total_contract_mileage_miles"
+        }
+        
+        checks = []
+        
+        for _, row in dataframe.iterrows():
+            valid_query = f"""
+            SELECT COUNT(
+                CASE
+                    WHEN
+                    (SELECT {{{{ {conversion_mapping["Yearly Mileage (miles)"]} }}}} FROM [dataset_name] WHERE {{{{ {conversion_mapping["Yearly Mileage (Km)"]} }}}} = {row["KMs"]}) = {row["Miles"]}
+                    THEN 1
+                    ELSE NULL
+                END        
+            );
+            """
+        
+        # valid_query = f"""
+        # SELECT t.{{{{ {conversion_mapping["Yearly mileage (miles)"]} }}}} = d.{{{{ {conversion_mapping["Miles"]} }}}}
+        # FROM {dataframe} t
+        # LEFT JOIN [dataset_name] d
+        # ON t.{{{{ {conversion_mapping["Yearly mileage (miles)"]} }}}} = d.{{{{ {conversion_mapping["KMs"]} }}}}
+        # """
+        
+            check = {
+                "expectation_type": "user_defined_query",
+                "kwargs": {
+                    "query_name": "Km to miles conversion",
+                    "condition": "> 0",
+                    "valid_query": valid_query
+                }
+            }
+        
+            checks.append(check)    
+        return checks
+        
+    def __create_checks_for_product_description(self, dataframe) -> List[dict]:
         checks = []
         
         product_description_column_mapping = {
@@ -249,13 +323,38 @@ class Jato:
             """
             
             additional_fees_and_other_mandatory_costs_val_query = f"""
-            SELECT COUNT(
+            SELECT 
+            SUM(
+                CASE 
+                    WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
+                    AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
+                    AND {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}} IS NOT NULL
+                    AND {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}} IS NOT NULL
+                    AND COALESCE({{{{ {product_description_column_mapping["Product description"]} }}}}, '') LIKE '%|%'
+                THEN 1 ELSE 0 
+                END
+            ) AS count_value
+            FROM [dataset_name]
+            GROUP BY 
+            {{{{ {product_description_column_mapping["Make"]} }}}},
+            {{{{ {product_description_column_mapping["Region"]} }}}},
+            {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}},
+            {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}};
+            """
+            
+            failed_additional_fees_and_other_mandatory_costs_val_query = f"""
+            SELECT 
+            {{{{ {product_description_column_mapping["Make"]} }}}},
+            {{{{ {product_description_column_mapping["Region"]} }}}},
+            {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}},
+            {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}},
+            COUNT(
                  CASE
                         WHEN {{{{ {product_description_column_mapping["Make"]} }}}} = '{row["Make"]}'
                         AND {{{{ {product_description_column_mapping["Region"]} }}}} = '{row["Region"]}'
                         AND {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}} IS NOT NULL
                         AND {{{{ {product_description_column_mapping["Other mandatory costs Value on Website 1"]} }}}} IS NOT NULL
-                        AND COALESCE({{{{ {product_description_column_mapping["Product description"]} }}}}::TEXT, '') LIKE '%|%'
+                        AND COALESCE({{{{ {product_description_column_mapping["Product description"]} }}}}::TEXT, '') NOT LIKE '%|%'
                         THEN 1
                         ELSE NULL
                     END 
@@ -268,7 +367,7 @@ class Jato:
             {{{{ {product_description_column_mapping["Additional Fees Value on Website"]} }}}}
             ;
             """
-            
+                        
             check = {
                 "expectation_type": "user_defined_query",
                 "kwargs": {
@@ -307,7 +406,8 @@ class Jato:
                 "kwargs": {
                     "query_name": "Additional fees and other mandatory costs are present",
                     "condition": "> 0",
-                    "valid_query": additional_fees_and_other_mandatory_costs_val_query
+                    "valid_query": additional_fees_and_other_mandatory_costs_val_query,
+                    "failed rows query": failed_additional_fees_and_other_mandatory_costs_val_query
                 }
             }
             
